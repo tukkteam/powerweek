@@ -14,8 +14,16 @@ A user has **one recurring weekly plan**: seven days, Monday first, with no date
       "agenda": [{ "id": "k3f9…", "title": "Work", "time": "09:00", "endTime": "18:00" }],
       "workout": {
         "title": "Leg day",
+        "time": "19:00", // optional start, places the session on the day timeline
         "exercises": [
-          { "id": "p1x…", "name": "Back squat", "sets": 5, "reps": "5", "load": "80 kg" },
+          {
+            "id": "p1x…",
+            "name": "Back squat",
+            "sets": 5,
+            "reps": "5",
+            "load": "80 kg",
+            "move": "squat", // optional: illustration and muscles from the move library
+          },
         ],
       },
       "meals": [{ "id": "m8q…", "slot": "breakfast", "title": "Oatmeal with banana" }],
@@ -30,6 +38,10 @@ A user has **one recurring weekly plan**: seven days, Monday first, with no date
 The shape is defined once in [`packages/core/src/plan.ts`](../packages/core/src/plan.ts) (zod) and exported as JSON Schema ([`packages/core/schema/plan.schema.json`](../packages/core/schema/plan.schema.json)). Postgres enforces it with `CHECK (plan_doc_is_valid(doc))` using `pg_jsonschema`. `plan-schema.test.ts` fails if the zod schema, the committed JSON Schema and the latest migration drift apart.
 
 Limits (also in the schema): 40 agenda items, one workout of up to 30 exercises and 12 meals per day; titles up to 140 characters.
+
+`move` is a slug from the move library ([`packages/core/src/moves.ts`](../packages/core/src/moves.ts), 302 exercises). The assistant writes it; when it is missing or unknown, `resolveMove` matches the exercise name (Spanish or English) instead, so older plans and manual edits get illustrations too. Renaming an exercise without restating its `move` drops the old one.
+
+Completions (`completions` table) are per date and item id. Untimed agenda items are ticked by hand; timed items show progress from the clock instead; a whole workout is marked done with the item id `workout`.
 
 ## Tables
 

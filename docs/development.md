@@ -50,6 +50,7 @@ supabase test db             # run the pgTAP tests
 | `pnpm test`                          | Unit tests (core reducer and schema, web parser, prompt, i18n and formatting) |
 | `pnpm --filter @powerweek/web e2e`   | Playwright smoke tests (build first with `pnpm build`)                        |
 | `pnpm tokens`                        | Regenerate `tokens.css` from `tokens.json`                                    |
+| `pnpm moves`                         | Re-import the exercise illustrations and catalogue (needs network)            |
 | `pnpm --filter @powerweek/web icons` | Regenerate app icons from the mark                                            |
 | `pnpm db:types`                      | Regenerate `database.types.ts` from the linked project                        |
 
