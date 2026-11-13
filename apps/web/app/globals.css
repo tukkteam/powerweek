@@ -108,6 +108,8 @@
 
 @layer base {
   html {
+    /* Keep the layout the same width whether or not the page scrolls (classic scrollbars). */
+    scrollbar-gutter: stable;
     background: var(--bg);
     color: var(--ink);
     font-family: var(--font-sans);
@@ -203,6 +205,47 @@
 /* Progress fills (day bar, agenda bars) glide to their new width. */
 .pw-fill {
   transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/*
+ * Day Bar: switching days resizes the track smoothly instead of jumping, things on it glide to
+ * their new place, and new blocks draw themselves left to right like a bar filling.
+ */
+.pw-track {
+  transition: height 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pw-slide {
+  transition:
+    top 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    left 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 160ms ease-out;
+}
+@keyframes pw-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.5;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+.pw-reveal {
+  animation: pw-reveal 560ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@keyframes pw-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pw-pop {
+  animation: pw-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 
 /* A live item breathes. */
@@ -321,8 +364,14 @@
   .pw-frames > .pw-art {
     animation: none !important;
   }
-  .pw-fill {
+  .pw-fill,
+  .pw-track,
+  .pw-slide {
     transition: none;
+  }
+  .pw-reveal,
+  .pw-pop {
+    animation: none;
   }
   .pw-press {
     transition:

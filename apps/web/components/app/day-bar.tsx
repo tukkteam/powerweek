@@ -18,6 +18,7 @@ import { useLocale } from "@/components/i18n/locale-provider";
 import type { DayRelation } from "@/components/app/use-day-clock";
 import { formatDuration } from "@/lib/format";
 import { TONE } from "@/lib/tone";
+import { useTween } from "@/lib/use-tween";
 
 const RAIL_TOP = 22;
 const RAIL_HEIGHT = 10;
@@ -62,6 +63,7 @@ export function DayBar({
   const progress =
     relation === "past" ? 1 : relation === "future" || now === null ? 0 : position(now, range);
   const live = relation === "today" && now !== null;
+  const shownPercent = useTween(progress * 100);
   const status =
     relation === "past" || (live && now! >= range.end)
       ? dict.day.finished
@@ -101,7 +103,7 @@ export function DayBar({
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="flex items-end gap-3">
           <p className="font-display stretch-wide text-[2.75rem] leading-[0.85] font-black tabular-nums">
-            {relation === "today" && now === null ? "––" : Math.round(progress * 100)}
+            {relation === "today" && now === null ? "––" : Math.round(shownPercent)}
             <span className="text-[1.25rem] text-ink-muted">%</span>
           </p>
           <p className="flex flex-col pb-0.5">
@@ -119,12 +121,12 @@ export function DayBar({
         </ul>
       </div>
 
-      <div className="relative mt-4" style={{ height }}>
+      <div className="pw-track relative mt-4" style={{ height }}>
         {ticks.map((t) => (
           <span
             key={t}
             aria-hidden="true"
-            className="absolute w-px bg-line"
+            className="pw-slide absolute w-px bg-line"
             style={{ left: pct(position(t, range)), top: RAIL_TOP, bottom: LABELS }}
           />
         ))}
@@ -153,13 +155,14 @@ export function DayBar({
           />
         ) : null}
 
-        {agenda.map((span) => {
+        {agenda.map((span, index) => {
           const item = day.agenda.find((a) => a.id === span.id)!;
           return (
             <SpanBlock
               key={span.id}
               span={span}
               tone="agenda"
+              delay={index * 50}
               top={LANE_TOP + span.lane * (LANE_HEIGHT + LANE_GAP)}
               range={range}
               progress={spanProgress(span, now, relation).progress}
@@ -171,8 +174,10 @@ export function DayBar({
 
         {train ? (
           <SpanBlock
+            key={`${day.workout?.title}-${train.start}`}
             span={train}
             tone="train"
+            delay={agenda.length * 50}
             top={trainTop}
             range={range}
             progress={spanProgress(train, now, relation).progress}
@@ -182,7 +187,7 @@ export function DayBar({
           />
         ) : null}
 
-        {meals.map(({ meal, at }) => {
+        {meals.map(({ meal, at }, index) => {
           const eaten =
             relation === "past" || (relation === "today" && now !== null && now >= at + 30);
           return (
@@ -195,7 +200,7 @@ export function DayBar({
                 fromMinutes(at),
               )}
               title={`${dict.slots[meal.slot]} · ${meal.title}`}
-              className={`absolute flex -translate-x-1/2 items-center justify-center rounded-full transition-transform hover:scale-110 ${
+              className={`pw-pop pw-slide absolute flex -translate-x-1/2 items-center justify-center rounded-full hover:scale-110 ${
                 eaten ? "bg-fuel text-bg" : "border-2 border-fuel bg-surface text-fuel"
               }`}
               style={{
@@ -203,6 +208,7 @@ export function DayBar({
                 top: mealsTop,
                 width: MEAL_SIZE,
                 height: MEAL_SIZE,
+                animationDelay: `${120 + index * 60}ms`,
               }}
             >
               <Utensils size={12} strokeWidth={2.25} aria-hidden="true" />
@@ -212,7 +218,7 @@ export function DayBar({
 
         {empty ? (
           <p
-            className="type-caption absolute inset-x-0 text-ink-muted"
+            className="pw-fade type-caption absolute inset-x-0 text-ink-muted"
             style={{ top: LANE_TOP - 4 }}
           >
             {dict.day.nothingTimed}
@@ -237,7 +243,7 @@ export function DayBar({
           {ticks.map((t, i) => (
             <span
               key={t}
-              className={`type-numeric absolute bottom-0 text-[0.6875rem] text-ink-muted ${
+              className={`pw-slide type-numeric absolute bottom-0 text-[0.6875rem] text-ink-muted ${
                 i === 0 ? "" : i === ticks.length - 1 ? "-translate-x-full" : "-translate-x-1/2"
               } ${i % 2 === 1 ? "max-sm:hidden" : ""}`}
               style={{ left: pct(position(t, range)) }}
@@ -260,9 +266,11 @@ function SpanBlock({
   label,
   onClick,
   icon = false,
+  delay = 0,
 }: {
   span: Span;
   tone: "agenda" | "train";
+  delay?: number;
   top: number;
   range: { start: number; end: number };
   progress: number;
@@ -291,7 +299,7 @@ function SpanBlock({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`@container absolute overflow-hidden rounded-[8px] border text-left transition-[filter] hover:brightness-110 ${t.soft} ${t.edge} ${
+      className={`pw-reveal pw-slide @container absolute overflow-hidden rounded-[8px] border text-left hover:brightness-110 ${t.soft} ${t.edge} ${
         span.open ? "border-dashed" : ""
       }`}
       style={{
@@ -299,6 +307,7 @@ function SpanBlock({
         width: `max(8px, calc(${pct(width)} - 2px))`,
         top,
         height: LANE_HEIGHT,
+        animationDelay: `${delay}ms`,
       }}
     >
       <span

@@ -74,7 +74,8 @@ export function TodayView() {
         )}
       </section>
 
-      <div className="grid items-end gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-8">
+      {/* Top-aligned: the Week Pulse stays put while the Day Bar grows or shrinks between days. */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-8">
         <WeekPulse
           plan={plan}
           todayKey={today.dayKey}
