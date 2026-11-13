@@ -1,0 +1,26 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open Today\n2. Say “…”\n3. …"
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      placeholder: "Safari 26 on iPhone 16, Chrome 142 on Windows 11…"
+  - type: dropdown
+    id: language
+    attributes:
+      label: Interface language
+      options: ["Español", "English"]
