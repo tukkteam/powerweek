@@ -21,7 +21,7 @@ export type EditorTarget =
   | { kind: "agenda"; item?: AgendaItem }
   | { kind: "exercise"; item?: Exercise }
   | { kind: "meal"; item?: Meal; slot?: MealSlot }
-  | { kind: "workout"; title: string };
+  | { kind: "workout"; title: string; time?: string };
 
 const fieldClass =
   "h-12 w-full rounded-[14px] border border-line-strong bg-surface px-4 text-base text-ink placeholder:text-ink-muted";
@@ -96,7 +96,7 @@ function EditorForm({
   const category = target.kind === "agenda" ? "agenda" : target.kind === "meal" ? "fuel" : "train";
   const heading =
     target.kind === "workout"
-      ? t.renameWorkout
+      ? t.editWorkout
       : isNew
         ? t.newTitle[category]
         : t.editTitle[category];
@@ -182,7 +182,7 @@ function EditorForm({
               },
         );
       case "workout":
-        return void run({ op: "workout.update", day, title: text("title") });
+        return void run({ op: "workout.update", day, title: text("title"), time: orNull("time") });
     }
   }
 
@@ -350,16 +350,21 @@ function EditorForm({
       ) : null}
 
       {target.kind === "workout" ? (
-        <Field label={t.workoutTitle}>
-          <input
-            name="title"
-            required
-            maxLength={LIMITS.workoutTitle}
-            defaultValue={target.title}
-            autoFocus
-            className={fieldClass}
-          />
-        </Field>
+        <div className="grid grid-cols-[minmax(0,1fr)_8rem] gap-3">
+          <Field label={t.workoutTitle}>
+            <input
+              name="title"
+              required
+              maxLength={LIMITS.workoutTitle}
+              defaultValue={target.title}
+              autoFocus
+              className={fieldClass}
+            />
+          </Field>
+          <Field label={t.workoutTime} hint={t.optional}>
+            <input name="time" type="time" defaultValue={target.time} className={fieldClass} />
+          </Field>
+        </div>
       ) : null}
 
       {invalid ? (

@@ -1,5 +1,7 @@
 "use client";
 
+import { MOVE_SOURCE } from "@powerweek/core";
+
 import { Download, LogOut, Monitor, Moon, Sun, Trash2 } from "lucide-react";
 import {
   useMemo,
@@ -215,6 +217,24 @@ export function SettingsView() {
           <LogOut size={18} strokeWidth={1.75} aria-hidden="true" />
           {dict.common.signOut}
         </Button>
+      </Section>
+
+      <Section title={t.credits}>
+        <ul className="type-caption flex flex-col gap-1.5 text-ink-muted">
+          <li>
+            <a
+              href={MOVE_SOURCE.url}
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-line-strong underline-offset-2 hover:text-ink"
+            >
+              {t.creditsMoves}
+            </a>
+          </li>
+          <li>{t.creditsBody}</li>
+          <li>{t.creditsFonts}</li>
+          <li>{t.creditsCode}</li>
+        </ul>
       </Section>
 
       <ConfirmDelete dialogRef={confirmRef} onConfirm={deleteAccount} />

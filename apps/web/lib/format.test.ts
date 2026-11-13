@@ -1,7 +1,7 @@
 import type { Change } from "@powerweek/core";
 import { describe, expect, it } from "vitest";
 import { getDictionary } from "@/lib/i18n";
-import { dateRange, describeChange, shortDate } from "./format";
+import { dateRange, describeChange, formatDuration, shortDate } from "./format";
 
 describe("format", () => {
   it("formats short dates per language", () => {
@@ -41,5 +41,12 @@ describe("format", () => {
     expect(describeChange(moved, dict)).toBe("Pádel · 18:30 → Jueves");
     expect(describeChange(workout, dict)).toBe("Pierna · 2 ejercicios");
     expect(describeChange(meal, dict)).toBe("Cena: Salmón");
+  });
+
+  it("formats durations compactly", () => {
+    expect(formatDuration(208)).toBe("3 h 28 min");
+    expect(formatDuration(45)).toBe("45 min");
+    expect(formatDuration(600)).toBe("10 h");
+    expect(formatDuration(-3)).toBe("0 min");
   });
 });

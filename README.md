@@ -30,15 +30,19 @@
 
 You say _"Mondays are leg day: squats 5×5 at 80 kg and Romanian deadlifts 3×10. Work 9 to 6 on weekdays, padel on Wednesday at 6:30 pm"_ and PowerWeek turns it into a plan:
 
-- **Agenda**: timed items for each day of a recurring week.
-- **Training**: one workout per day with sets, reps and load.
-- **Fuel**: breakfast, lunch, snack and dinner.
+- **Agenda** (blue): timed items for each day of a recurring week, drawn as progress bars that fill as the day goes by.
+- **Training** (volt): one workout per day with sets, reps and load. Every exercise gets a drawing from an open library of 302 illustrated moves, linked by the assistant, plus a muscle map of what the session works.
+- **Fuel** (orange): breakfast, lunch, snack and dinner as a four-slot gauge.
 
-Every change arrives with a **Change Receipt** (what was added, changed, moved or removed) and one-tap **Undo**. You tick things off as you go, and the **Week Pulse**, seven bars as tall as each day is busy, keeps the whole week in view.
+Every change arrives with a **Change Receipt** (what was added, changed, moved or removed) and one-tap **Undo**. The **Week Pulse**, seven bars as tall as each day is busy, keeps the whole week in view, and the **Day Bar** shows the day itself filling up from morning to midnight.
 
-| Today (mobile)                                    | Change Receipt                                            | Week                                |
-| ------------------------------------------------- | --------------------------------------------------------- | ----------------------------------- |
-| ![Today on a phone](docs/images/today-mobile.png) | ![Receipt after a voice command](docs/images/receipt.png) | ![Week board](docs/images/week.png) |
+![Today: the Day Bar, agenda bars, the fuel gauge and an illustrated workout](docs/images/today.png)
+
+| Today (mobile)                                    | Exercise detail                                                      | Week board                          |
+| ------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------- |
+| ![Today on a phone](docs/images/today-mobile.png) | ![An exercise, animated, with its muscles](docs/images/exercise.png) | ![Week board](docs/images/week.png) |
+
+![Hovering a box on the week board shows everything in it](docs/images/week-peek.png)
 
 Spanish and English, dark ("Night") and light ("Day") themes, installable as a PWA, and no account needed to start (anonymous sessions you can upgrade with an email later).
 
@@ -122,4 +126,4 @@ Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.
 
 ## Licence
 
-[MIT](LICENSE) © 2026 TUKK Team. The Archivo font bundled for social images is under the [SIL Open Font License](apps/web/assets/fonts/OFL.txt).
+[MIT](LICENSE) © 2026 TUKK Team. The Archivo font bundled for social images is under the [SIL Open Font License](apps/web/assets/fonts/OFL.txt). Exercise illustrations: [Workout Guide](https://github.com/bryllim/workout-guide) by Bryl Lim, based on [Everkinetic](https://github.com/everkinetic/data), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

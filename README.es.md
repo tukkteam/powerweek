@@ -23,15 +23,19 @@
 
 Dices _«Los lunes hago pierna: sentadilla 5×5 con 80 kg y peso muerto rumano 3×10. Entre semana trabajo de 9 a 18 y el miércoles pádel a las 18:30»_ y PowerWeek lo convierte en un plan:
 
-- **Agenda**: actividades con hora para cada día de una semana que se repite.
-- **Entreno**: un entrenamiento por día con series, repeticiones y carga.
-- **Comidas**: desayuno, comida, picoteo y cena.
+- **Agenda** (azul): actividades con hora para cada día de una semana que se repite, dibujadas como barras de progreso que se llenan según avanza el día.
+- **Entreno** (pistacho): un entrenamiento por día con series, repeticiones y carga. Cada ejercicio lleva un dibujo de una librería abierta de 302 movimientos, que enlaza el asistente, y un mapa de los músculos que trabaja la sesión.
+- **Comidas** (naranja): desayuno, comida, picoteo y cena como un indicador de cuatro huecos.
 
-Cada cambio llega con un **recibo** (qué se añade, cambia, mueve o quita) y un botón de **deshacer**. Marcas lo que vas haciendo y el **pulso de la semana** (siete barras tan altas como cargado está cada día) te enseña la semana entera de un vistazo.
+Cada cambio llega con un **recibo** (qué se añade, cambia, mueve o quita) y un botón de **deshacer**. El **pulso de la semana** (siete barras tan altas como cargado está cada día) te enseña la semana entera de un vistazo, y la **barra del día** se va llenando de la mañana a la medianoche.
 
-| Hoy (móvil)                                      | Recibo de cambios                                  | Semana                                   |
-| ------------------------------------------------ | -------------------------------------------------- | ---------------------------------------- |
-| ![Hoy en el móvil](docs/images/today-mobile.png) | ![Recibo tras un comando](docs/images/receipt.png) | ![Tablero semanal](docs/images/week.png) |
+![Hoy: la barra del día, la agenda en barras, las comidas y un entreno ilustrado](docs/images/today.png)
+
+| Hoy (móvil)                                      | Detalle de un ejercicio                                            | Tablero semanal                          |
+| ------------------------------------------------ | ------------------------------------------------------------------ | ---------------------------------------- |
+| ![Hoy en el móvil](docs/images/today-mobile.png) | ![Un ejercicio animado con sus músculos](docs/images/exercise.png) | ![Tablero semanal](docs/images/week.png) |
+
+![Al pasar el ratón por una caja de la semana aparece todo su detalle](docs/images/week-peek.png)
 
 En español e inglés, con tema oscuro («Noche») y claro («Día»), instalable como PWA y sin necesidad de cuenta para empezar: la sesión anónima se convierte en cuenta cuando añades tu email.
 
@@ -70,4 +74,4 @@ Las issues y pull requests son bienvenidas: empieza por [CONTRIBUTING.md](CONTRI
 
 ## Licencia
 
-[MIT](LICENSE) © 2026 TUKK Team.
+[MIT](LICENSE) © 2026 TUKK Team. Ilustraciones de ejercicios: [Workout Guide](https://github.com/bryllim/workout-guide), de Bryl Lim, basadas en [Everkinetic](https://github.com/everkinetic/data), con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Más en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

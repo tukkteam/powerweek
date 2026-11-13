@@ -2,7 +2,7 @@
 -- Run locally with `supabase test db` (needs Docker); CI runs them on every PR.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(21);
 
 -- Two users. The auth trigger must give each a profile, an empty plan and a seed revision.
 insert into auth.users (id, email, raw_user_meta_data)
@@ -15,6 +15,14 @@ select is((select locale from public.profiles where id = '11111111-1111-1111-111
 select is((select version from public.plans where user_id = '22222222-2222-2222-2222-222222222222'), 1, 'plans start at version 1');
 select ok(public.plan_doc_is_valid(public.empty_plan_doc()), 'the empty plan matches the JSON Schema');
 select ok(not public.plan_doc_is_valid('{"schemaVersion":1,"days":{}}'::jsonb), 'a plan without days is rejected');
+select ok(
+  public.plan_doc_is_valid(jsonb_set(public.empty_plan_doc(), '{days,thu,workout}', '{"title":"Espalda","time":"19:00","exercises":[{"id":"e1","name":"Remo con barra","sets":4,"move":"barbell-row"}]}')),
+  'exercises may name a move and workouts may have a start time'
+);
+select ok(
+  not public.plan_doc_is_valid(jsonb_set(public.empty_plan_doc(), '{days,thu,workout}', '{"title":"Espalda","exercises":[{"id":"e1","name":"Remo","move":"Barbell Row"}]}')),
+  'a move must be a slug'
+);
 
 -- Act as Ana.
 set local role authenticated;

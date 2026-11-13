@@ -41,4 +41,15 @@ test.describe("public pages", () => {
     expect(manifest.name).toBe("PowerWeek");
     expect(manifest.icons.length).toBeGreaterThan(2);
   });
+
+  test("exercise illustrations are served as SVG with their license notes", async ({ request }) => {
+    for (const frame of [1, 2, 3]) {
+      const response = await request.get(`/moves/bench-press/${frame}.svg`);
+      expect(response.ok()).toBe(true);
+      expect(response.headers()["content-type"]).toContain("image/svg+xml");
+      expect(await response.text()).toContain("<path");
+    }
+    const notes = await request.get("/moves/README.md");
+    expect(await notes.text()).toContain("CC BY-SA 4.0");
+  });
 });

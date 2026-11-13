@@ -190,6 +190,78 @@ describe("applyOperations", () => {
     expect(rejected).toEqual([{ index: 40, op: "agenda.add", reason: "limit" }]);
   });
 
+  it("keeps the move the assistant picked and drops slugs the library does not know", () => {
+    const { plan } = applyOperations(
+      emptyPlan(),
+      ops([
+        {
+          op: "workout.set",
+          day: "thu",
+          title: "Espalda",
+          time: "19:00",
+          exercises: [
+            { name: "Remo con barra", sets: 4, reps: "6-8", move: "barbell-row" },
+            { name: "Jalón raro", sets: 3, move: "made-up-move" },
+          ],
+        },
+        { op: "exercise.add", day: "thu", name: "Curl martillo", move: "hammer-curl" },
+      ]),
+      { newId: sequentialIds() },
+    );
+    expect(plan.days.thu.workout).toEqual({
+      title: "Espalda",
+      time: "19:00",
+      exercises: [
+        { id: "id1", name: "Remo con barra", sets: 4, reps: "6-8", move: "barbell-row" },
+        { id: "id2", name: "Jalón raro", sets: 3 },
+        { id: "id3", name: "Curl martillo", move: "hammer-curl" },
+      ],
+    });
+  });
+
+  it("drops a stale move when an exercise is renamed without a new one", () => {
+    const start = planWith((p) => {
+      p.days.mon.workout = {
+        title: "Pecho",
+        exercises: [{ id: "e1", name: "Press banca", sets: 4, move: "bench-press" }],
+      };
+    });
+    const renamed = applyOperations(
+      start,
+      ops([{ op: "exercise.update", id: "e1", name: "Fondos" }]),
+    );
+    expect(renamed.plan.days.mon.workout?.exercises[0]).toEqual({
+      id: "e1",
+      name: "Fondos",
+      sets: 4,
+    });
+
+    const restated = applyOperations(
+      start,
+      ops([{ op: "exercise.update", id: "e1", name: "Fondos", move: "dip" }]),
+    );
+    expect(restated.plan.days.mon.workout?.exercises[0]?.move).toBe("dip");
+
+    const sameName = applyOperations(start, ops([{ op: "exercise.update", id: "e1", sets: 5 }]));
+    expect(sameName.plan.days.mon.workout?.exercises[0]?.move).toBe("bench-press");
+
+    const cleared = applyOperations(start, ops([{ op: "exercise.update", id: "e1", move: null }]));
+    expect(cleared.plan.days.mon.workout?.exercises[0]?.move).toBeUndefined();
+  });
+
+  it("sets, changes and clears the workout time", () => {
+    const start = planWith((p) => {
+      p.days.tue.workout = { title: "Pierna", exercises: [] };
+    });
+    const timed = applyOperations(start, ops([{ op: "workout.update", day: "tue", time: "7:30" }]));
+    expect(timed.plan.days.tue.workout?.time).toBe("07:30");
+    const cleared = applyOperations(
+      timed.plan,
+      ops([{ op: "workout.update", day: "tue", time: null }]),
+    );
+    expect(cleared.plan.days.tue.workout).toEqual({ title: "Pierna", exercises: [] });
+  });
+
   it("sets and removes a day note", () => {
     const added = applyOperations(
       emptyPlan(),

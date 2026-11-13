@@ -44,6 +44,22 @@ export function zonedToday(
   };
 }
 
+/** Minutes since midnight (0..1439) of an instant, as seen in `timeZone`. */
+export function zonedMinutes(timeZone: string, now: Date = new Date()): number {
+  const zone = isValidTimeZone(timeZone) ? timeZone : "UTC";
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
+  return (Number(parts.hour ?? 0) % 24) * 60 + Number(parts.minute ?? 0);
+}
+
 function parseIso(isoDate: string): Date {
   const [y, m, d] = isoDate.split("-").map(Number);
   return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));

@@ -1,49 +1,43 @@
 "use client";
 
-import {
-  formatPrescription,
-  type AgendaItem,
-  type Day,
-  type DayKey,
-  type Exercise,
-  type Meal,
-} from "@powerweek/core";
-import {
-  CalendarClock,
-  Check,
-  Dumbbell,
-  Pencil,
-  Plus,
-  StickyNote,
-  Utensils,
-  type LucideIcon,
-} from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { type Exercise } from "@powerweek/core";
+import { StickyNote } from "lucide-react";
+import { useState } from "react";
+import { AgendaBox } from "@/components/app/agenda-box";
 import { useApp } from "@/components/app/app-provider";
+import { DayBar } from "@/components/app/day-bar";
+import { ExerciseSheet } from "@/components/app/exercise-sheet";
+import { FuelBox } from "@/components/app/fuel-box";
 import { ItemEditor, type EditorTarget } from "@/components/app/item-editor";
+import { TrainBox } from "@/components/app/train-box";
+import { useDayClock } from "@/components/app/use-day-clock";
 import { WeekPulse } from "@/components/app/week-pulse";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { shortDate } from "@/lib/format";
+import { TONE } from "@/lib/tone";
 
-/** Tickable things on a day: agenda items and exercises. Meals are listed, not ticked. */
-function tickables(day: Day): string[] {
-  return [...day.agenda.map((a) => a.id), ...(day.workout?.exercises.map((e) => e.id) ?? [])];
-}
-
+/**
+ * One day, drawn: the Week Pulse to pick a day, the day as a progress bar, then the agenda as
+ * timed bars, the meals as a fuel gauge and the workout as illustrated tiles.
+ */
 export function TodayView() {
-  const { plan, today, dates, selectedDay, selectDay, isDone, listening } = useApp();
+  const { plan, today, dates, selectedDay, selectDay, listening } = useApp();
   const { lang, dict } = useLocale();
   const [editor, setEditor] = useState<EditorTarget | null>(null);
+  const [sheetId, setSheetId] = useState<string | null>(null);
 
   const day = plan.days[selectedDay];
-  const isToday = selectedDay === today.dayKey;
-  const ids = tickables(day);
-  const total =
-    day.agenda.length +
-    (day.workout ? Math.max(1, day.workout.exercises.length) : 0) +
-    day.meals.length;
-  const doneCount = ids.filter((id) => isDone(id, selectedDay)).length;
+  const { relation, now } = useDayClock(selectedDay);
+  const isToday = relation === "today";
   const dateLabel = shortDate(dates[selectedDay], lang);
+  const counts = {
+    agenda: day.agenda.length,
+    train: day.workout?.exercises.length ?? 0,
+    fuel: day.meals.length,
+  };
+  const empty = counts.agenda + counts.fuel === 0 && !day.workout;
+  const sheet: Exercise | null =
+    (sheetId && day.workout?.exercises.find((ex) => ex.id === sheetId)) || null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,79 +57,70 @@ export function TodayView() {
           ) : null}
         </div>
         <h1 className="type-display">{dict.days.long[selectedDay]}</h1>
-        <p className="type-caption text-ink-muted">{dict.app.daySummary(total, doneCount)}</p>
+        {empty ? (
+          <p className="type-caption text-ink-muted">{dict.week.freeDay}</p>
+        ) : (
+          <p className="flex flex-wrap gap-x-4 gap-y-1">
+            {(["agenda", "train", "fuel"] as const).map((category) => (
+              <span
+                key={category}
+                className="type-caption flex items-center gap-1.5 text-ink-muted"
+              >
+                <span className={`size-2 rounded-full ${TONE[category].fill}`} aria-hidden="true" />
+                {dict.day.summary[category](counts[category])}
+              </span>
+            ))}
+          </p>
+        )}
       </section>
 
-      <WeekPulse
-        plan={plan}
-        todayKey={today.dayKey}
-        selected={selectedDay}
-        onSelect={selectDay}
-        listening={listening}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <SectionCard
-          icon={CalendarClock}
-          color="text-agenda"
-          title={dict.categories.agenda}
-          count={day.agenda.length}
-          empty={dict.app.empty.agenda}
-          addLabel={dict.app.addTo(dict.categories.agenda)}
-          onAdd={() => setEditor({ kind: "agenda" })}
-        >
-          {day.agenda.map((item) => (
-            <AgendaRow
-              key={item.id}
-              item={item}
-              day={selectedDay}
-              onEdit={() => setEditor({ kind: "agenda", item })}
-            />
-          ))}
-        </SectionCard>
-
-        <SectionCard
-          icon={Dumbbell}
-          color="text-train"
-          title={day.workout?.title ?? dict.categories.train}
-          count={day.workout?.exercises.length ?? 0}
-          empty={dict.app.empty.train}
-          addLabel={dict.app.addTo(dict.categories.train)}
-          onAdd={() => setEditor({ kind: "exercise" })}
-          onRename={
-            day.workout
-              ? () => setEditor({ kind: "workout", title: day.workout!.title })
-              : undefined
+      <div className="grid items-end gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-8">
+        <WeekPulse
+          plan={plan}
+          todayKey={today.dayKey}
+          selected={selectedDay}
+          onSelect={selectDay}
+          listening={listening}
+        />
+        <DayBar
+          day={day}
+          relation={relation}
+          now={now}
+          onAgenda={(item) => setEditor({ kind: "agenda", item })}
+          onMeal={(meal) => setEditor({ kind: "meal", item: meal })}
+          onTrain={() =>
+            document.getElementById("train")?.scrollIntoView({ behavior: "smooth", block: "start" })
           }
-          renameLabel={dict.editor.renameWorkout}
-        >
-          {day.workout?.exercises.map((exercise) => (
-            <ExerciseRow
-              key={exercise.id}
-              exercise={exercise}
-              day={selectedDay}
-              onEdit={() => setEditor({ kind: "exercise", item: exercise })}
-            />
-          ))}
-        </SectionCard>
+        />
+      </div>
 
-        <SectionCard
-          icon={Utensils}
-          color="text-fuel"
-          title={dict.categories.fuel}
-          count={day.meals.length}
-          empty={dict.app.empty.fuel}
-          addLabel={dict.app.addTo(dict.categories.fuel)}
-          onAdd={() => setEditor({ kind: "meal" })}
-        >
-          {day.meals.map((meal) => (
-            <MealRow
-              key={meal.id}
-              meal={meal}
-              onEdit={() => setEditor({ kind: "meal", item: meal })}
-            />
-          ))}
-        </SectionCard>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AgendaBox
+          day={day}
+          dayKey={selectedDay}
+          relation={relation}
+          now={now}
+          onEdit={(item) => setEditor({ kind: "agenda", item })}
+          onAdd={() => setEditor({ kind: "agenda" })}
+        />
+        <FuelBox
+          day={day}
+          relation={relation}
+          now={now}
+          onEdit={(meal) => setEditor({ kind: "meal", item: meal })}
+          onAdd={(slot) => setEditor({ kind: "meal", slot })}
+        />
+        <TrainBox
+          className="lg:col-span-2"
+          day={day}
+          dayKey={selectedDay}
+          onOpen={(exercise) => setSheetId(exercise.id)}
+          onAdd={() => setEditor({ kind: "exercise" })}
+          onEditWorkout={() =>
+            day.workout &&
+            setEditor({ kind: "workout", title: day.workout.title, time: day.workout.time })
+          }
+        />
       </div>
 
       {day.note ? (
@@ -154,185 +139,11 @@ export function TodayView() {
       ) : null}
 
       <ItemEditor target={editor} day={selectedDay} onClose={() => setEditor(null)} />
+      <ExerciseSheet
+        exercise={sheet}
+        onClose={() => setSheetId(null)}
+        onEdit={(exercise) => setEditor({ kind: "exercise", item: exercise })}
+      />
     </div>
-  );
-}
-
-function SectionCard({
-  icon: Icon,
-  color,
-  title,
-  count,
-  empty,
-  addLabel,
-  onAdd,
-  onRename,
-  renameLabel,
-  children,
-}: {
-  icon: LucideIcon;
-  color: string;
-  title: string;
-  count: number;
-  empty: string;
-  addLabel: string;
-  onAdd: () => void;
-  onRename?: () => void;
-  renameLabel?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="flex flex-col rounded-[14px] border border-line bg-surface p-4 sm:p-5">
-      <header className="mb-1 flex items-center justify-between gap-2">
-        <h2 className="type-heading flex min-w-0 items-center gap-2">
-          <Icon size={20} strokeWidth={1.75} className={`shrink-0 ${color}`} aria-hidden="true" />
-          <span className="truncate">{title}</span>
-          {onRename ? (
-            <button
-              type="button"
-              onClick={onRename}
-              aria-label={renameLabel}
-              className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-surface-raised hover:text-ink"
-            >
-              <Pencil size={16} strokeWidth={1.75} aria-hidden="true" />
-            </button>
-          ) : null}
-        </h2>
-        <span className="type-numeric text-ink-muted">{count}</span>
-      </header>
-
-      {count === 0 ? (
-        <p className="type-body py-3 text-ink-muted">{empty}</p>
-      ) : (
-        <ul className="divide-y divide-line">{children}</ul>
-      )}
-
-      <button
-        type="button"
-        onClick={onAdd}
-        className="mt-2 inline-flex h-11 items-center gap-2 self-start rounded-full px-3 text-[0.9375rem] font-bold text-ink-muted hover:bg-surface-raised hover:text-ink"
-      >
-        <Plus size={18} strokeWidth={2} aria-hidden="true" />
-        {addLabel}
-      </button>
-    </section>
-  );
-}
-
-function Tick({
-  done,
-  color,
-  label,
-  onToggle,
-}: {
-  done: boolean;
-  color: string;
-  label: string;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={done}
-      aria-label={label}
-      onClick={onToggle}
-      className="flex size-11 shrink-0 items-center justify-center -m-3"
-    >
-      <span
-        className={`flex size-5 items-center justify-center rounded-[6px] border-[1.5px] transition-colors ${
-          done ? `${color} border-current bg-current` : "border-line-strong"
-        }`}
-      >
-        {done ? <Check size={14} strokeWidth={3} className="text-bg" aria-hidden="true" /> : null}
-      </span>
-    </button>
-  );
-}
-
-function AgendaRow({ item, day, onEdit }: { item: AgendaItem; day: DayKey; onEdit: () => void }) {
-  const { isDone, toggleDone } = useApp();
-  const { dict } = useLocale();
-  const done = isDone(item.id, day);
-  const meta = [item.endTime ? `→ ${item.endTime}` : null, item.note].filter(Boolean).join(" · ");
-  return (
-    <li className="grid grid-cols-[48px_20px_minmax(0,1fr)] items-start gap-3 py-3">
-      <span className="type-numeric pt-1 text-ink-muted">{item.time ?? ""}</span>
-      <Tick
-        done={done}
-        color="text-agenda"
-        label={done ? dict.app.markUndone(item.title) : dict.app.markDone(item.title)}
-        onToggle={() => toggleDone(item.id, day)}
-      />
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={dict.app.editItem(item.title)}
-        className="flex min-w-0 flex-col items-start text-left"
-      >
-        <span className={`type-body ${done ? "text-ink-muted line-through" : ""}`}>
-          {item.title}
-        </span>
-        {meta ? <span className="type-caption text-ink-muted">{meta}</span> : null}
-      </button>
-    </li>
-  );
-}
-
-function ExerciseRow({
-  exercise,
-  day,
-  onEdit,
-}: {
-  exercise: Exercise;
-  day: DayKey;
-  onEdit: () => void;
-}) {
-  const { isDone, toggleDone } = useApp();
-  const { dict } = useLocale();
-  const done = isDone(exercise.id, day);
-  const prescription = formatPrescription(exercise);
-  return (
-    <li className="grid grid-cols-[20px_minmax(0,1fr)] items-start gap-3 py-3">
-      <Tick
-        done={done}
-        color="text-train"
-        label={done ? dict.app.markUndone(exercise.name) : dict.app.markDone(exercise.name)}
-        onToggle={() => toggleDone(exercise.id, day)}
-      />
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={dict.app.editItem(exercise.name)}
-        className="flex min-w-0 items-baseline justify-between gap-3 text-left"
-      >
-        <span className={`type-body truncate ${done ? "text-ink-muted line-through" : ""}`}>
-          {exercise.name}
-        </span>
-        {prescription ? (
-          <span className="type-numeric shrink-0 text-ink-muted">{prescription}</span>
-        ) : null}
-      </button>
-    </li>
-  );
-}
-
-function MealRow({ meal, onEdit }: { meal: Meal; onEdit: () => void }) {
-  const { dict } = useLocale();
-  return (
-    <li className="py-3">
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={dict.app.editItem(meal.title)}
-        className="grid w-full grid-cols-[88px_minmax(0,1fr)] items-baseline gap-3 text-left"
-      >
-        <span className="type-label text-fuel">{dict.slots[meal.slot]}</span>
-        <span className="flex min-w-0 flex-col">
-          <span className="type-body">{meal.title}</span>
-          {meal.note ? <span className="type-caption text-ink-muted">{meal.note}</span> : null}
-        </span>
-      </button>
-    </li>
   );
 }

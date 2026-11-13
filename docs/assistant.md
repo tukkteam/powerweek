@@ -18,15 +18,15 @@ The model receives the current plan (with item ids), today's weekday and date, a
 
 The operation catalogue is defined in [`packages/core/src/operations.ts`](../packages/core/src/operations.ts):
 
-| Operation                                              | Effect                                                             |
-| ------------------------------------------------------ | ------------------------------------------------------------------ |
-| `agenda.add` / `agenda.update` / `agenda.remove`       | Timed or untimed items; `update` with `day` moves an item          |
-| `workout.set` / `workout.update` / `workout.clear`     | Create or replace a day's workout, rename it, remove it            |
-| `exercise.add` / `exercise.update` / `exercise.remove` | Single exercises; `add` creates a workout if the day has none      |
-| `meal.set` / `meal.update` / `meal.remove`             | One meal per slot (breakfast, lunch, dinner), any number of snacks |
-| `day.clear`                                            | Clear a day, optionally only some categories                       |
-| `day.copy`                                             | Copy a day (or some categories) onto other days                    |
-| `day.note`                                             | Set or remove a free-text note for a day                           |
+| Operation                                              | Effect                                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `agenda.add` / `agenda.update` / `agenda.remove`       | Timed or untimed items; `update` with `day` moves an item                                   |
+| `workout.set` / `workout.update` / `workout.clear`     | Create or replace a day's workout, rename it, set its start time, remove it                 |
+| `exercise.add` / `exercise.update` / `exercise.remove` | Single exercises; `add` creates a workout if the day has none; `move` links an illustration |
+| `meal.set` / `meal.update` / `meal.remove`             | One meal per slot (breakfast, lunch, dinner), any number of snacks                          |
+| `day.clear`                                            | Clear a day, optionally only some categories                                                |
+| `day.copy`                                             | Copy a day (or some categories) onto other days                                             |
+| `day.note`                                             | Set or remove a free-text note for a day                                                    |
 
 ## Validation and application
 
@@ -40,6 +40,12 @@ Nothing the model writes reaches the database without passing the zod schema, th
 ## Prompt
 
 The system prompt ([`lib/assistant/prompt.ts`](../apps/web/lib/assistant/prompt.ts)) explains the plan, lists every operation with an example and fixes the rules: change only what was asked, never invent data, use exact ids, expand "weekdays"/"weekend"/"every day" to one operation per day, use 24 h times with natural am/pm defaults, map Spanish meal names to slots, keep titles short and in the user's language, and answer questions with no operations. The reply language follows the interface language.
+
+### Linking exercises to illustrations
+
+The system prompt ends with the move library: 302 slugs grouped by what they train (about 1,500 tokens). For every exercise the model adds `"move"`, the slug of the same movement with the same equipment, or leaves it out for sports and classes. The model only **links** an existing drawing; it never generates images, so the cost per request stays flat.
+
+Unknown slugs are dropped by the operation schema (the exercise is kept), and the app falls back to a deterministic matcher on the exercise name ([`moves-match.ts`](../packages/core/src/moves-match.ts)): Spanish gym vocabulary is translated to the library's English words ("press de banca" → bench press, "jalón" → lat pulldown, "remo inclinado" → bent-over row) and moves are scored by weighted word overlap. Tests pin both the matcher and the catalogue.
 
 ## Model and configuration
 

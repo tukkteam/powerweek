@@ -193,6 +193,7 @@ export function applyOperations(
         const existed = d.workout !== null;
         d.workout = clean({
           title: op.title,
+          time: op.time,
           note: op.note,
           exercises: op.exercises.map((ex) =>
             clean({
@@ -202,6 +203,7 @@ export function applyOperations(
               reps: ex.reps,
               load: ex.load,
               note: ex.note,
+              move: ex.move ?? undefined,
             }),
           ),
         });
@@ -218,6 +220,7 @@ export function applyOperations(
         const workout = days[op.day].workout;
         if (!workout) return reject("not_found");
         if (op.title !== undefined) workout.title = op.title;
+        if (op.time !== undefined) workout.time = op.time ?? undefined;
         if (op.note !== undefined) workout.note = op.note ?? undefined;
         clean(workout);
         changes.push({
@@ -245,6 +248,7 @@ export function applyOperations(
           reps: op.reps,
           load: op.load,
           note: op.note,
+          move: op.move ?? undefined,
         });
         d.workout.exercises.push(ex);
         changes.push(exerciseChange("add", op.day, ex));
@@ -255,7 +259,12 @@ export function applyOperations(
         if (!found) return reject("not_found");
         const workout = days[found.day].workout!;
         const ex = { ...workout.exercises[found.index]! };
-        if (op.name !== undefined) ex.name = op.name;
+        if (op.name !== undefined) {
+          // A new name may be a different movement: drop a move the operation does not restate.
+          if (op.name !== ex.name && op.move === undefined) delete ex.move;
+          ex.name = op.name;
+        }
+        if (op.move !== undefined) ex.move = op.move ?? undefined;
         if (op.sets !== undefined) ex.sets = op.sets ?? undefined;
         if (op.reps !== undefined) ex.reps = op.reps ?? undefined;
         if (op.load !== undefined) ex.load = op.load ?? undefined;

@@ -20,6 +20,13 @@ export const TimeSchema = z
   .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, "Expected HH:MM (24h)")
   .meta({ id: "TimeOfDay" });
 
+/** Slug of an illustrated move in the move library (see moves.ts), e.g. "bench-press". */
+export const MoveSlugSchema = z
+  .string()
+  .max(48)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Expected a move slug")
+  .meta({ id: "MoveSlug" });
+
 export const LIMITS = {
   title: 140,
   note: 280,
@@ -56,6 +63,8 @@ export const ExerciseSchema = z
     reps: optionalText(LIMITS.reps),
     load: optionalText(LIMITS.load),
     note: optionalText(LIMITS.note),
+    /** The illustration and muscle data to show; matched from the name when missing. */
+    move: MoveSlugSchema.optional(),
   })
   .strict()
   .meta({ id: "Exercise" });
@@ -63,6 +72,8 @@ export const ExerciseSchema = z
 export const WorkoutSchema = z
   .object({
     title: text(LIMITS.workoutTitle),
+    /** Optional start time; places the session on the day timeline. */
+    time: TimeSchema.optional(),
     exercises: z.array(ExerciseSchema).max(LIMITS.exercisesPerWorkout),
     note: optionalText(LIMITS.note),
   })

@@ -11,3 +11,4 @@ Short records of decisions that shape the codebase: the context, the decision an
 | [0005](0005-prefixed-i18n-routes.md)             | Language-prefixed routes and typed dictionaries without an i18n library | Accepted |
 | [0006](0006-design-tokens-single-source.md)      | The design system's tokens.json is the single source for styling        | Accepted |
 | [0007](0007-monorepo-pnpm-workspaces.md)         | pnpm workspaces monorepo: apps and shared packages                      | Accepted |
+| [0008](0008-move-library.md)                     | Exercise illustrations from an open library that the assistant links to | Accepted |
