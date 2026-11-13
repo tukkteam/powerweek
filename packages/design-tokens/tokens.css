@@ -1,0 +1,84 @@
+/* PowerWeek — generated from tokens.json by @powerweek/design-tokens. Do not edit by hand. */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0b0c;
+  --surface: #151517;
+  --surface-raised: #1e1e21;
+  --line: #2c2c31;
+  --line-strong: #6b6b73;
+  --ink: #f5f3ee;
+  --ink-muted: #a8a59e;
+  --volt: #d4ff3a;
+  --on-volt: #0b0b0c;
+  --volt-ink: #d4ff3a;
+  --agenda: #86a8ff;
+  --train: var(--volt-ink);
+  --fuel: #ff9150;
+  --danger: #ff6b6b;
+  --focus: #d4ff3a;
+  --shadow-float: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --glow-volt: 0 0 0 8px rgba(212, 255, 58, 0.16);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f0e9;
+  --surface: #fbfaf6;
+  --surface-raised: #ffffff;
+  --line: #ddd9ce;
+  --line-strong: #8c887e;
+  --ink: #121213;
+  --ink-muted: #5c5952;
+  --volt: #d4ff3a;
+  --on-volt: #0b0b0c;
+  --volt-ink: #4c6e00;
+  --agenda: #2a56d6;
+  --train: var(--volt-ink);
+  --fuel: #b8430a;
+  --danger: #c92a2a;
+  --focus: #121213;
+  --shadow-float: 0 16px 40px rgba(18, 18, 19, 0.14);
+  --glow-volt: 0 0 0 8px rgba(76, 110, 0, 0.16);
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    color-scheme: light;
+    --bg: #f2f0e9;
+    --surface: #fbfaf6;
+    --surface-raised: #ffffff;
+    --line: #ddd9ce;
+    --line-strong: #8c887e;
+    --ink: #121213;
+    --ink-muted: #5c5952;
+    --volt: #d4ff3a;
+    --on-volt: #0b0b0c;
+    --volt-ink: #4c6e00;
+    --agenda: #2a56d6;
+    --train: var(--volt-ink);
+    --fuel: #b8430a;
+    --danger: #c92a2a;
+    --focus: #121213;
+    --shadow-float: 0 16px 40px rgba(18, 18, 19, 0.14);
+    --glow-volt: 0 0 0 8px rgba(76, 110, 0, 0.16);
+  }
+}
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --font-display: "Archivo", "Arial Black", system-ui, sans-serif;
+  --font-sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
