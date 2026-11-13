@@ -33,6 +33,15 @@ export function dateRange(fromIso: string, toIso: string, lang: Locale): string 
   return `${shortDate(fromIso, lang)} – ${shortDate(toIso, lang)}`;
 }
 
+/** "3 h 28 min", "45 min", "10 h". Same in both languages. */
+export function formatDuration(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
 /** Day of the month as a number, for week cards. */
 export function dayOfMonth(isoDate: string): number {
   return utcDate(isoDate).getUTCDate();

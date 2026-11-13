@@ -1,4 +1,11 @@
-import type { Category, ChangeKind, DayKey, MealSlot } from "@powerweek/core";
+import type {
+  Category,
+  ChangeKind,
+  DayKey,
+  Equipment,
+  MealSlot,
+  MuscleGroup,
+} from "@powerweek/core";
 
 const plural = (n: number, one: string, many: string) =>
   n === 1 ? one : many.replace("#", String(n));
@@ -167,10 +174,6 @@ export const es = {
     dayEyebrow: (date: string) => date,
     weekEyebrow: (week: number, range: string) => `Semana ${week} · ${range}`,
     weekTitle: "Tu semana",
-    daySummary: (total: number, done: number) =>
-      total === 0
-        ? "Nada planificado todavía"
-        : `${plural(total, "1 cosa", "# cosas")} en tu día · ${plural(done, "1 hecha", "# hechas")}`,
     weekSummary: (total: number) =>
       total === 0
         ? "Tu semana está en blanco"
@@ -191,6 +194,102 @@ export const es = {
     editItem: (title: string) => `Editar «${title}»`,
     addTo: (category: string) => `Añadir a ${category}`,
     note: "Nota del día",
+  },
+  day: {
+    title: "Tu día",
+    ofDay: "del día",
+    remaining: (duration: string) => `Quedan ${duration}`,
+    finished: "Día completado",
+    ahead: "Aún por llegar",
+    now: "Ahora",
+    nothingTimed: "Pon hora a tu agenda o a tu entreno y los verás en la línea del día.",
+    summary: {
+      agenda: (n: number) => plural(n, "1 actividad", "# actividades"),
+      train: (n: number) => plural(n, "1 ejercicio", "# ejercicios"),
+      fuel: (n: number) => plural(n, "1 comida", "# comidas"),
+    } satisfies Record<Category, (n: number) => string>,
+    spanLabel: (title: string, range: string) => `${title}, ${range}`,
+  },
+  agenda: {
+    live: "Ahora",
+    done: "Hecho",
+    startsIn: (duration: string) => `En ${duration}`,
+    left: (duration: string) => `quedan ${duration}`,
+    untimed: "Sin hora",
+  },
+  train: {
+    exercises: (n: number) => plural(n, "1 ejercicio", "# ejercicios"),
+    sets: (n: number) => plural(n, "1 serie", "# series"),
+    minutes: (n: number) => `≈ ${n} min`,
+    done: "Entreno hecho",
+    markDone: "Marcar entreno como hecho",
+    markUndone: "Desmarcar entreno",
+    works: (list: string) => `Trabaja ${list}`,
+    musclesLabel: (list: string) => `Músculos que trabaja: ${list}`,
+    primary: "Principal",
+    secondary: "También trabaja",
+    equipment: "Material",
+    sequence: "Secuencia del movimiento",
+    phase: (n: number) => `Fase ${n}`,
+    openExercise: (name: string) => `Ver «${name}»`,
+    noArt: "Sin dibujo",
+    credit: "Ilustración: Workout Guide (Bryl Lim), basada en Everkinetic · CC BY-SA 4.0",
+  },
+  muscles: {
+    chest: "Pecho",
+    shoulders: "Hombros",
+    "rear-delts": "Deltoides posterior",
+    biceps: "Bíceps",
+    triceps: "Tríceps",
+    forearms: "Antebrazos",
+    core: "Core",
+    "upper-back": "Espalda alta",
+    lats: "Dorsales",
+    "lower-back": "Lumbares",
+    glutes: "Glúteos",
+    quads: "Cuádriceps",
+    hamstrings: "Isquios",
+    adductors: "Aductores",
+    hips: "Cadera",
+    calves: "Gemelos",
+    cardio: "Cardio",
+    mobility: "Movilidad",
+  } satisfies Record<MuscleGroup, string>,
+  equipment: {
+    barbell: "Barra",
+    dumbbell: "Mancuernas",
+    machine: "Máquina",
+    cable: "Polea",
+    bodyweight: "Peso corporal",
+    band: "Banda elástica",
+    kettlebell: "Kettlebell",
+    plate: "Disco",
+    "pull-up-bar": "Barra de dominadas",
+    cardio: "Cardio",
+    bench: "Banco",
+    box: "Cajón",
+    wall: "Pared",
+    towel: "Toalla",
+    doorway: "Marco de puerta",
+    chair: "Silla",
+    "stability-ball": "Fitball",
+  } satisfies Record<Equipment, string>,
+  fuel: {
+    planned: (n: number, total: number) => `${n}/${total}`,
+    now: "Toca",
+    unplanned: "Sin planificar",
+    addSlot: (slot: string) => `Añadir ${slot.toLowerCase()}`,
+  },
+  week: {
+    stackLabel: "Carga de tu semana por categoría",
+    stackDay: (day: string, agenda: number, train: number, fuel: number) =>
+      `${day}: ${agenda} en agenda, ${train} de entreno y ${fuel} comidas`,
+    freeDay: "Día libre",
+    more: (n: number) => `+${n}`,
+    openDay: "Abrir el día",
+    openCell: (category: string, day: string) => `${category} del ${day.toLowerCase()}`,
+    peekHint: "Mantén pulsado una caja para ver el detalle",
+    workouts: (n: number) => plural(n, "1 entreno", "# entrenos"),
   },
   dock: {
     placeholder: "Dile algo a tu semana…",
@@ -239,6 +338,8 @@ export const es = {
     } satisfies Record<Category, string>,
     workoutTitle: "Nombre del entreno",
     renameWorkout: "Renombrar entreno",
+    editWorkout: "Editar entreno",
+    workoutTime: "Hora",
     removeWorkout: "Quitar entreno",
     title: "Qué",
     time: "Hora",
@@ -273,6 +374,12 @@ export const es = {
     deleteConfirm: "Se borrarán tu semana, tu historial y tu cuenta. No se puede deshacer.",
     deleteConfirmButton: "Sí, borrar todo",
     signOutAnonymousWarning: "Sin email, al cerrar sesión perderás esta semana.",
+    credits: "Créditos",
+    creditsMoves:
+      "Ilustraciones de ejercicios: Workout Guide, de Bryl Lim, basadas en Everkinetic. Licencia CC BY-SA 4.0.",
+    creditsBody: "Mapa muscular: polígonos de react-body-highlighter (MIT).",
+    creditsFonts: "Tipografías: Archivo y Geist Mono (SIL Open Font License).",
+    creditsCode: "PowerWeek es código abierto con licencia MIT.",
     saved: "Guardado",
   },
   errors: {
