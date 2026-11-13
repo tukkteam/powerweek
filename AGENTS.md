@@ -1,0 +1,19 @@
+# Agent guide
+
+Instructions for AI coding agents (and humans in a hurry) working in this repository.
+
+## Map
+
+- `apps/web`: Next.js 16 app. Landing at `app/[lang]/page.tsx`, the app shell and views in `components/app`, the assistant route in `app/api/assistant/route.ts`.
+- `packages/core`: plan schema (zod), operations, the pure `applyOperations` reducer and calendar helpers. Most logic belongs here, with tests.
+- `packages/design-tokens`: `tokens.json` → `tokens.css`. Do not edit `tokens.css` by hand.
+- `supabase`: migrations (never edit an applied one), pgTAP tests, `config.toml` (auth as code).
+- `docs`: architecture, data model, assistant, native strategy, ADRs. Update them when behaviour changes.
+
+## Rules
+
+1. Next.js 16 differs from older versions: `proxy.ts` instead of middleware, Cache Components (no cookies, headers or `new Date()` during render), async `params`. Read `apps/web/node_modules/next/dist/docs/` before using an unfamiliar API.
+2. The plan changes only through operations from `@powerweek/core`. Add new behaviour as a new operation with tests.
+3. Strings go in both dictionaries (`es.ts` is the reference). Styling uses token-backed Tailwind classes.
+4. Never commit secrets. `.env.local` is ignored; production values live in Vercel and Supabase.
+5. Before you finish: `pnpm verify`. For UI work also run the e2e tests and look at the result in a browser.
