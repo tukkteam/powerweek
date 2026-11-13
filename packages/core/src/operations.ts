@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { CategorySchema, DayKeySchema, LIMITS, MealSlotSchema, TimeSchema } from "./plan";
+import { isMoveSlug } from "./moves";
+import {
+  CategorySchema,
+  DayKeySchema,
+  LIMITS,
+  MealSlotSchema,
+  MoveSlugSchema,
+  TimeSchema,
+} from "./plan";
 
 /**
  * Operations are the only way the plan changes. The assistant proposes them as JSON,
@@ -30,6 +38,15 @@ const looseInt = z.preprocess(
 const id = z.string().min(1).max(64);
 const title = (max: number) => z.string().trim().min(1).max(max);
 
+/**
+ * A move slug from the library. Unknown slugs are dropped rather than rejected: a wrong
+ * illustration guess must never cost the user their exercise. Null still clears on update.
+ */
+const looseMove = z.preprocess(
+  (value) => (value === null || isMoveSlug(value) ? value : undefined),
+  MoveSlugSchema.nullable().optional(),
+);
+
 /** Optional on create: null and "" mean "not given". */
 const opt = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess(blankToUndefined, schema.optional());
@@ -42,6 +59,7 @@ const ExerciseInputSchema = z.object({
   reps: opt(z.coerce.string().trim().max(LIMITS.reps)),
   load: opt(z.string().trim().max(LIMITS.load)),
   note: opt(z.string().trim().max(LIMITS.note)),
+  move: opt(looseMove),
 });
 
 export const OperationSchema = z.discriminatedUnion("op", [
@@ -67,6 +85,7 @@ export const OperationSchema = z.discriminatedUnion("op", [
     op: z.literal("workout.set"),
     day: DayKeySchema,
     title: title(LIMITS.workoutTitle),
+    time: opt(looseTime),
     exercises: z.array(ExerciseInputSchema).max(LIMITS.exercisesPerWorkout),
     note: opt(z.string().trim().max(LIMITS.note)),
   }),
@@ -74,6 +93,7 @@ export const OperationSchema = z.discriminatedUnion("op", [
     op: z.literal("workout.update"),
     day: DayKeySchema,
     title: opt(title(LIMITS.workoutTitle)),
+    time: clearable(looseTime),
     note: clearable(z.string().trim().max(LIMITS.note)),
   }),
   z.object({ op: z.literal("workout.clear"), day: DayKeySchema }),
@@ -85,6 +105,7 @@ export const OperationSchema = z.discriminatedUnion("op", [
     reps: opt(z.coerce.string().trim().max(LIMITS.reps)),
     load: opt(z.string().trim().max(LIMITS.load)),
     note: opt(z.string().trim().max(LIMITS.note)),
+    move: opt(looseMove),
     workoutTitle: opt(title(LIMITS.workoutTitle)),
   }),
   z.object({
@@ -95,6 +116,7 @@ export const OperationSchema = z.discriminatedUnion("op", [
     reps: clearable(z.coerce.string().trim().max(LIMITS.reps)),
     load: clearable(z.string().trim().max(LIMITS.load)),
     note: clearable(z.string().trim().max(LIMITS.note)),
+    move: looseMove,
   }),
   z.object({ op: z.literal("exercise.remove"), id }),
   z.object({

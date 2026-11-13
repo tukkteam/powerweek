@@ -11,3 +11,5 @@ apps/web/public/offline.html
 test-results
 playwright-report
 packages/design-tokens/tokens.json
+packages/core/src/moves-data.ts
+apps/web/public/moves
