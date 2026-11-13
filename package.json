@@ -1,0 +1,30 @@
+{
+  "name": "powerweek",
+  "private": true,
+  "description": "Talk your week into shape — a voice-first weekly planner. Web-first, cross-platform.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @powerweek/web dev",
+    "build": "pnpm --filter @powerweek/web build",
+    "start": "pnpm --filter @powerweek/web start",
+    "lint": "pnpm -r --parallel lint",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r test",
+    "e2e": "pnpm --filter @powerweek/web e2e",
+    "tokens": "pnpm --filter @powerweek/design-tokens build",
+    "tokens:check": "pnpm --filter @powerweek/design-tokens check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "pnpm tokens:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff",
+    "db:types": "supabase gen types typescript --linked --schema public > apps/web/lib/supabase/database.types.ts"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

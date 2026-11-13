@@ -1,0 +1,1 @@
+-- Seed data for local development. Intentionally empty: new users get an empty plan from the auth trigger.

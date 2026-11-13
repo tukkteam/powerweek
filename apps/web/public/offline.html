@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0c">
+<title>PowerWeek · Sin conexión</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #0b0b0c; color: #f5f3ee; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 26rem; padding: 2rem 1.25rem; display: grid; gap: 1.25rem; }
+  .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 72px; }
+  .bars span { display: block; border-radius: 999px; background: #6b6b73; }
+  .bars span:nth-child(3) { background: #d4ff3a; }
+  h1 { margin: 0; font-size: 2rem; line-height: 1; font-weight: 900; text-transform: uppercase; letter-spacing: -0.01em; }
+  p { margin: 0; color: #a8a59e; line-height: 1.5; }
+  button { justify-self: start; height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: #d4ff3a; color: #0b0b0c; font: 700 15px system-ui, sans-serif; cursor: pointer; }
+  button:focus-visible { outline: 2px solid #d4ff3a; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="bars" aria-hidden="true"><span style="height:55%"></span><span style="height:38%"></span><span style="height:85%"></span><span style="height:30%"></span><span style="height:70%"></span><span style="height:22%"></span><span style="height:48%"></span></div>
+  <h1>Sin conexión</h1>
+  <p>Tu semana sigue a salvo. Vuelve a intentarlo cuando tengas red.</p>
+  <p lang="en">You're offline. Your week is safe; try again when you're back online.</p>
+  <button type="button" onclick="location.reload()">Reintentar · Retry</button>
+</main>
+</body>
+</html>

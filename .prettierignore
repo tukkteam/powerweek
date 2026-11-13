@@ -1,0 +1,13 @@
+pnpm-lock.yaml
+.next
+node_modules
+coverage
+packages/design-tokens/tokens.css
+apps/web/lib/supabase/database.types.ts
+supabase/.temp
+packages/core/schema
+apps/web/AGENTS.md
+apps/web/public/offline.html
+test-results
+playwright-report
+packages/design-tokens/tokens.json

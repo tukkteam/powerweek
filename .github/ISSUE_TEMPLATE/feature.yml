@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an idea for PowerWeek
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that PowerWeek makes hard today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How could PowerWeek solve it? Example sentences you'd say to the assistant are very welcome.

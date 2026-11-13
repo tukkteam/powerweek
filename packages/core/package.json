@@ -1,0 +1,23 @@
+{
+  "name": "@powerweek/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PowerWeek domain model: the weekly plan schema, typed operations and the pure reducer that applies them.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^5.1.0",
+    "@types/node": "^24"
+  }
+}

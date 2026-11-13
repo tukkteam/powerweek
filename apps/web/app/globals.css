@@ -1,0 +1,214 @@
+@import "tailwindcss";
+@import "@powerweek/design-tokens/tokens.css";
+
+/*
+ * Design tokens come from packages/design-tokens (the same tokens.json as the PowerWeek
+ * Claude Design System). Tailwind utilities read them through the mappings below, so
+ * `bg-surface`, `text-ink-muted` or `border-line` switch with the theme automatically.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-volt: var(--volt);
+  --color-on-volt: var(--on-volt);
+  --color-volt-ink: var(--volt-ink);
+  --color-agenda: var(--agenda);
+  --color-train: var(--train);
+  --color-fuel: var(--fuel);
+  --color-danger: var(--danger);
+  --color-focus: var(--focus);
+}
+
+@theme {
+  --font-display: "Archivo", "Arial Black", sans-serif;
+  --breakpoint-xs: 30rem;
+}
+
+/* next/font exposes the self-hosted families as variables on <html>. */
+:root {
+  --font-sans: var(--font-archivo), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-archivo), "Arial Black", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --dock-height: 76px;
+}
+
+/* Type styles from the design system (Display, Text and Mono groups). */
+@utility type-display-xl {
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-weight: 900;
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+@utility type-display {
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-weight: 900;
+  font-size: clamp(2.25rem, 5vw, 2.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+@utility type-title {
+  font-family: var(--font-display);
+  font-stretch: 112%;
+  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+@utility type-heading {
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  font-weight: 700;
+}
+@utility type-body {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  font-weight: 400;
+}
+@utility type-caption {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+@utility type-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+@utility type-numeric {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+@utility stretch-wide {
+  font-stretch: 125%;
+}
+@utility stretch-semi {
+  font-stretch: 112%;
+}
+@utility shadow-float {
+  box-shadow: var(--shadow-float);
+}
+@utility shadow-glow {
+  box-shadow: var(--glow-volt);
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--bg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--volt);
+    color: var(--on-volt);
+  }
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(2px);
+  }
+}
+
+/* Motion: bars spring, everything else eases out. Reduced motion turns it all into fades. */
+@keyframes pw-listen {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@keyframes pw-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--volt) 22%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 12px color-mix(in oklab, var(--volt) 14%, transparent),
+      0 0 0 24px color-mix(in oklab, var(--volt) 6%, transparent);
+  }
+}
+@keyframes pw-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pw-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pw-listen-bar {
+  transform-origin: bottom;
+  animation: pw-listen 900ms ease-in-out infinite;
+}
+.pw-halo {
+  animation: pw-halo 1400ms ease-in-out infinite;
+}
+.pw-rise {
+  animation: pw-rise 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.pw-fade {
+  animation: pw-fade 200ms ease-out both;
+}
+.pw-bar {
+  transition:
+    height 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pw-listen-bar,
+  .pw-halo {
+    animation: none;
+  }
+  .pw-rise {
+    animation: pw-fade 200ms ease-out both;
+  }
+  .pw-bar {
+    transition: background-color 160ms ease-out;
+  }
+}
