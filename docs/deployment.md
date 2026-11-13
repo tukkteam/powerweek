@@ -12,12 +12,12 @@
 - Region: `cdg1` (`apps/web/vercel.json`), next to the database.
 - Environment variables (Production and Preview):
 
-| Variable                                                     | Notes                                          |
-| ------------------------------------------------------------ | ---------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`                                   | `https://<ref>.supabase.co`                    |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                       | Publishable key (safe in the browser)          |
-| `NEXT_PUBLIC_SITE_URL`                                       | Optional; defaults to the production domain    |
-| `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `OMNIROUTE_MODEL` | Server-only                                    |
+| Variable                                                     | Notes                                       |
+| ------------------------------------------------------------ | ------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`                                   | `https://<ref>.supabase.co`                 |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                       | Publishable key (safe in the browser)       |
+| `NEXT_PUBLIC_SITE_URL`                                       | Optional; defaults to the production domain |
+| `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`, `OMNIROUTE_MODEL` | Server-only                                 |
 
 ## Supabase
 
