@@ -44,6 +44,15 @@ export const es = {
       sat: "Sábado",
       sun: "Domingo",
     } satisfies Record<DayKey, string>,
+    short: {
+      mon: "Lun",
+      tue: "Mar",
+      wed: "Mié",
+      thu: "Jue",
+      fri: "Vie",
+      sat: "Sáb",
+      sun: "Dom",
+    } satisfies Record<DayKey, string>,
     initial: {
       mon: "L",
       tue: "M",

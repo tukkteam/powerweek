@@ -121,7 +121,7 @@ export function DayBar({
         </ul>
       </div>
 
-      <div className="pw-track relative mt-4" style={{ height }}>
+      <div className="pw-track relative mt-4 flex-1" style={{ minHeight: height }}>
         {ticks.map((t) => (
           <span
             key={t}
@@ -218,7 +218,7 @@ export function DayBar({
 
         {empty ? (
           <p
-            className="pw-fade type-caption absolute inset-x-0 text-ink-muted"
+            className="pw-fade type-caption absolute left-0 z-10 -ml-1.5 max-w-full rounded-[6px] bg-surface px-1.5 py-0.5 text-ink-muted"
             style={{ top: LANE_TOP - 4 }}
           >
             {dict.day.nothingTimed}

@@ -37,6 +37,15 @@ export const en: Dictionary = {
       sat: "Saturday",
       sun: "Sunday",
     },
+    short: {
+      mon: "Mon",
+      tue: "Tue",
+      wed: "Wed",
+      thu: "Thu",
+      fri: "Fri",
+      sat: "Sat",
+      sun: "Sun",
+    },
     initial: { mon: "M", tue: "T", wed: "W", thu: "T", fri: "F", sat: "S", sun: "S" },
   },
   categories: {
