@@ -74,15 +74,29 @@ export function TodayView() {
         )}
       </section>
 
-      {/* Top-aligned: the Week Pulse stays put while the Day Bar grows or shrinks between days. */}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-8">
-        <WeekPulse
-          plan={plan}
-          todayKey={today.dayKey}
-          selected={selectedDay}
-          onSelect={selectDay}
-          listening={listening}
-        />
+      {/*
+        Phones and tablets: the Week Pulse stands above the day. Desktop: it lies down in a column
+        beside the Day Bar and both share one height, so the region stays balanced however tall
+        the day's timeline grows, and the days never move when you switch between them.
+      */}
+      <div className="grid items-start gap-6 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:items-stretch lg:gap-4">
+        <section className="lg:flex lg:flex-col lg:rounded-[14px] lg:border lg:border-line lg:bg-surface lg:p-3">
+          <p
+            aria-hidden="true"
+            className="type-label hidden px-2.5 pt-1.5 pb-3 text-ink-muted lg:block"
+          >
+            {dict.app.pulseLabel}
+          </p>
+          <WeekPulse
+            className="lg:flex-1"
+            plan={plan}
+            todayKey={today.dayKey}
+            selected={selectedDay}
+            onSelect={selectDay}
+            dates={dates}
+            listening={listening}
+          />
+        </section>
         <DayBar
           day={day}
           relation={relation}

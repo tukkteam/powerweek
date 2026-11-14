@@ -3,7 +3,7 @@
 import { Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { AppProvider, useApp } from "@/components/app/app-provider";
 import { ChangeReceipt, NoticeToast } from "@/components/app/change-receipt";
 import { VoiceDock } from "@/components/app/voice-dock";
@@ -115,14 +115,20 @@ function LoadingWeek({ label }: { label: string }) {
       <span className="sr-only">{label}</span>
       <span className="block h-3 w-28 animate-pulse rounded-full bg-surface-raised" />
       <span className="block h-11 w-64 animate-pulse rounded-xl bg-surface-raised" />
-      <div aria-hidden="true" className="grid h-24 max-w-xl grid-cols-7 items-end gap-2">
-        {[0.5, 0.3, 0.8, 0.4, 0.65, 0.2, 0.35].map((h, i) => (
-          <span
-            key={i}
-            className="mx-auto block w-full max-w-7 animate-pulse rounded-full bg-surface-raised"
-            style={{ height: `${h * 100}%` }}
-          />
-        ))}
+      <div className="grid gap-6 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:gap-4">
+        <div
+          aria-hidden="true"
+          className="grid h-24 max-w-xl grid-cols-7 items-end gap-2 lg:h-auto lg:max-w-none lg:grid-cols-1 lg:gap-6 lg:rounded-[14px] lg:border lg:border-line lg:p-6"
+        >
+          {[0.5, 0.3, 0.8, 0.4, 0.65, 0.2, 0.35].map((h, i) => (
+            <span
+              key={i}
+              className="mx-auto block h-(--h) w-full max-w-7 animate-pulse rounded-full bg-surface-raised lg:mx-0 lg:h-3.5 lg:w-(--h) lg:max-w-none"
+              style={{ "--h": `${h * 100}%` } as CSSProperties}
+            />
+          ))}
+        </div>
+        <span className="hidden h-80 animate-pulse rounded-[14px] bg-surface lg:block" />
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (

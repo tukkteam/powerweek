@@ -40,19 +40,19 @@ Every text pair passes WCAG AA in both themes; the palette was checked with a co
 
 ## Signature components
 
-| Component      | Where                                                | Notes                                                                                                                          |
-| -------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Week Pulse     | `components/app/week-pulse.tsx`                      | Seven capsules, Monday first, height = day load. Today in volt; pulses while listening                                         |
-| Week Stack     | `components/app/week-stack.tsx`                      | The Week Pulse split by category: agenda (blue), training (volt) and meals (orange) stacked in each capsule                    |
-| Day Bar        | `components/app/day-bar.tsx`                         | The day as one progress bar (06:00–24:00): a volt rail fills with the clock, blocks fill as their own time passes              |
-| Agenda bars    | `components/app/agenda-box.tsx`                      | Timed items are progress bars from start to end with a status (Ahora, En 2 h, Hecho); untimed items keep a round tick          |
-| Fuel gauge     | `components/app/fuel-box.tsx`                        | Four slots that fill orange as meals are planned; the slot due now is ringed                                                   |
-| Training board | `components/app/train-box.tsx`, `exercise-sheet.tsx` | Muscle map + one illustrated tile per exercise, sets drawn as volt pills, one "workout done" button. No per-exercise ticks     |
-| Move art       | `components/app/move-art.tsx`                        | Exercise line drawings used as CSS masks, so they paint in the current colour. Animated: frames 1 → 2 → 3 → 2 with cross-fades |
-| Muscle map     | `components/app/muscle-map.tsx`                      | Low-poly front and back figures; muscles glow in four steps of volt by training volume                                         |
-| Week board     | `components/app/week-view.tsx`, `day-peek.tsx`       | One big box per day with a blue, a volt and an orange box inside, in fixed columns. Hover or press and hold to peek            |
-| Voice Dock     | `components/app/voice-dock.tsx`                      | The one primary input per screen: orb + field; states idle, listening, thinking                                                |
-| Change Receipt | `components/app/change-receipt.tsx`                  | `+` added, `~` changed, `→` moved, `−` removed; Undo; auto-dismiss unless hovered or focused                                   |
+| Component      | Where                                                | Notes                                                                                                                                                                                              |
+| -------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Week Pulse     | `components/app/week-pulse.tsx`                      | Seven capsules, Monday first, length = day load; today in volt; pulses while listening. Phones: a row above the day. Desktop: a column beside the Day Bar, same height, so tall days stay balanced |
+| Week Stack     | `components/app/week-stack.tsx`                      | The Week Pulse split by category: agenda (blue), training (volt) and meals (orange) stacked in each capsule                                                                                        |
+| Day Bar        | `components/app/day-bar.tsx`                         | The day as one progress bar (06:00–24:00): a volt rail fills with the clock, blocks fill as their own time passes                                                                                  |
+| Agenda bars    | `components/app/agenda-box.tsx`                      | Timed items are progress bars from start to end with a status (Ahora, En 2 h, Hecho); untimed items keep a round tick                                                                              |
+| Fuel gauge     | `components/app/fuel-box.tsx`                        | Four slots that fill orange as meals are planned; the slot due now is ringed                                                                                                                       |
+| Training board | `components/app/train-box.tsx`, `exercise-sheet.tsx` | Muscle map + one illustrated tile per exercise, sets drawn as volt pills, one "workout done" button. No per-exercise ticks                                                                         |
+| Move art       | `components/app/move-art.tsx`                        | Exercise line drawings used as CSS masks, so they paint in the current colour. Animated: frames 1 → 2 → 3 → 2 with cross-fades                                                                     |
+| Muscle map     | `components/app/muscle-map.tsx`                      | Low-poly front and back figures; muscles glow in four steps of volt by training volume                                                                                                             |
+| Week board     | `components/app/week-view.tsx`, `day-peek.tsx`       | One big box per day with a blue, a volt and an orange box inside, in fixed columns. Hover or press and hold to peek                                                                                |
+| Voice Dock     | `components/app/voice-dock.tsx`                      | The one primary input per screen: orb + field; states idle, listening, thinking                                                                                                                    |
+| Change Receipt | `components/app/change-receipt.tsx`                  | `+` added, `~` changed, `→` moved, `−` removed; Undo; auto-dismiss unless hovered or focused                                                                                                       |
 
 ### Category colours
 
