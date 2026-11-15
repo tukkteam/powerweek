@@ -2,7 +2,7 @@
 -- Run locally with `supabase test db` (needs Docker); CI runs them on every PR.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(25);
 
 -- Two users. The auth trigger must give each a profile, an empty plan and a seed revision.
 insert into auth.users (id, email, raw_user_meta_data)
@@ -69,6 +69,18 @@ select throws_ok(
 insert into public.completions (user_id, on_date, item_id)
 values ('11111111-1111-1111-1111-111111111111', '2026-11-11', 'a1');
 select is((select count(*)::int from public.completions), 1, 'users can tick off their own items');
+select ok(
+  public.plan_doc_is_valid(jsonb_set(public.empty_plan_doc(), '{menu}', '{"lunch":{"options":[{"id":"o1","title":"Lentejas"}],"days":["mon"]}}')),
+  'plans may share meal options across the week'
+);
+insert into public.meal_picks (on_date, slot, option_id) values ('2026-11-16', 'lunch', 'o1');
+select is((select option_id from public.meal_picks where on_date = '2026-11-16'), 'o1', 'users can pick an option for a date');
+update public.meal_picks set option_id = 'o2' where on_date = '2026-11-16' and slot = 'lunch';
+select is((select option_id from public.meal_picks where on_date = '2026-11-16'), 'o2', 'users can change their pick');
+select throws_ok(
+  $$ insert into public.meal_picks (on_date, slot, option_id) values ('2026-11-16', 'brunch', 'o1') $$,
+  '23514', null, 'picks only use known meal slots'
+);
 select throws_ok(
   $$ insert into public.completions (user_id, on_date, item_id) values ('22222222-2222-2222-2222-222222222222', '2026-11-11', 'x') $$,
   '42501', null, 'users cannot write completions for someone else'

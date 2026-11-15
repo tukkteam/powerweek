@@ -3,6 +3,7 @@
 import {
   DEFAULT_WINDOW,
   MEAL_SLOTS,
+  mealSlots,
   muscleLoad,
   position,
   resolveMove,
@@ -11,7 +12,9 @@ import {
   type AgendaItem,
   type Category,
   type Day,
+  type DayKey,
 } from "@powerweek/core";
+import { useApp } from "@/components/app/app-provider";
 import { MoveArt } from "@/components/app/move-art";
 import { MuscleMap } from "@/components/app/muscle-map";
 import { muscleList, SetsLine, workoutMeta } from "@/components/app/train-box";
@@ -29,8 +32,20 @@ export function agendaBar(item: AgendaItem): { left: number; width: number } | n
 }
 
 /** Everything one category holds on one day; shown on hover (desktop) or long press (touch). */
-export function DayPeek({ day, category, title }: { day: Day; category: Category; title: string }) {
+export function DayPeek({
+  dayKey,
+  day,
+  category,
+  title,
+}: {
+  dayKey: DayKey;
+  day: Day;
+  category: Category;
+  title: string;
+}) {
   const { lang, dict } = useLocale();
+  const { plan, pickOf } = useApp();
+  const slots = mealSlots(plan, dayKey);
   const t = TONE[category];
 
   return (
@@ -113,32 +128,41 @@ export function DayPeek({ day, category, title }: { day: Day; category: Category
       ) : null}
 
       {category === "fuel" ? (
-        <>
-          <span className="grid grid-cols-4 gap-1" aria-hidden="true">
-            {MEAL_SLOTS.map((slot) => (
-              <span
-                key={slot}
-                className={`h-1.5 rounded-full ${day.meals.some((m) => m.slot === slot) ? "bg-fuel" : "bg-fuel/15"}`}
-              />
-            ))}
-          </span>
-          <ul className="flex flex-col gap-2.5">
-            {day.meals.map((meal) => (
-              <li
-                key={meal.id}
-                className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-baseline gap-3"
-              >
-                <span className="type-label text-fuel">{dict.slots[meal.slot]}</span>
-                <span className="min-w-0">
-                  <span className="block text-[0.9375rem] leading-snug">{meal.title}</span>
-                  {meal.note ? (
-                    <span className="type-caption text-ink-muted">{meal.note}</span>
-                  ) : null}
+        <ul className="flex flex-col gap-2.5">
+          {MEAL_SLOTS.map((slot) => {
+            const s = slots[slot];
+            if (s.kind === "empty") return null;
+            const chosen = s.kind === "options" ? pickOf(dayKey, slot) : null;
+            return (
+              <li key={slot} className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-baseline gap-3">
+                <span className="type-label text-fuel">{dict.slots[slot]}</span>
+                <span className="flex min-w-0 flex-col gap-1">
+                  {s.kind === "fixed"
+                    ? s.meals.map((meal) => (
+                        <span key={meal.id} className="text-[0.9375rem] leading-snug">
+                          {meal.title}
+                        </span>
+                      ))
+                    : s.options.map((option) => (
+                        <span
+                          key={option.id}
+                          className={`text-[0.9375rem] leading-snug ${
+                            chosen === option.id
+                              ? "font-semibold text-fuel"
+                              : chosen
+                                ? "text-ink-muted"
+                                : ""
+                          }`}
+                        >
+                          {chosen === option.id ? "✓ " : "· "}
+                          {option.title}
+                        </span>
+                      ))}
                 </span>
               </li>
-            ))}
-          </ul>
-        </>
+            );
+          })}
+        </ul>
       ) : null}
     </div>
   );

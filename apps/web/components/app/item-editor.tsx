@@ -8,6 +8,7 @@ import {
   type DayKey,
   type Exercise,
   type Meal,
+  type MealOption,
   type MealSlot,
   type Operation,
 } from "@powerweek/core";
@@ -21,7 +22,15 @@ export type EditorTarget =
   | { kind: "agenda"; item?: AgendaItem }
   | { kind: "exercise"; item?: Exercise }
   | { kind: "meal"; item?: Meal; slot?: MealSlot }
-  | { kind: "workout"; title: string; time?: string };
+  | { kind: "workout"; title: string; time?: string }
+  | {
+      kind: "menu";
+      slot: MealSlot;
+      scope: "day" | "week";
+      options: MealOption[];
+      /** Days the week options apply to, kept when they are edited. */
+      days?: DayKey[];
+    };
 
 const fieldClass =
   "h-12 w-full rounded-[14px] border border-line-strong bg-surface px-4 text-base text-ink placeholder:text-ink-muted";
@@ -92,14 +101,21 @@ function EditorForm({
   const [busy, setBusy] = useState(false);
   const [invalid, setInvalid] = useState(false);
 
-  const isNew = target.kind !== "workout" && !target.item;
-  const category = target.kind === "agenda" ? "agenda" : target.kind === "meal" ? "fuel" : "train";
+  const isNew = target.kind !== "workout" && target.kind !== "menu" && !target.item;
+  const category =
+    target.kind === "agenda"
+      ? "agenda"
+      : target.kind === "meal" || target.kind === "menu"
+        ? "fuel"
+        : "train";
   const heading =
-    target.kind === "workout"
-      ? t.editWorkout
-      : isNew
-        ? t.newTitle[category]
-        : t.editTitle[category];
+    target.kind === "menu"
+      ? `${t.optionsTitle} · ${dict.slots[target.slot]}`
+      : target.kind === "workout"
+        ? t.editWorkout
+        : isNew
+          ? t.newTitle[category]
+          : t.editTitle[category];
 
   async function run(raw: Record<string, unknown>) {
     const parsed = OperationSchema.safeParse(raw);
@@ -183,11 +199,28 @@ function EditorForm({
         );
       case "workout":
         return void run({ op: "workout.update", day, title: text("title"), time: orNull("time") });
+      case "menu": {
+        const options = text("options")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+        return void run(
+          form.get("scope") === "week"
+            ? { op: "menu.set", slot: target.slot, options, days: target.days }
+            : { op: "meal.options", day, slot: target.slot, options },
+        );
+      }
     }
   }
 
   function onDelete() {
     if (target.kind === "workout") return void run({ op: "workout.clear", day });
+    if (target.kind === "menu")
+      return void run(
+        target.scope === "week"
+          ? { op: "menu.clear", slot: target.slot }
+          : { op: "meal.options", day, slot: target.slot, options: [] },
+      );
     if (!target.item) return;
     const op =
       target.kind === "agenda"
@@ -198,7 +231,7 @@ function EditorForm({
     void run({ op, id: target.item.id });
   }
 
-  const canDelete = target.kind === "workout" || Boolean(target.item);
+  const canDelete = target.kind === "workout" || target.kind === "menu" || Boolean(target.item);
 
   return (
     <form
@@ -365,6 +398,41 @@ function EditorForm({
             <input name="time" type="time" defaultValue={target.time} className={fieldClass} />
           </Field>
         </div>
+      ) : null}
+
+      {target.kind === "menu" ? (
+        <>
+          <Field label={t.optionsTitle} hint={t.optionsHint}>
+            <textarea
+              name="options"
+              required
+              rows={4}
+              defaultValue={target.options.map((option) => option.title).join("\n")}
+              autoFocus
+              className={`${fieldClass} h-auto py-3 leading-relaxed`}
+            />
+          </Field>
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="type-label mb-1.5 text-ink-muted">{t.optionsScope}</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(["day", "week"] as const).map((scope) => (
+                <label
+                  key={scope}
+                  className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-line text-[0.9375rem] font-bold text-ink-muted has-checked:border-fuel has-checked:text-ink"
+                >
+                  <input
+                    type="radio"
+                    name="scope"
+                    value={scope}
+                    defaultChecked={target.scope === scope}
+                    className="accent-(--fuel)"
+                  />
+                  {scope === "day" ? t.scopeThisDay : t.scopeEveryDay}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </>
       ) : null}
 
       {invalid ? (

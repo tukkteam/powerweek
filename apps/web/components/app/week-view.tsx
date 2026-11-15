@@ -5,6 +5,7 @@ import {
   DEFAULT_WINDOW,
   isoWeek,
   MEAL_SLOTS,
+  mealSlots,
   muscleLoad,
   position,
   resolveMove,
@@ -95,7 +96,7 @@ export function WeekView() {
       sum.agenda += d.agenda.length;
       sum.workouts += d.workout ? 1 : 0;
       sum.exercises += d.workout?.exercises.length ?? 0;
-      sum.fuel += d.meals.length;
+      sum.fuel += MEAL_SLOTS.filter((slot) => mealSlots(plan, day)[slot].kind !== "empty").length;
       return sum;
     },
     { agenda: 0, workouts: 0, exercises: 0, fuel: 0 },
@@ -162,6 +163,7 @@ export function WeekView() {
       {peek?.mode === "hover" ? (
         <HoverCard key={`${peek.day}-${peek.category}`} rect={peek.rect}>
           <DayPeek
+            dayKey={peek.day}
             day={plan.days[peek.day]}
             category={peek.category}
             title={`${dict.days.long[peek.day]} ${dayOfMonth(dates[peek.day])}`}
@@ -212,7 +214,10 @@ function DayRow({
   onLongPress: (category: Category, element: HTMLElement) => void;
 }) {
   const { dict } = useLocale();
-  const empty = !day.agenda.length && !day.workout && !day.meals.length;
+  const { plan } = useApp();
+  const slots = mealSlots(plan, dayKey);
+  const hasFuel = MEAL_SLOTS.some((slot) => slots[slot].kind !== "empty");
+  const empty = !day.agenda.length && !day.workout && !hasFuel;
   const name = dict.days.long[dayKey];
 
   const cell = (category: Category, filled: boolean, children: ReactNode, className = "") => (
@@ -294,12 +299,7 @@ function DayRow({
               <TrainCell day={day} />,
               day.workout ? "" : "max-md:hidden",
             )}
-            {cell(
-              "fuel",
-              day.meals.length > 0,
-              <FuelCell day={day} />,
-              day.meals.length ? "" : "max-md:hidden",
-            )}
+            {cell("fuel", hasFuel, <FuelCell dayKey={dayKey} />, hasFuel ? "" : "max-md:hidden")}
           </div>
         )}
       </article>
@@ -479,29 +479,54 @@ function TrainCell({ day }: { day: Day }) {
   );
 }
 
-function FuelCell({ day }: { day: Day }) {
+function FuelCell({ dayKey }: { dayKey: DayKey }) {
   const { dict } = useLocale();
-  const planned = MEAL_SLOTS.filter((slot) => day.meals.some((m) => m.slot === slot)).length;
-  const shown = day.meals.slice(0, 3);
-  const more = day.meals.length - shown.length;
+  const { plan, pickOf } = useApp();
+  const slots = mealSlots(plan, dayKey);
+  const lines = MEAL_SLOTS.flatMap((slot) => {
+    const s = slots[slot];
+    if (s.kind === "fixed")
+      return s.meals.map((meal) => ({ key: meal.id, slot, text: meal.title, pending: false }));
+    if (s.kind !== "options") return [];
+    const chosen = s.options.find((option) => option.id === pickOf(dayKey, slot));
+    return [
+      {
+        key: slot,
+        slot,
+        text: chosen?.title ?? dict.fuel.options(s.options.length),
+        pending: !chosen,
+      },
+    ];
+  });
+  const planned = MEAL_SLOTS.filter((slot) => slots[slot].kind !== "empty").length;
+  const shown = lines.slice(0, 3);
+  const more = lines.length - shown.length;
   return (
     <>
       <CellHeader category="fuel" extra={dict.fuel.planned(planned, MEAL_SLOTS.length)} />
       <span className="grid grid-cols-4 gap-1" aria-hidden="true">
-        {MEAL_SLOTS.map((slot) => (
-          <span
-            key={slot}
-            className={`h-1.5 rounded-full ${day.meals.some((m) => m.slot === slot) ? "bg-fuel" : "bg-fuel/15"}`}
-          />
-        ))}
+        {MEAL_SLOTS.map((slot) => {
+          const s = slots[slot];
+          const full = s.kind === "fixed" || (s.kind === "options" && pickOf(dayKey, slot));
+          return (
+            <span
+              key={slot}
+              className={`h-1.5 rounded-full ${full ? "bg-fuel" : s.kind === "options" ? "bg-fuel/45" : "bg-fuel/15"}`}
+            />
+          );
+        })}
       </span>
       <span className="flex flex-col gap-1">
-        {shown.map((meal) => (
-          <span key={meal.id} className="flex min-w-0 items-baseline gap-2">
+        {shown.map((line) => (
+          <span key={line.key} className="flex min-w-0 items-baseline gap-2">
             <span className="type-label w-[4.25rem] shrink-0 truncate text-[0.625rem] text-fuel">
-              {dict.slots[meal.slot]}
+              {dict.slots[line.slot]}
             </span>
-            <span className="truncate text-[0.875rem]">{meal.title}</span>
+            <span
+              className={`truncate text-[0.875rem] ${line.pending ? "text-ink-muted italic" : ""}`}
+            >
+              {line.text}
+            </span>
           </span>
         ))}
       </span>
@@ -575,6 +600,7 @@ function PeekSheet({
             />
           </div>
           <DayPeek
+            dayKey={shown.day}
             day={plan.days[shown.day]}
             category={shown.category}
             title={`${dict.days.long[shown.day]} ${dayOfMonth(dates[shown.day])}`}

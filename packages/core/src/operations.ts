@@ -62,6 +62,15 @@ const ExerciseInputSchema = z.object({
   move: opt(looseMove),
 });
 
+/** A meal option: a plain title ("Lentejas") or { title, note }. */
+const OptionInputSchema = z.preprocess(
+  (value) => (typeof value === "string" ? { title: value } : value),
+  z.object({
+    title: title(LIMITS.title),
+    note: opt(z.string().trim().max(LIMITS.note)),
+  }),
+);
+
 export const OperationSchema = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("agenda.add"),
@@ -136,6 +145,19 @@ export const OperationSchema = z.discriminatedUnion("op", [
   }),
   z.object({ op: z.literal("meal.remove"), id }),
   z.object({
+    op: z.literal("menu.set"),
+    slot: MealSlotSchema,
+    options: z.array(OptionInputSchema).min(1).max(LIMITS.optionsPerMeal),
+    days: opt(z.array(DayKeySchema).min(1).max(7)),
+  }),
+  z.object({ op: z.literal("menu.clear"), slot: MealSlotSchema }),
+  z.object({
+    op: z.literal("meal.options"),
+    day: DayKeySchema,
+    slot: MealSlotSchema,
+    options: z.array(OptionInputSchema).max(LIMITS.optionsPerMeal),
+  }),
+  z.object({
     op: z.literal("day.clear"),
     day: DayKeySchema,
     categories: opt(z.array(CategorySchema).min(1)),
@@ -156,6 +178,19 @@ export const OperationSchema = z.discriminatedUnion("op", [
 export type Operation = z.infer<typeof OperationSchema>;
 export type OperationInput = z.input<typeof OperationSchema>;
 export type OperationName = Operation["op"];
+
+/**
+ * Choosing one option for a date is not a plan change: it is stored per date (table
+ * `meal_picks`), like completions. The assistant writes it next to its operations; `option` is
+ * the option's title (or id), null clears the choice.
+ */
+export const PickSchema = z.object({
+  op: z.literal("meal.pick"),
+  day: DayKeySchema,
+  slot: MealSlotSchema,
+  option: z.string().trim().min(1).max(LIMITS.title).nullable(),
+});
+export type Pick = z.infer<typeof PickSchema>;
 
 export const MAX_OPERATIONS = 60;
 export const OperationsSchema = z.array(OperationSchema).max(MAX_OPERATIONS);

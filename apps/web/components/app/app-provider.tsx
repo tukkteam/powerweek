@@ -9,6 +9,7 @@ import {
   zonedToday,
   type Change,
   type DayKey,
+  type MealSlot,
   type Operation,
   type PlanDoc,
 } from "@powerweek/core";
@@ -72,6 +73,9 @@ interface AppValue {
   selectDay: (day: DayKey) => void;
   isDone: (itemId: string, day: DayKey) => boolean;
   toggleDone: (itemId: string, day: DayKey) => void;
+  /** The option chosen for a meal slot on this week's date of `day`, if any. */
+  pickOf: (day: DayKey, slot: MealSlot) => string | null;
+  pick: (day: DayKey, slot: MealSlot, optionId: string | null) => void;
   edit: (operations: Operation[]) => Promise<boolean>;
   ask: (input: string) => Promise<boolean>;
   thinking: boolean;
@@ -132,6 +136,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [today, setToday] = useState<{ dayKey: DayKey; isoDate: string }>(PLACEHOLDER_DAY);
   const [selectedDay, setSelectedDay] = useState<DayKey>(PLACEHOLDER_DAY.dayKey);
   const [done, setDone] = useState<Set<string>>(() => new Set());
+  const [picks, setPicks] = useState<Map<string, string>>(() => new Map());
   const [thinking, setThinking] = useState(false);
   const [listening, setListening] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -255,6 +260,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase, user, dates.mon, dates.sun]);
 
+  // Meal picks for the visible week (one option per date and slot).
+  const loadPicks = useCallback(async () => {
+    const { data } = await supabase
+      .from("meal_picks")
+      .select("on_date, slot, option_id")
+      .gte("on_date", dates.mon)
+      .lte("on_date", dates.sun);
+    if (data) setPicks(new Map(data.map((row) => [`${row.on_date}|${row.slot}`, row.option_id])));
+  }, [supabase, dates.mon, dates.sun]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    supabase
+      .from("meal_picks")
+      .select("on_date, slot, option_id")
+      .gte("on_date", dates.mon)
+      .lte("on_date", dates.sun)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setPicks(new Map(data.map((row) => [`${row.on_date}|${row.slot}`, row.option_id])));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user, dates.mon, dates.sun]);
+
   // Realtime: other devices' saves arrive here.
   useEffect(() => {
     if (!user) return;
@@ -353,10 +385,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           const changes = (body.changes ?? []) as Change[];
           if (changes.length > 0) commit(coercePlan(body.plan), body.version as number);
+          if (body.picked) void loadPicks();
           showReceipt(
             "assistant",
             changes,
-            changes.length ? (body.version as number) : null,
+            changes.length && body.undoable !== false ? (body.version as number) : null,
             String(body.reply ?? ""),
           );
           return true;
@@ -367,7 +400,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setThinking(false);
         }
       }),
-    [enqueue, lang, today.isoDate, router, handleConflict, notify, commit, showReceipt, dict],
+    [
+      enqueue,
+      lang,
+      today.isoDate,
+      router,
+      handleConflict,
+      notify,
+      commit,
+      showReceipt,
+      dict,
+      loadPicks,
+    ],
   );
 
   const undo = useCallback(
@@ -419,6 +463,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     },
     [user, dates, done, supabase, notify, dict.errors.generic],
+  );
+
+  const pickOf = useCallback(
+    (day: DayKey, slot: MealSlot) => picks.get(`${dates[day]}|${slot}`) ?? null,
+    [picks, dates],
+  );
+
+  const pick = useCallback(
+    (day: DayKey, slot: MealSlot, optionId: string | null) => {
+      if (!user) return;
+      const key = `${dates[day]}|${slot}`;
+      const before = picks.get(key) ?? null;
+      const set = (value: string | null) =>
+        setPicks((previous) => {
+          const next = new Map(previous);
+          if (value) next.set(key, value);
+          else next.delete(key);
+          return next;
+        });
+      set(optionId);
+      const request = optionId
+        ? supabase
+            .from("meal_picks")
+            .upsert({ user_id: user.id, on_date: dates[day], slot, option_id: optionId })
+        : supabase.from("meal_picks").delete().eq("on_date", dates[day]).eq("slot", slot);
+      void request.then(({ error }) => {
+        if (error) {
+          set(before);
+          notify(dict.errors.generic);
+        }
+      });
+    },
+    [user, dates, picks, supabase, notify, dict.errors.generic],
   );
 
   const updateProfile = useCallback(
@@ -490,6 +567,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       selectDay: setSelectedDay,
       isDone,
       toggleDone,
+      pickOf,
+      pick,
       edit,
       ask,
       thinking,
@@ -518,6 +597,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       selectedDay,
       isDone,
       toggleDone,
+      pickOf,
+      pick,
       edit,
       ask,
       thinking,

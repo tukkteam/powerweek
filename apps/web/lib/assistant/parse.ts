@@ -2,12 +2,16 @@ import {
   DAY_KEYS,
   MAX_OPERATIONS,
   OperationSchema,
+  PickSchema,
   type DayKey,
   type Operation,
+  type Pick,
 } from "@powerweek/core";
 
 export interface ParsedOutput {
   operations: Operation[];
+  /** Options chosen for dates of the current week (not plan changes). */
+  picks: Pick[];
   reply: string;
   /** Operations the model wrote that did not validate and were dropped. */
   dropped: number;
@@ -40,6 +44,7 @@ function normalise(raw: unknown): unknown {
   if (typeof op.op === "string") op.op = op.op.trim().toLowerCase().replace("_", ".");
   if ("day" in op) op.day = normaliseDay(op.day);
   if ("from" in op) op.from = normaliseDay(op.from);
+  if (Array.isArray(op.days)) op.days = op.days.map(normaliseDay);
   if (Array.isArray(op.to)) op.to = op.to.map(normaliseDay);
   else if (typeof op.to === "string") op.to = [normaliseDay(op.to)];
   return op;
@@ -72,13 +77,20 @@ export function parseAssistantOutput(content: string): ParsedOutput | null {
   const rawOps = Array.isArray(record.operations) ? record.operations.slice(0, MAX_OPERATIONS) : [];
 
   const operations: Operation[] = [];
+  const picks: Pick[] = [];
   let dropped = 0;
   for (const raw of rawOps) {
-    const parsed = OperationSchema.safeParse(normalise(raw));
-    if (parsed.success) operations.push(parsed.data);
+    const op = normalise(raw);
+    const parsed = OperationSchema.safeParse(op);
+    if (parsed.success) {
+      operations.push(parsed.data);
+      continue;
+    }
+    const pick = PickSchema.safeParse(op);
+    if (pick.success) picks.push(pick.data);
     else dropped += 1;
   }
 
   const reply = typeof record.reply === "string" ? record.reply.trim().slice(0, 400) : "";
-  return { operations, reply, dropped };
+  return { operations, picks, reply, dropped };
 }

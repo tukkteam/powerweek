@@ -62,6 +62,10 @@ Every category keeps one colour everywhere: **Agenda is blue** (`agenda`), **Tra
 
 The Week Pulse is the model for the whole interface: quantities are drawn as bars that grow. The week grows by load (Week Pulse, Week Stack), the day fills with the clock (Day Bar), each appointment fills from its start to its end, meals fill a four-slot gauge and the sets of an exercise are pills. Prefer a bar to a number, and a number to a sentence.
 
+### Meal options
+
+A meal slot can hold a range of options ("abanico") instead of one dish, shared by the week or for one day. In Today they are chips: tap one to choose it for that date (orange, with a check; the others dim), tap again to undo. Until you choose, the slot's gauge shows one dim segment per option and the Day Bar marker is dashed.
+
 ### Training without ticks
 
 At the gym nobody wants to tick boxes between sets. Exercises are tiles you glance at: the movement drawn, the sets as pills, reps and load in mono. Opening a tile shows the animated movement, its three phases and the muscles it works. The session is marked done once, with one button.

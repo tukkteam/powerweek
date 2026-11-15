@@ -1,6 +1,6 @@
 "use client";
 
-import { type Exercise } from "@powerweek/core";
+import { MEAL_SLOTS, mealSlots, type Exercise } from "@powerweek/core";
 import { StickyNote } from "lucide-react";
 import { useState } from "react";
 import { AgendaBox } from "@/components/app/agenda-box";
@@ -30,10 +30,14 @@ export function TodayView() {
   const { relation, now } = useDayClock(selectedDay);
   const isToday = relation === "today";
   const dateLabel = shortDate(dates[selectedDay], lang);
+  const slots = mealSlots(plan, selectedDay);
   const counts = {
     agenda: day.agenda.length,
     train: day.workout?.exercises.length ?? 0,
-    fuel: day.meals.length,
+    fuel: MEAL_SLOTS.reduce((n, slot) => {
+      const s = slots[slot];
+      return n + (s.kind === "fixed" ? s.meals.length : s.kind === "options" ? 1 : 0);
+    }, 0),
   };
   const empty = counts.agenda + counts.fuel === 0 && !day.workout;
   const sheet: Exercise | null =
@@ -99,6 +103,10 @@ export function TodayView() {
         </section>
         <DayBar
           day={day}
+          dayKey={selectedDay}
+          onMenu={() =>
+            document.getElementById("fuel")?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
           relation={relation}
           now={now}
           onAgenda={(item) => setEditor({ kind: "agenda", item })}
@@ -119,7 +127,11 @@ export function TodayView() {
           onAdd={() => setEditor({ kind: "agenda" })}
         />
         <FuelBox
-          day={day}
+          plan={plan}
+          dayKey={selectedDay}
+          onEditOptions={(target) =>
+            setEditor({ kind: "menu", ...target, days: plan.menu?.[target.slot]?.days })
+          }
           relation={relation}
           now={now}
           onEdit={(meal) => setEditor({ kind: "meal", item: meal })}
