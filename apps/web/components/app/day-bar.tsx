@@ -6,14 +6,17 @@ import {
   fromMinutes,
   MEAL_TIMES,
   position,
-  sortMeals,
+  MEAL_SLOTS,
+  mealSlots,
   spanProgress,
   type AgendaItem,
   type Day,
+  type DayKey,
   type Meal,
   type Span,
 } from "@powerweek/core";
 import { Dumbbell, Utensils } from "lucide-react";
+import { useApp } from "@/components/app/app-provider";
 import { useLocale } from "@/components/i18n/locale-provider";
 import type { DayRelation } from "@/components/app/use-day-clock";
 import { formatDuration } from "@/lib/format";
@@ -32,6 +35,9 @@ const pct = (value: number) => `${(value * 100).toFixed(3)}%`;
 
 interface DayBarProps {
   day: Day;
+  dayKey: DayKey;
+  /** A meal slot with options was tapped (they are chosen in the Comidas box). */
+  onMenu: () => void;
   relation: DayRelation;
   /** Minute of the day when `relation` is today; null otherwise or before the clock starts. */
   now: number | null;
@@ -48,6 +54,8 @@ interface DayBarProps {
  */
 export function DayBar({
   day,
+  dayKey,
+  onMenu,
   relation,
   now,
   onAgenda,
@@ -73,10 +81,33 @@ export function DayBar({
           ? dict.day.remaining(formatDuration(range.end - Math.max(now!, range.start)))
           : "";
 
-  // Meals sit at the usual time of their slot; extra snacks step 25 minutes to the right.
-  const meals = sortMeals(day.meals).map((meal, index, all) => {
-    const before = all.slice(0, index).filter((m) => m.slot === meal.slot).length;
-    return { meal, at: mealTimes[meal.slot] + before * 25 };
+  // Meals sit at the usual time of their slot; extra snacks step 25 minutes to the right. A slot
+  // with options shows one marker: dashed until you choose, then like any other meal.
+  const { plan, pickOf } = useApp();
+  const slots = mealSlots(plan, dayKey);
+  const meals = MEAL_SLOTS.flatMap((slot) => {
+    const s = slots[slot];
+    if (s.kind === "fixed")
+      return s.meals.map((meal, index) => ({
+        key: meal.id,
+        slot,
+        at: mealTimes[slot] + index * 25,
+        title: meal.title,
+        meal: meal as Meal | null,
+        pending: false,
+      }));
+    if (s.kind !== "options") return [];
+    const chosen = s.options.find((option) => option.id === pickOf(dayKey, slot));
+    return [
+      {
+        key: `options-${slot}`,
+        slot,
+        at: mealTimes[slot],
+        title: chosen?.title ?? dict.fuel.options(s.options.length),
+        meal: null,
+        pending: !chosen,
+      },
+    ];
   });
 
   const agendaLanes = agenda.length ? Math.max(1, lanes) : 0;
@@ -187,21 +218,23 @@ export function DayBar({
           />
         ) : null}
 
-        {meals.map(({ meal, at }, index) => {
+        {meals.map(({ key, slot, at, title, meal, pending }, index) => {
           const eaten =
-            relation === "past" || (relation === "today" && now !== null && now >= at + 30);
+            !pending &&
+            (relation === "past" || (relation === "today" && now !== null && now >= at + 30));
           return (
             <button
-              key={meal.id}
+              key={key}
               type="button"
-              onClick={() => onMeal(meal)}
-              aria-label={dict.day.spanLabel(
-                `${dict.slots[meal.slot]}: ${meal.title}`,
-                fromMinutes(at),
-              )}
-              title={`${dict.slots[meal.slot]} · ${meal.title}`}
+              onClick={() => (meal ? onMeal(meal) : onMenu())}
+              aria-label={dict.day.spanLabel(`${dict.slots[slot]}: ${title}`, fromMinutes(at))}
+              title={`${dict.slots[slot]} · ${title}`}
               className={`pw-pop pw-slide absolute flex -translate-x-1/2 items-center justify-center rounded-full hover:scale-110 ${
-                eaten ? "bg-fuel text-bg" : "border-2 border-fuel bg-surface text-fuel"
+                eaten
+                  ? "bg-fuel text-bg"
+                  : pending
+                    ? "border-2 border-dashed border-fuel/70 bg-surface text-fuel"
+                    : "border-2 border-fuel bg-surface text-fuel"
               }`}
               style={{
                 left: pct(position(at, range)),

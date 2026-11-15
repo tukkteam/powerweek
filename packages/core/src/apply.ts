@@ -12,6 +12,7 @@ import {
   type DayKey,
   type Exercise,
   type Meal,
+  type MealOption,
   type MealSlot,
   type PlanDoc,
 } from "./plan";
@@ -29,6 +30,8 @@ export interface Change {
   slot?: MealSlot;
   prescription?: string;
   exerciseCount?: number;
+  /** Meal options shared by several days (the receipt shows "week" instead of one day). */
+  scope?: "week";
 }
 
 export type RejectionReason = "not_found" | "limit" | "noop";
@@ -60,6 +63,14 @@ export function formatPrescription(
   const parts = [volume, ex.load].filter(Boolean);
   return parts.length ? parts.join(" · ") : undefined;
 }
+
+/** "Lentejas / Wok de pollo / Pasta" — how a range of options reads in the receipt. */
+export function optionsLabel(options: readonly Pick<MealOption, "title">[]): string {
+  return options.map((option) => option.title).join(" / ");
+}
+
+const sameTitle = (a: string, b: string) =>
+  a.localeCompare(b, undefined, { sensitivity: "base" }) === 0;
 
 function clean<T extends object>(value: T): T {
   for (const key of Object.keys(value) as (keyof T)[]) {
@@ -119,6 +130,19 @@ export function applyOperations(
   const mealChange = (kind: ChangeKind, day: DayKey, meal: Meal, toDay?: DayKey): Change =>
     clean({ kind, day, toDay, category: "fuel" as const, label: meal.title, slot: meal.slot });
 
+  /** New options keep the id of an existing option with the same title, so picks survive edits. */
+  const withIds = (
+    inputs: readonly { title: string; note?: string }[],
+    previous: readonly MealOption[] = [],
+  ): MealOption[] =>
+    inputs.map((input) =>
+      clean({
+        id: previous.find((p) => sameTitle(p.title, input.title))?.id ?? makeId(),
+        title: input.title,
+        note: input.note,
+      }),
+    );
+
   const removeCategories = (day: DayKey, categories: readonly Category[]) => {
     const d = days[day];
     if (categories.includes("agenda")) {
@@ -138,6 +162,10 @@ export function applyOperations(
     if (categories.includes("fuel")) {
       for (const meal of d.meals) changes.push(mealChange("remove", day, meal));
       d.meals = [];
+      for (const [slot, options] of Object.entries(d.menu ?? {}) as [MealSlot, MealOption[]][]) {
+        changes.push({ kind: "remove", day, category: "fuel", slot, label: optionsLabel(options) });
+      }
+      delete d.menu;
     }
   };
 
@@ -323,6 +351,66 @@ export function applyOperations(
         changes.push(mealChange("remove", found.day, meal!));
         return;
       }
+      case "menu.set": {
+        const menu = (next.menu ??= {});
+        const before = menu[op.slot];
+        const entry = clean({
+          options: withIds(op.options, before?.options),
+          days: op.days ? DAY_KEYS.filter((day) => op.days!.includes(day)) : undefined,
+        });
+        menu[op.slot] = entry;
+        changes.push({
+          kind: before ? "update" : "add",
+          day: entry.days?.[0] ?? "mon",
+          category: "fuel",
+          slot: op.slot,
+          label: optionsLabel(entry.options),
+          scope: "week",
+        });
+        return;
+      }
+      case "menu.clear": {
+        const entry = next.menu?.[op.slot];
+        if (!entry) return reject("noop");
+        delete next.menu![op.slot];
+        if (Object.keys(next.menu!).length === 0) delete next.menu;
+        changes.push({
+          kind: "remove",
+          day: entry.days?.[0] ?? "mon",
+          category: "fuel",
+          slot: op.slot,
+          label: optionsLabel(entry.options),
+          scope: "week",
+        });
+        return;
+      }
+      case "meal.options": {
+        const d = days[op.day];
+        const before = d.menu?.[op.slot];
+        if (op.options.length === 0) {
+          if (!before) return reject("noop");
+          delete d.menu![op.slot];
+          if (Object.keys(d.menu!).length === 0) delete d.menu;
+          changes.push({
+            kind: "remove",
+            day: op.day,
+            category: "fuel",
+            slot: op.slot,
+            label: optionsLabel(before),
+          });
+          return;
+        }
+        const options = withIds(op.options, before);
+        (d.menu ??= {})[op.slot] = options;
+        changes.push({
+          kind: before ? "update" : "add",
+          day: op.day,
+          category: "fuel",
+          slot: op.slot,
+          label: optionsLabel(options),
+        });
+        return;
+      }
       case "day.clear": {
         const categories = op.categories ?? CATEGORIES;
         const before = changes.length;
@@ -357,6 +445,18 @@ export function applyOperations(
           if (categories.includes("fuel")) {
             d.meals = from.meals.map((meal) => ({ ...meal, id: makeId() }));
             for (const meal of d.meals) changes.push(mealChange("add", target, meal));
+            if (from.menu) {
+              d.menu = structuredClone(from.menu);
+              for (const [slot, options] of Object.entries(d.menu) as [MealSlot, MealOption[]][]) {
+                changes.push({
+                  kind: "add",
+                  day: target,
+                  category: "fuel",
+                  slot,
+                  label: optionsLabel(options),
+                });
+              }
+            }
           }
         }
         return;

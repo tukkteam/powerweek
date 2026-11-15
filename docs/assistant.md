@@ -24,6 +24,9 @@ The operation catalogue is defined in [`packages/core/src/operations.ts`](../pac
 | `workout.set` / `workout.update` / `workout.clear`     | Create or replace a day's workout, rename it, set its start time, remove it                 |
 | `exercise.add` / `exercise.update` / `exercise.remove` | Single exercises; `add` creates a workout if the day has none; `move` links an illustration |
 | `meal.set` / `meal.update` / `meal.remove`             | One meal per slot (breakfast, lunch, dinner), any number of snacks                          |
+| `menu.set` / `menu.clear`                              | Options for a meal slot shared by the week (optionally only some days)                      |
+| `meal.options`                                         | Options for one slot on one day; `[]` removes them                                          |
+| `meal.pick` (not a plan operation)                     | Chooses one option for this week's date; stored in `meal_picks`, no undo                    |
 | `day.clear`                                            | Clear a day, optionally only some categories                                                |
 | `day.copy`                                             | Copy a day (or some categories) onto other days                                             |
 | `day.note`                                             | Set or remove a free-text note for a day                                                    |

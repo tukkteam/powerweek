@@ -37,6 +37,7 @@ export const LIMITS = {
   agendaPerDay: 40,
   exercisesPerWorkout: 30,
   mealsPerDay: 12,
+  optionsPerMeal: 8,
   dayNote: 500,
 } as const;
 
@@ -90,11 +91,55 @@ export const MealSchema = z
   .strict()
   .meta({ id: "Meal" });
 
+/** One dish in a meal's range of options ("abanico"); the user picks one per date. */
+export const MealOptionSchema = z
+  .object({
+    id: IdSchema,
+    title: text(LIMITS.title),
+    note: optionalText(LIMITS.note),
+  })
+  .strict()
+  .meta({ id: "MealOption" });
+
+const OptionListSchema = z.array(MealOptionSchema).min(1).max(LIMITS.optionsPerMeal);
+
+/** Options for one day only, by slot. They win over the week's options for that slot. */
+export const DayMenuSchema = z
+  .object({
+    breakfast: OptionListSchema.optional(),
+    lunch: OptionListSchema.optional(),
+    snack: OptionListSchema.optional(),
+    dinner: OptionListSchema.optional(),
+  })
+  .strict()
+  .meta({ id: "DayMenu" });
+
+/** Options shared by several days: every day, or only `days` when given. */
+export const WeekMenuEntrySchema = z
+  .object({
+    options: OptionListSchema,
+    days: z.array(DayKeySchema).min(1).max(7).optional(),
+  })
+  .strict()
+  .meta({ id: "WeekMenuEntry" });
+
+export const WeekMenuSchema = z
+  .object({
+    breakfast: WeekMenuEntrySchema.optional(),
+    lunch: WeekMenuEntrySchema.optional(),
+    snack: WeekMenuEntrySchema.optional(),
+    dinner: WeekMenuEntrySchema.optional(),
+  })
+  .strict()
+  .meta({ id: "WeekMenu" });
+
 export const DaySchema = z
   .object({
     agenda: z.array(AgendaItemSchema).max(LIMITS.agendaPerDay),
     workout: WorkoutSchema.nullable(),
     meals: z.array(MealSchema).max(LIMITS.mealsPerDay),
+    /** Per-day meal options. */
+    menu: DayMenuSchema.optional(),
     note: optionalText(LIMITS.dayNote),
   })
   .strict()
@@ -114,9 +159,14 @@ export const PlanDocSchema = z
         sun: DaySchema,
       })
       .strict(),
+    /** Meal options shared across the week, by slot. */
+    menu: WeekMenuSchema.optional(),
   })
   .strict();
 
+export type MealOption = z.infer<typeof MealOptionSchema>;
+export type DayMenu = z.infer<typeof DayMenuSchema>;
+export type WeekMenu = z.infer<typeof WeekMenuSchema>;
 export type AgendaItem = z.infer<typeof AgendaItemSchema>;
 export type Exercise = z.infer<typeof ExerciseSchema>;
 export type Workout = z.infer<typeof WorkoutSchema>;
@@ -191,9 +241,38 @@ export function dayLoad(day: Day): number {
   return day.agenda.length + training + day.meals.length;
 }
 
+/** What a meal slot holds on a day: fixed meals, a range of options, or nothing. */
+export type SlotPlan =
+  | { kind: "fixed"; meals: Meal[] }
+  | { kind: "options"; options: MealOption[]; scope: "day" | "week" }
+  | { kind: "empty" };
+
+/** Resolve every slot of a day: fixed meals win, then the day's options, then the week's. */
+export function mealSlots(plan: PlanDoc, day: DayKey): Record<MealSlot, SlotPlan> {
+  const d = plan.days[day];
+  const out = {} as Record<MealSlot, SlotPlan>;
+  for (const slot of MEAL_SLOTS) {
+    const fixed = d.meals.filter((meal) => meal.slot === slot);
+    const own = d.menu?.[slot];
+    const week = plan.menu?.[slot];
+    if (fixed.length) out[slot] = { kind: "fixed", meals: fixed };
+    else if (own?.length) out[slot] = { kind: "options", options: own, scope: "day" };
+    else if (week && (!week.days || week.days.includes(day)))
+      out[slot] = { kind: "options", options: week.options, scope: "week" };
+    else out[slot] = { kind: "empty" };
+  }
+  return out;
+}
+
+/** Day load including meal slots that offer options (one each), for the Week Pulse. */
+export function dayLoadIn(plan: PlanDoc, day: DayKey): number {
+  const slots = Object.values(mealSlots(plan, day));
+  return dayLoad(plan.days[day]) + slots.filter((slot) => slot.kind === "options").length;
+}
+
 /** Load per day normalised to the busiest day (0..1), for the Week Pulse. */
 export function weekLoads(plan: PlanDoc): Record<DayKey, { count: number; ratio: number }> {
-  const counts = DAY_KEYS.map((key) => dayLoad(plan.days[key]));
+  const counts = DAY_KEYS.map((key) => dayLoadIn(plan, key));
   const max = Math.max(1, ...counts);
   const out = {} as Record<DayKey, { count: number; ratio: number }>;
   DAY_KEYS.forEach((key, i) => {

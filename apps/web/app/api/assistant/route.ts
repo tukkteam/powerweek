@@ -1,4 +1,13 @@
-import { applyOperations, dayKeyOf, type Operation } from "@powerweek/core";
+import {
+  applyOperations,
+  dayKeyOf,
+  type Operation,
+  mealSlots,
+  weekDates,
+  type Change,
+  type Pick,
+  type PlanDoc,
+} from "@powerweek/core";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { completeJson, ModelError } from "@/lib/assistant/model";
@@ -62,6 +71,62 @@ async function overLimit(db: Db, isAnonymous: boolean): Promise<boolean> {
 }
 
 /**
+ * Store the options the user chose for dates of the current week. Options are matched by id or
+ * title among the day's resolved options; unknown options are ignored.
+ */
+async function applyPicks(
+  db: Db,
+  userId: string,
+  plan: PlanDoc,
+  today: string,
+  picks: readonly Pick[],
+  label: (title: string) => string,
+): Promise<Change[]> {
+  const dates = weekDates(today);
+  const changes: Change[] = [];
+  for (const pick of picks) {
+    const slot = mealSlots(plan, pick.day)[pick.slot];
+    if (pick.option === null) {
+      const { error } = await db
+        .from("meal_picks")
+        .delete()
+        .eq("on_date", dates[pick.day])
+        .eq("slot", pick.slot);
+      if (!error)
+        changes.push({
+          kind: "remove",
+          day: pick.day,
+          category: "fuel",
+          slot: pick.slot,
+          label: label("—"),
+        });
+      continue;
+    }
+    if (slot.kind !== "options") continue;
+    const wanted = pick.option.toLocaleLowerCase();
+    const option = slot.options.find(
+      (o) => o.id === pick.option || o.title.toLocaleLowerCase() === wanted,
+    );
+    if (!option) continue;
+    const { error } = await db.from("meal_picks").upsert({
+      user_id: userId,
+      on_date: dates[pick.day],
+      slot: pick.slot,
+      option_id: option.id,
+    });
+    if (!error)
+      changes.push({
+        kind: "update",
+        day: pick.day,
+        category: "fuel",
+        slot: pick.slot,
+        label: label(option.title),
+      });
+  }
+  return changes;
+}
+
+/**
  * The assistant turns a sentence into typed plan operations:
  * load the caller's plan → ask the model → validate → apply with @powerweek/core → save a
  * new version (with the input, operations and changes in the revision log) → return it.
@@ -118,14 +183,25 @@ export async function POST(request: NextRequest) {
 
   let applied = apply(parsed.operations);
   if (applied.changes.length === 0) {
-    await logRequest(db, user.id, "no_changes", modelName, startedAt);
+    const picked = await applyPicks(
+      db,
+      user.id,
+      current.plan,
+      today,
+      parsed.picks,
+      dict.fuel.picked,
+    );
+    await logRequest(db, user.id, picked.length ? "ok" : "no_changes", modelName, startedAt);
     return NextResponse.json({
-      status: "no_changes",
+      status: picked.length ? "ok" : "no_changes",
       plan: current.plan,
       version: current.version,
-      changes: [],
+      changes: picked,
       rejected: applied.rejected,
       reply: parsed.reply,
+      picked: picked.length,
+      // Picks are not plan versions: there is nothing to undo.
+      undoable: false,
     });
   }
 
@@ -158,13 +234,15 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const picked = await applyPicks(db, user.id, applied.plan, today, parsed.picks, dict.fuel.picked);
   await logRequest(db, user.id, "ok", modelName, startedAt);
   return NextResponse.json({
     status: "ok",
     plan: applied.plan,
     version,
-    changes: applied.changes,
+    changes: [...applied.changes, ...picked],
     rejected: applied.rejected,
     reply: parsed.reply,
+    picked: picked.length,
   });
 }

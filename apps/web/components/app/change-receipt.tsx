@@ -56,7 +56,7 @@ export function ChangeReceipt() {
                 {OP_SYMBOL[change.kind]}
               </span>
               <span className="type-label truncate text-ink-muted">
-                {dict.days.long[change.day]}
+                {change.scope === "week" ? dict.receipt.week : dict.days.long[change.day]}
               </span>
               <span className="type-body truncate">{describeChange(change, dict)}</span>
             </li>

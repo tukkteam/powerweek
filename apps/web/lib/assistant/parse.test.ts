@@ -60,4 +60,27 @@ describe("parseAssistantOutput", () => {
   it("returns null for unusable output", () => {
     expect(parseAssistantOutput("not json")).toBeNull();
   });
+
+  it("keeps meal picks apart from plan operations", () => {
+    const parsed = parseAssistantOutput(
+      JSON.stringify({
+        operations: [
+          {
+            op: "menu.set",
+            slot: "lunch",
+            options: ["Lentejas", "Wok"],
+            days: ["lunes", "martes"],
+          },
+          { op: "meal.pick", day: "sábado", slot: "dinner", option: "Sushi" },
+        ],
+        reply: "Hecho",
+      }),
+    );
+    expect(parsed?.operations).toHaveLength(1);
+    expect(parsed?.operations[0]).toMatchObject({ op: "menu.set", days: ["mon", "tue"] });
+    expect(parsed?.picks).toEqual([
+      { op: "meal.pick", day: "sat", slot: "dinner", option: "Sushi" },
+    ]);
+    expect(parsed?.dropped).toBe(0);
+  });
 });

@@ -41,6 +41,8 @@ Limits (also in the schema): 40 agenda items, one workout of up to 30 exercises 
 
 `move` is a slug from the move library ([`packages/core/src/moves.ts`](../packages/core/src/moves.ts), 302 exercises). The assistant writes it; when it is missing or unknown, `resolveMove` matches the exercise name (Spanish or English) instead, so older plans and manual edits get illustrations too. Renaming an exercise without restating its `move` drops the old one.
 
+Meals can offer options instead of one dish. The plan's optional `menu` holds options shared by several days per slot (`{ "lunch": { "options": [{ "id", "title" }], "days": ["mon", …] } }`, no `days` = every day); a day's optional `menu` holds options for that day only. For each slot a fixed meal wins, then the day's options, then the week's (`mealSlots` in core). The option chosen for a date lives in the `meal_picks` table (user, date, slot → option id, RLS owner-only), not in the plan; editing options keeps the id of options whose title is unchanged, so picks survive.
+
 Completions (`completions` table) are per date and item id. Untimed agenda items are ticked by hand; timed items show progress from the clock instead; a whole workout is marked done with the item id `workout`.
 
 ## Tables

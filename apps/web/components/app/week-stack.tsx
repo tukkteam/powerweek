@@ -1,6 +1,13 @@
 "use client";
 
-import { DAY_KEYS, weekLoads, type DayKey, type PlanDoc } from "@powerweek/core";
+import {
+  DAY_KEYS,
+  MEAL_SLOTS,
+  mealSlots,
+  weekLoads,
+  type DayKey,
+  type PlanDoc,
+} from "@powerweek/core";
 import { useLocale } from "@/components/i18n/locale-provider";
 
 /**
@@ -27,6 +34,11 @@ export function WeekStack({
     >
       {DAY_KEYS.map((day) => {
         const d = plan.days[day];
+        const slots = mealSlots(plan, day);
+        const fuel = MEAL_SLOTS.reduce((n, slot) => {
+          const s = slots[slot];
+          return n + (s.kind === "fixed" ? s.meals.length : s.kind === "options" ? 1 : 0);
+        }, 0);
         const parts = [
           { key: "agenda", count: d.agenda.length, className: "bg-agenda" },
           {
@@ -34,7 +46,7 @@ export function WeekStack({
             count: d.workout ? Math.max(1, d.workout.exercises.length) : 0,
             className: "bg-train",
           },
-          { key: "fuel", count: d.meals.length, className: "bg-fuel" },
+          { key: "fuel", count: fuel, className: "bg-fuel" },
         ].filter((part) => part.count > 0);
         const { count, ratio } = loads[day];
         const isToday = day === todayKey;
@@ -48,7 +60,7 @@ export function WeekStack({
               dict.days.long[day],
               d.agenda.length,
               d.workout?.exercises.length ?? 0,
-              d.meals.length,
+              fuel,
             )}
             className="group flex flex-col items-center gap-2 rounded-xl pt-1 pb-0.5"
           >
