@@ -13,6 +13,7 @@ import {
   type RefObject,
 } from "react";
 import { useApp } from "@/components/app/app-provider";
+import { MicSettings } from "@/components/app/mic-settings";
 import { LanguageSwitch } from "@/components/i18n/language-switch";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -194,6 +195,10 @@ export function SettingsView() {
             ))}
           </select>
         </label>
+      </Section>
+
+      <Section title={t.voice}>
+        <MicSettings />
       </Section>
 
       <Section title={t.data}>

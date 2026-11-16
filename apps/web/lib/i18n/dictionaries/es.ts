@@ -320,6 +320,17 @@ export const es = {
     hintStop: "Toca para terminar · Esc para cancelar",
     voiceUnsupported: "Tu navegador no admite dictado. Escribe tu cambio.",
     micDenied: "Sin permiso para el micrófono. Actívalo en el navegador o escribe tu cambio.",
+    noSpeech: "No te he oído. Comprueba el micrófono en Ajustes → Voz.",
+    noMicrophone: "No encuentro el micrófono. Conecta uno o elige otro en Ajustes → Voz.",
+    micBusy: "El micrófono no responde. Puede que otra app lo esté usando.",
+    micLost: "Se ha desconectado el micrófono. Revisa lo que oí y envíalo.",
+    micFallback: (name: string) =>
+      name
+        ? `${name} no está conectado. Te escucho con el predeterminado del sistema.`
+        : "Tu micrófono no está conectado. Te escucho con el predeterminado del sistema.",
+    speechNetwork: "El dictado del navegador no responde. Revisa tu conexión o escribe tu cambio.",
+    speechService: "Tu navegador no deja usar su dictado. En Safari, activa el Dictado de macOS.",
+    speechFailed: "El dictado ha fallado. Inténtalo de nuevo o escribe tu cambio.",
     examples: [
       "los lunes hago pierna: sentadilla 5 × 5 y peso muerto rumano 3 × 10",
       "el miércoles pádel a las 18:30",
@@ -392,6 +403,23 @@ export const es = {
     languageHint: "Cambia el idioma de la interfaz y del asistente.",
     timeZone: "Zona horaria",
     timeZoneHint: "Define qué día es «hoy».",
+    voice: "Voz",
+    mic: {
+      label: "Micrófono para dictar",
+      systemDefault: "Predeterminado del sistema",
+      systemDefaultIs: (name: string) => `Predeterminado del sistema (${name})`,
+      unnamed: (n: number) => `Micrófono ${n}`,
+      disconnected: (name: string) => `${name} · no conectado`,
+      hint: "Se guarda en este navegador. El predeterminado sigue al micrófono que use tu equipo, también cuando conectas o desconectas un dock o unos auriculares.",
+      missing:
+        "Ese micrófono no está conectado ahora. Mientras tanto dicto con el predeterminado del sistema.",
+      reveal: "Pulsa «Probar» y da permiso para ver tus micrófonos.",
+      test: "Probar",
+      stopTest: "Parar",
+      testing: (name: string) => `Escuchando: ${name}. Habla y mira las barras.`,
+      systemOnly:
+        "En este navegador el dictado usa el micrófono del sistema. Cámbialo en los ajustes de sonido de tu equipo.",
+    },
     data: "Tus datos",
     export: "Descargar mi semana (JSON)",
     deleteAccount: "Borrar mi cuenta",

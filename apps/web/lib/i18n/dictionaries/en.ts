@@ -297,6 +297,19 @@ export const en: Dictionary = {
     hintStop: "Tap to finish · Esc to cancel",
     voiceUnsupported: "Your browser can't take dictation. Type your change instead.",
     micDenied: "No microphone permission. Allow it in your browser or type your change.",
+    noSpeech: "I didn't hear anything. Check the microphone in Settings → Voice.",
+    noMicrophone: "I can't find the microphone. Plug one in or pick another in Settings → Voice.",
+    micBusy: "The microphone isn't responding. Another app may be using it.",
+    micLost: "The microphone was disconnected. Check what I heard and send it.",
+    micFallback: (name: string) =>
+      name
+        ? `${name} isn't connected. I'm listening through the system default.`
+        : "Your microphone isn't connected. I'm listening through the system default.",
+    speechNetwork:
+      "Your browser's dictation isn't responding. Check your connection or type your change.",
+    speechService:
+      "Your browser won't let me use its dictation. In Safari, turn on macOS Dictation.",
+    speechFailed: "Dictation failed. Try again or type your change.",
     examples: [
       "Mondays are leg day: squats 5 × 5 and Romanian deadlifts 3 × 10",
       "padel on Wednesday at 6:30 pm",
@@ -356,6 +369,23 @@ export const en: Dictionary = {
     languageHint: "Changes the language of the interface and the assistant.",
     timeZone: "Time zone",
     timeZoneHint: "Decides which day is “today”.",
+    voice: "Voice",
+    mic: {
+      label: "Microphone for dictation",
+      systemDefault: "System default",
+      systemDefaultIs: (name: string) => `System default (${name})`,
+      unnamed: (n: number) => `Microphone ${n}`,
+      disconnected: (name: string) => `${name} · not connected`,
+      hint: "Saved in this browser. The default follows the microphone your computer uses, also when you plug or unplug a dock or headphones.",
+      missing:
+        "That microphone isn't connected right now. Until it is, I'll listen through the system default.",
+      reveal: "Press “Test” and allow access to see your microphones.",
+      test: "Test",
+      stopTest: "Stop",
+      testing: (name: string) => `Listening: ${name}. Speak and watch the bars.`,
+      systemOnly:
+        "In this browser, dictation uses the system microphone. Change it in your computer's sound settings.",
+    },
     data: "Your data",
     export: "Download my week (JSON)",
     deleteAccount: "Delete my account",
