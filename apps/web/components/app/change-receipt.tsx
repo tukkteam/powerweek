@@ -37,7 +37,13 @@ export function ChangeReceipt() {
       onBlurCapture={() => setHold(false)}
       className="pw-rise rounded-3xl border border-line bg-surface-raised p-4 shadow-float"
     >
-      <p className="type-heading">{count ? dict.receipt.title(count) : dict.receipt.nothing}</p>
+      <p className="type-heading">
+        {count
+          ? dict.receipt.title(count)
+          : receipt.reply.trim().endsWith("?")
+            ? dict.receipt.question
+            : dict.receipt.nothing}
+      </p>
       {receipt.reply && receipt.source === "assistant" ? (
         <p className="type-caption mt-1 text-ink-muted">{receipt.reply}</p>
       ) : null}

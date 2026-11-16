@@ -305,6 +305,7 @@ export const en: Dictionary = {
     ],
   },
   receipt: {
+    question: "One question",
     week: "WEEK",
     title: (n: number) => plural(n, "1 change to your week", "# changes to your week"),
     nothing: "I didn't find anything to change.",
