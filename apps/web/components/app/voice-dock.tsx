@@ -10,9 +10,16 @@ import {
   type FormEvent,
 } from "react";
 import { useApp } from "@/components/app/app-provider";
+import { MicLevel } from "@/components/app/mic-level";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { speechLocale } from "@/lib/i18n";
-import { speechSupported, startSpeech, type SpeechSession } from "@/lib/voice/speech";
+import { readMicChoice } from "@/lib/voice/microphone";
+import {
+  speechSupported,
+  startSpeech,
+  type SpeechErrorCode,
+  type SpeechSession,
+} from "@/lib/voice/speech";
 
 const subscribeNothing = () => () => {};
 
@@ -26,7 +33,11 @@ export function VoiceDock() {
   const [text, setText] = useState("");
   const [heard, setHeard] = useState("");
   const [pending, setPending] = useState("");
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const session = useRef<SpeechSession | null>(null);
+  /** Bumped on every start and cancel, so a start that resolves late knows it is stale. */
+  const attempt = useRef(0);
+  const heardRef = useRef("");
   const inputRef = useRef<HTMLInputElement>(null);
   const canSpeak = useSyncExternalStore(subscribeNothing, speechSupported, () => false);
 
@@ -43,40 +54,94 @@ export function VoiceDock() {
     [ask, thinking],
   );
 
-  const stopListening = useCallback(() => session.current?.stop(), []);
-  const cancelListening = useCallback(() => {
-    session.current?.abort();
+  const reset = useCallback(() => {
     session.current = null;
+    heardRef.current = "";
+    setStream(null);
     setListening(false);
     setHeard("");
   }, [setListening]);
 
-  const startListening = useCallback(() => {
+  const cancelListening = useCallback(() => {
+    attempt.current += 1;
+    session.current?.abort();
+    reset();
+  }, [reset]);
+
+  // Before the microphone opens there is nothing to send yet, so stopping means cancelling.
+  const stopListening = useCallback(() => {
+    if (session.current) session.current.stop();
+    else cancelListening();
+  }, [cancelListening]);
+
+  const report = useCallback(
+    (code: SpeechErrorCode) => {
+      if (code === "unsupported") {
+        notify(dict.dock.voiceUnsupported, "info");
+        return;
+      }
+      // Keep the words heard before the microphone vanished, ready to check and send.
+      if (code === "device-lost" && heardRef.current) setText(heardRef.current);
+      const messages: Record<Exclude<SpeechErrorCode, "unsupported">, string> = {
+        "not-allowed": dict.dock.micDenied,
+        "no-microphone": dict.dock.noMicrophone,
+        busy: dict.dock.micBusy,
+        "device-lost": dict.dock.micLost,
+        "no-speech": dict.dock.noSpeech,
+        network: dict.dock.speechNetwork,
+        service: dict.dock.speechService,
+        other: dict.dock.speechFailed,
+      };
+      notify(messages[code], code === "no-speech" ? "info" : "error");
+    },
+    [dict, notify],
+  );
+
+  const startListening = useCallback(async () => {
     if (!canSpeak) {
       notify(dict.dock.voiceUnsupported, "info");
       inputRef.current?.focus();
       return;
     }
+    attempt.current += 1;
+    const id = attempt.current;
+    const isCurrent = () => attempt.current === id;
+    const microphone = readMicChoice();
+    heardRef.current = "";
     setHeard("");
-    const started = startSpeech(speechLocale[lang], {
-      onPartial: setHeard,
-      onFinal: (transcript) => void submit(transcript),
-      onError: (code) => {
-        if (code === "not-allowed") notify(dict.dock.micDenied);
-        else if (code === "unsupported") notify(dict.dock.voiceUnsupported, "info");
-        else if (code === "network") notify(dict.errors.network);
+    setListening(true);
+
+    const started = await startSpeech(
+      { lang: speechLocale[lang], microphone },
+      {
+        onPartial: (value) => {
+          if (!isCurrent()) return;
+          heardRef.current = value;
+          setHeard(value);
+        },
+        onFinal: (value) => {
+          if (isCurrent()) void submit(value);
+        },
+        onError: (code) => {
+          if (isCurrent()) report(code);
+        },
+        onEnd: () => {
+          if (isCurrent()) reset();
+        },
       },
-      onEnd: () => {
-        session.current = null;
-        setListening(false);
-        setHeard("");
-      },
-    });
-    if (started) {
-      session.current = started;
-      setListening(true);
+    );
+    if (!isCurrent()) {
+      started?.abort();
+      return;
     }
-  }, [canSpeak, lang, notify, dict, submit, setListening]);
+    if (!started) {
+      reset();
+      return;
+    }
+    session.current = started;
+    setStream(started.stream);
+    if (started.fellBack) notify(dict.dock.micFallback(microphone?.label ?? ""), "info");
+  }, [canSpeak, lang, notify, dict, submit, setListening, report, reset]);
 
   useEffect(() => {
     if (!listening) return;
@@ -87,7 +152,13 @@ export function VoiceDock() {
     return () => window.removeEventListener("keydown", onKey);
   }, [listening, cancelListening]);
 
-  useEffect(() => () => session.current?.abort(), []);
+  useEffect(
+    () => () => {
+      attempt.current += 1;
+      session.current?.abort();
+    },
+    [],
+  );
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -104,7 +175,7 @@ export function VoiceDock() {
     >
       <button
         type="button"
-        onClick={listening ? stopListening : startListening}
+        onClick={listening ? stopListening : () => void startListening()}
         disabled={thinking}
         aria-label={listening ? dict.dock.stop : dict.dock.speak}
         className={`flex size-13 shrink-0 items-center justify-center rounded-full bg-volt text-on-volt transition-transform active:scale-95 disabled:opacity-100 ${
@@ -122,7 +193,12 @@ export function VoiceDock() {
 
       {status ? (
         <div className="min-w-0 flex-1 px-2" aria-live="polite">
-          <p className="type-label text-volt-ink">{status}</p>
+          <p className="type-label flex items-center gap-2 text-volt-ink">
+            {status}
+            {listening && stream ? (
+              <MicLevel stream={stream} bars={5} className="h-3.5 w-7" />
+            ) : null}
+          </p>
           <p className={`type-body truncate ${shownText ? "text-ink" : "text-ink-muted"}`}>
             {shownText || (listening ? dict.dock.hintStop : "")}
           </p>

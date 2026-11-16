@@ -58,7 +58,7 @@ VoiceDock → POST /api/assistant {input, lang, today}
   → {plan, version, changes, rejected, reply}
 ```
 
-The client replaces its plan with the returned one and shows the Change Receipt. **Undo** calls `undo_plan(version)`, which restores the previous revision only if nothing changed since, and records the revert as a new version.
+Dictation turns speech into that `input` in the browser (`lib/voice/speech.ts`); on desktop Chromium it listens to the microphone picked in Settings ([ADR 0009](adr/0009-dictation-listens-to-our-microphone.md)). The client replaces its plan with the returned one and shows the Change Receipt. **Undo** calls `undo_plan(version)`, which restores the previous revision only if nothing changed since, and records the revert as a new version.
 
 ## Rendering model
 

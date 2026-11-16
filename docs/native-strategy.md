@@ -34,11 +34,11 @@ interface Window {
 }
 
 interface NativeSpeechBridge {
-  start(options: { lang: string }, callbacks: SpeechCallbacks): SpeechSession;
+  start(options: { lang: string }, callbacks: SpeechCallbacks): { stop(): void; abort(): void };
 }
 ```
 
-`apps/web/lib/voice/speech.ts` already prefers `window.PowerWeekNative.speech` and falls back to the Web Speech API, then to typing. A shell implements the bridge with a Capacitor plugin (`registerPlugin("PowerWeekSpeech")`) or a Tauri command, and exposes it on `window` before the app loads.
+`apps/web/lib/voice/speech.ts` already prefers `window.PowerWeekNative.speech` and falls back to the Web Speech API, then to typing. In desktop Chromium the web path listens to the microphone picked in Settings ([ADR 0009](adr/0009-dictation-listens-to-our-microphone.md)); shells choose their own microphone. A shell implements the bridge with a Capacitor plugin (`registerPlugin("PowerWeekSpeech")`) or a Tauri command, and exposes it on `window` before the app loads.
 
 New capabilities follow the same pattern: define the TypeScript interface in `apps/web/lib`, feature-detect it, ship the web fallback first, then implement it per shell.
 
