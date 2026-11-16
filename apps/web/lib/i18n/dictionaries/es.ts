@@ -328,6 +328,7 @@ export const es = {
     ],
   },
   receipt: {
+    question: "Necesito un detalle",
     week: "SEM",
     title: (n: number) => plural(n, "1 cambio en tu semana", "# cambios en tu semana"),
     nothing: "No he encontrado nada que cambiar.",

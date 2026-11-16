@@ -33,7 +33,7 @@ export function assistantConfigured(): boolean {
  */
 export async function completeJson(
   messages: ChatMessage[],
-  timeoutMs = 45_000,
+  timeoutMs = 55_000,
 ): Promise<{ content: string; model: string }> {
   const { baseUrl, apiKey, model } = config();
   const controller = new AbortController();
