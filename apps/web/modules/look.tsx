@@ -25,18 +25,12 @@ import { createElement, type CSSProperties } from "react";
  * it up. That is what lets a person (or a new module) change colour without touching a view.
  */
 
-/** Tone names a module can ask for; each is a pair of colours (Night, Day) in the tokens. */
-export const TONES = [
-  "blue",
-  "volt",
-  "orange",
-  "sand",
-  "violet",
-  "rose",
-  "teal",
-  "yellow",
-  "sky",
-] as const;
+/**
+ * Tone names a module can ask for; each is a pair of colours (Night, Day) in the tokens. There
+ * are seven on purpose: every pair must stay apart for people with red-green colour blindness,
+ * and `packages/design-tokens/scripts/tones.mjs` fails the build when a new one does not.
+ */
+export const TONES = ["blue", "volt", "orange", "sand", "violet", "rose", "teal"] as const;
 export type Tone = (typeof TONES)[number];
 
 /** The inline style that gives an element, and everything inside it, a module's colour. */

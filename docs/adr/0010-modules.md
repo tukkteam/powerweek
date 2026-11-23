@@ -14,7 +14,7 @@ A plan had three fixed categories: agenda, training and meals. They were written
 - **Who checks what.** Postgres checks the envelope and a size limit (512 KB). The kernel checks what modules store: every operation is validated on its own, an operation that fails or throws is undone, an operation that reports no change is refused, and after the last one the module's own schema must accept the result or all of that module's work is undone.
 - **Isolation.** Modules never import each other. Data a module cannot read (written by a newer version, or damaged) is set aside: the module shows a notice, its operations are refused, the data is kept as it is. A card that throws while drawing is replaced by a notice. Hooks that throw contribute nothing.
 - **One folder per module** in `apps/web/modules/<id>`: `module.ts`, `messages.ts`, `views.tsx` and tests. The four built-in modules are Agenda, Meals, Training and Notes. Notes holds what used to be the day note.
-- **Colour is not written in views.** A module names a tone; the host sets it on the element that wraps the module and views use `text-tone`, `bg-tone`. The three category colours became a palette of nine tones, each checked for contrast in both themes.
+- **Colour is not written in views.** A module names a tone; the host sets it on the element that wraps the module and views use `text-tone`, `bg-tone`. The three category colours became a palette of seven tones; a script checks on every build that each one reads as text and as a fill in both themes and that every pair stays apart with red-green colour blindness.
 
 ### Moving stored plans
 

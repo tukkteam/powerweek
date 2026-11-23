@@ -10,9 +10,9 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "check": "node scripts/build.mjs --check",
-    "lint": "node scripts/build.mjs --check",
+    "check": "node scripts/build.mjs --check && node scripts/tones.mjs",
+    "lint": "node scripts/build.mjs --check && node scripts/tones.mjs",
     "typecheck": "node -e \"\"",
-    "test": "node scripts/build.mjs --check"
+    "test": "node scripts/build.mjs --check && node scripts/tones.mjs"
   }
 }

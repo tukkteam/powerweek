@@ -60,7 +60,15 @@ Every text pair passes WCAG AA in both themes; the palette was checked with a co
 
 Every module keeps one colour everywhere. A module names a **tone** and the host sets it on the element that wraps the module (`toneStyle` in [`modules/look.tsx`](../apps/web/modules/look.tsx)); inside, views never name a colour: they write `text-tone`, `bg-tone`, `bg-tone/15`. That is what lets a new module, or a person, pick a colour without touching a view.
 
-There are nine tones: `blue` (Agenda), `volt` (Training, the brand colour), `orange` (Meals), `sand` (Notes), `violet`, `rose`, `teal`, `yellow` and `sky`. Each is a pair of colours, Night and Day, that keeps at least 4.5:1 as text on `bg`, `surface` and `surface-raised` and as a fill under text in the `bg` colour. Boxes use a 7 % tint of the tone as ground and a 30 % edge; bars and fills use the full tone.
+There are seven tones: `blue` (Agenda), `volt` (Training, the brand colour), `orange` (Meals), `sand` (Notes), `violet`, `rose` and `teal`. Each is a pair of colours, Night and Day. Boxes use a 7 % tint of the tone as ground and a 30 % edge; bars and fills use the full tone.
+
+A tone has three jobs, and [`scripts/tones.mjs`](../packages/design-tokens/scripts/tones.mjs) checks all three on every build:
+
+- **Text:** at least 4.5:1 on `bg`, `surface` and `surface-raised`.
+- **Fill:** at least 4.5:1 under text in the `bg` colour.
+- **Next to another tone:** every pair stays apart for people with red-green colour blindness (OKLab ΔE×100 of 8 or more under simulated protanopia and deuteranopia) and for full colour vision (15 or more). That is why there are seven tones and not more: the four added to the brand's three were computed, not picked by eye, and a tone that sits too close to another fails the build.
+
+One pair is a known exception: by Day, Training (`volt`) and Meals (`orange`) are hard to tell apart with red-green colour blindness (4.6). Both colours predate the check, and changing either is a brand decision. Tones are never the only cue: every module also has an icon and a name.
 
 ### Bars all the way down
 

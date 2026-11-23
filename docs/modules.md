@@ -217,7 +217,7 @@ Views live in the app, so they can use its components. They receive everything t
 
 Helpers you can use: `ModuleCard` and `CellHeader` (the shared chrome), `EditorDialog` with `Field` (a form that sends one operation), `ModuleIcon`, and `useTapped`.
 
-Colour: write `text-tone`, `bg-tone`, `bg-tone/15`, `border-tone/40`. Never a colour name. The tone is one of `blue`, `volt`, `orange`, `sand`, `violet`, `rose`, `teal`, `yellow`, `sky`; each is a pair of colours (Night and Day) checked for contrast in [`tokens.json`](../packages/design-tokens/tokens.json).
+Colour: write `text-tone`, `bg-tone`, `bg-tone/15`, `border-tone/40`. Never a colour name. The tone is one of `blue`, `volt`, `orange`, `sand`, `violet`, `rose`, `teal`; each is a pair of colours (Night and Day) in [`tokens.json`](../packages/design-tokens/tokens.json), checked on every build for contrast and for staying apart from the other tones with colour blindness. Colour is never the only cue: your module also has an icon and a name.
 
 The house style: prefer a bar to a number, and a number to a sentence.
 
