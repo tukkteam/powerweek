@@ -122,7 +122,6 @@ function TrainCard({ data, t, day, records, dispatch }: CardProps<Train, TrainMe
               required
               maxLength={TRAIN_LIMITS.title}
               defaultValue={workout?.title}
-              autoFocus
               className={fieldClass}
             />
           </Field>
@@ -261,7 +260,6 @@ function ExerciseFields({ item, t }: { item?: Exercise; t: TrainMessages }) {
           required
           maxLength={TRAIN_LIMITS.exerciseName}
           defaultValue={item?.name}
-          autoFocus
           className={fieldClass}
         />
       </Field>

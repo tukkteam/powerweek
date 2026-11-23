@@ -1,13 +1,14 @@
 "use client";
 
 import type { DayKey, DayRelation } from "@tukkteam/modules/week";
-import { Component, useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { useApp } from "@/components/app/app-provider";
+import { ModuleBoundary } from "@/components/app/module-boundary";
 import { ModuleCard } from "@/components/app/module-card";
 import { useLocale } from "@/components/i18n/locale-provider";
 import type { Shown } from "@/modules/board";
 import { toneStyle } from "@/modules/look";
-import { VIEWS } from "@/modules/views";
+import { viewsOf } from "@/modules/views";
 
 /**
  * The place a module takes on the Today screen. It gives the module its colour and everything
@@ -27,16 +28,20 @@ export function ModuleSlot({
   now: number | null;
   focus: { id: string; nonce: number } | null;
 }) {
-  const { recordsOf, edit, version } = useApp();
+  const { recordsOf, edit, version, today } = useApp();
   const { lang, dict } = useLocale();
   const ref = useRef<HTMLDivElement>(null);
   const { module, t } = entry;
-  const views = VIEWS[module.id];
+  const views = viewsOf(module.id);
 
-  // Something of this module was tapped on the day's timeline: bring its card into view.
+  // Something of this module was tapped on the day's timeline: bring its card into view. Only
+  // for a new tap: a card that comes back on screen does not scroll for the last one again.
   const nonce = focus?.nonce;
+  const handled = useRef(nonce);
   useEffect(() => {
-    if (nonce) ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (!nonce || handled.current === nonce) return;
+    handled.current = nonce;
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [nonce]);
 
   if (!views) return null;
@@ -61,6 +66,7 @@ export function ModuleSlot({
             t={t}
             lang={lang}
             day={day}
+            today={today.dayKey}
             relation={relation}
             now={now}
             records={recordsOf(module.id)}
@@ -81,29 +87,4 @@ function Notice({ title, body }: { title: string; body: string }) {
       <p className="type-body py-2 text-ink-muted">{body}</p>
     </ModuleCard>
   );
-}
-
-/** Catches a module card that throws while rendering. A new plan version gives it another go. */
-class ModuleBoundary extends Component<
-  { resetKey: number; fallback: ReactNode; children: ReactNode },
-  { failed: boolean }
-> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch(error: unknown) {
-    console.error("A module card failed to render", error);
-  }
-
-  componentDidUpdate(previous: { resetKey: number }) {
-    if (this.state.failed && previous.resetKey !== this.props.resetKey)
-      this.setState({ failed: false });
-  }
-
-  render() {
-    return this.state.failed ? this.props.fallback : this.props.children;
-  }
 }

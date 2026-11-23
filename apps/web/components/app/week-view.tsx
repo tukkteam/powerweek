@@ -21,6 +21,7 @@ import {
   type ReactNode,
 } from "react";
 import { useApp } from "@/components/app/app-provider";
+import { ModuleBoundary } from "@/components/app/module-boundary";
 import { ModuleDesk } from "@/components/app/module-desk";
 import { relationOf, useNowMinutes } from "@/components/app/use-day-clock";
 import { useLongPress } from "@/components/app/use-long-press";
@@ -31,7 +32,7 @@ import { dateRange, dayOfMonth } from "@/lib/format";
 import { kernel } from "@/modules";
 import { loadOf, shownModules, summaries, type Shown } from "@/modules/board";
 import { toneStyle } from "@/modules/look";
-import { VIEWS } from "@/modules/views";
+import { viewsOf } from "@/modules/views";
 
 interface Peek {
   day: DayKey;
@@ -43,7 +44,7 @@ interface Peek {
 /** Whether a module holds anything on a day: its own answer, or "its load is above zero". */
 function hasDay(entry: Shown, day: DayKey): boolean {
   if (!entry.readable) return false;
-  const own = VIEWS[entry.module.id]?.hasDay;
+  const own = viewsOf(entry.module.id)?.hasDay;
   try {
     return own ? own(entry.state, day) : loadOf(entry, day) > 0;
   } catch {
@@ -69,7 +70,10 @@ export function WeekView() {
   const shown = useMemo(() => shownModules(doc, lang), [doc, lang]);
   const loads = useMemo(() => weekLoads(kernel, doc), [doc]);
   /** Modules that draw a box in the board. */
-  const columns = useMemo(() => shown.filter((entry) => VIEWS[entry.module.id]?.WeekCell), [shown]);
+  const columns = useMemo(
+    () => shown.filter((entry) => viewsOf(entry.module.id)?.WeekCell),
+    [shown],
+  );
 
   const open = useCallback(
     (day: DayKey) => {
@@ -113,6 +117,7 @@ export function WeekView() {
   if (shown.length === 0)
     return (
       <ModuleDesk
+        key={doc.layout.join(" ")}
         doc={doc}
         welcome
         onDone={(order) => {
@@ -207,22 +212,28 @@ export function WeekView() {
 
 /** Everything one module holds on one day; shown on hover (desktop) or long press (touch). */
 function DayPeek({ entry, dayKey, title }: { entry: Shown; dayKey: DayKey; title: string }) {
-  const { recordsOf } = useApp();
-  const { lang } = useLocale();
-  const Peek = VIEWS[entry.module.id]?.Peek;
+  const { recordsOf, version, today } = useApp();
+  const { lang, dict } = useLocale();
+  const Peek = viewsOf(entry.module.id)?.Peek;
   return (
     <div className="flex flex-col gap-3" style={toneStyle(entry.module.tone)}>
       <p className="type-label text-tone">
         {entry.t.name} · {title}
       </p>
       {Peek ? (
-        <Peek
-          data={entry.state}
-          t={entry.t}
-          lang={lang}
-          day={dayKey}
-          records={recordsOf(entry.module.id)}
-        />
+        <ModuleBoundary
+          resetKey={version}
+          fallback={<p className="type-caption text-ink-muted">{dict.modules.failedBody}</p>}
+        >
+          <Peek
+            data={entry.state}
+            t={entry.t}
+            lang={lang}
+            day={dayKey}
+            today={today.dayKey}
+            records={recordsOf(entry.module.id)}
+          />
+        </ModuleBoundary>
       ) : null}
     </div>
   );
@@ -261,13 +272,13 @@ function DayRow({
   onLongPress: (module: string, element: HTMLElement) => void;
 }) {
   const { lang, dict } = useLocale();
-  const { recordsOf } = useApp();
+  const { recordsOf, version, today } = useApp();
   const name = dict.days.long[dayKey];
   const filled = columns.map((entry) => hasDay(entry, dayKey));
   const empty = load.count === 0 && !filled.some(Boolean);
   // Each module keeps the same column down the week, as wide as it asked for.
   const template = columns
-    .map((entry) => `minmax(0, ${VIEWS[entry.module.id]?.weekWeight ?? 3}fr)`)
+    .map((entry) => `minmax(0, ${viewsOf(entry.module.id)?.weekWeight ?? 3}fr)`)
     .join(" ");
 
   return (
@@ -326,7 +337,7 @@ function DayRow({
             style={{ "--columns": template } as CSSProperties}
           >
             {columns.map((entry, index) => {
-              const WeekCell = VIEWS[entry.module.id]!.WeekCell!;
+              const WeekCell = viewsOf(entry.module.id)!.WeekCell!;
               const has = filled[index]!;
               return (
                 <Cell
@@ -341,13 +352,17 @@ function DayRow({
                   onLongPress={(element) => onLongPress(entry.module.id, element)}
                   className={has ? "" : "max-md:hidden"}
                 >
-                  <WeekCell
-                    data={entry.state}
-                    t={entry.t}
-                    lang={lang}
-                    day={dayKey}
-                    records={recordsOf(entry.module.id)}
-                  />
+                  {/* A module that fails to draw leaves its box empty; the rest of the week stays. */}
+                  <ModuleBoundary resetKey={version} fallback={null}>
+                    <WeekCell
+                      data={entry.state}
+                      t={entry.t}
+                      lang={lang}
+                      day={dayKey}
+                      today={today.dayKey}
+                      records={recordsOf(entry.module.id)}
+                    />
+                  </ModuleBoundary>
                 </Cell>
               );
             })}

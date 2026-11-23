@@ -96,7 +96,7 @@ select throws_ok(
 );
 select is((select public.plan_doc_version(doc) from public.plans), 2, 'the refused save changed nothing');
 select throws_ok(
-  $$ select public.save_plan(jsonb_build_object('schemaVersion', 2, 'layout', '[]'::jsonb, 'modules', jsonb_build_object('big', jsonb_build_object('v', 1, 'data', jsonb_build_object('blob', repeat('x', 600000))))), 4, 'manual') $$,
+  $$ select public.save_plan(jsonb_build_object('schemaVersion', 2, 'layout', '[]'::jsonb, 'modules', jsonb_build_object('big', jsonb_build_object('v', 1, 'data', jsonb_build_object('blob', repeat('x', 1100000))))), 4, 'manual') $$,
   '23514', null, 'a document over the size limit is rejected'
 );
 select is(public.undo_plan(4), 5, 'undo still works across the upgrade');

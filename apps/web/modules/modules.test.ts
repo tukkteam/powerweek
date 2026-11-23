@@ -3,22 +3,19 @@ import { checkModule } from "@tukkteam/modules/testing";
 import { weekLoads } from "@tukkteam/modules/week";
 import { describe, expect, it } from "vitest";
 import { locales } from "@/lib/i18n/config";
-import { kernel, MODULES } from "./index";
+import { createAppKernel, kernel, MODULES } from "./index";
 import { upgradeV1 } from "./legacy/plan-v1";
-import { read, run, week } from "./test-kit";
+import { open, read, run, week } from "./test-kit";
 
 describe("every module honours the contract", () => {
   it.each(MODULES.map((module) => [module.id, module] as const))("%s", (_id, module) => {
-    expect(checkModule(module, { locales })).toEqual([]);
+    expect(checkModule(module, { locales, kernel: createAppKernel })).toEqual([]);
   });
 
   it("can be listed as plain data", () => {
-    expect(MODULES.map((module) => manifestOf(module).id)).toEqual([
-      "agenda",
-      "fuel",
-      "train",
-      "notes",
-    ]);
+    const manifests = MODULES.map((module) => manifestOf(module));
+    expect(new Set(manifests.map((manifest) => manifest.id)).size).toBe(MODULES.length);
+    expect(JSON.parse(JSON.stringify(manifests))).toEqual(manifests);
     expect(manifestOf(kernel.get("fuel")!).records).toEqual(["fuel.pick"]);
   });
 });
@@ -129,7 +126,7 @@ describe("plans from before modules", () => {
   };
 
   it("become a document made of modules, losing nothing", () => {
-    const doc = kernel.read(v1);
+    const doc = open(v1);
     expect(doc.schemaVersion).toBe(2);
     expect(doc.layout).toEqual(["agenda", "fuel", "train", "notes"]);
     expect([...kernel.unreadable(doc)]).toEqual([]);
@@ -146,7 +143,7 @@ describe("plans from before modules", () => {
   it("leave Notes off the screen when no day has a note", () => {
     const plain = structuredClone(v1);
     delete (plain.days.mon as { note?: string }).note;
-    expect(kernel.read(plain).layout).toEqual(["agenda", "fuel", "train"]);
+    expect(open(plain).layout).toEqual(["agenda", "fuel", "train"]);
   });
 
   it("start blank when nothing was planned, so the person chooses their modules", () => {
@@ -156,18 +153,15 @@ describe("plans from before modules", () => {
     expect(kernel.read(blank)).toEqual({ schemaVersion: 2, layout: [], modules: {} });
   });
 
-  it("salvage valid days from a corrupted version 1 plan", () => {
-    const broken = {
-      schemaVersion: 1,
-      days: {
-        mon: { agenda: [{ id: "a", title: "Trabajo" }], workout: null, meals: [] },
-        tue: { agenda: "nope" },
-      },
-    };
-    const state = read(kernel.read(broken));
-    expect(state.agenda.days.mon).toHaveLength(1);
-    expect(state.agenda.days.tue).toEqual([]);
+  it("are refused when they do not validate whole, rather than guessed at", () => {
+    // Upgrading the days that validate and dropping the rest would look like a plan, and the
+    // first save would make the loss permanent. Not a document: the app says so and saves nothing.
+    const damaged = structuredClone(v1);
+    (damaged.days.tue as { agenda: unknown }).agenda = "nope";
+    expect(upgradeV1(damaged)).toBeNull();
+    expect(kernel.read(damaged)).toBeNull();
     expect(upgradeV1({ schemaVersion: 3 })).toBeNull();
+    expect(kernel.read({ schemaVersion: 3, layout: [], modules: {} })).toBeNull();
   });
 });
 

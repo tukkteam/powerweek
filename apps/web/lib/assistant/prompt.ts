@@ -43,7 +43,7 @@ export function hostPrompt(ctx: Pick<PromptContext, "lang" | "todayKey">): Promp
     rules: [
       "Change only what the user asks for. Never invent items, times, amounts or foods they did not mention, unless they ask you to propose meal options.",
       'To change, move or remove something, use its exact "id" from the current plan. If it does not exist, change nothing and say so in "reply".',
-      `Expand groups of days into one operation per day: weekdays = mon to fri, weekend = sat and sun, every day = all seven. Today is ${ctx.todayKey}; tomorrow is ${tomorrowOf(ctx.todayKey)}.`,
+      `Groups of days: weekdays = mon to fri, weekend = sat and sun, every day = all seven. An operation with a "days" field takes the whole group at once; one with a single "day" is written once per day. Today is ${ctx.todayKey}; tomorrow is ${tomorrowOf(ctx.todayKey)}.`,
       'Times: 24h "HH:MM". "7 in the evening" or "7 pm" is "19:00". Without am/pm, use the most natural reading: sports, classes and dinners in the evening; work, breakfast and morning routines in the morning.',
       "Titles are short, in the user's language, sentence case, without a final period. Keep the user's own words for names.",
       'If the request is a question or is not about the plan, return an empty operations list and answer briefly in "reply". When a request is only partly specified, act with sensible defaults and say what you assumed in "reply"; ask (empty operations, reply ending with "?") only when nothing sensible can be done.',

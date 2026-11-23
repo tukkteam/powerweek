@@ -3,6 +3,7 @@ import {
   DocSchema,
   MAX_LAYOUT,
   ModuleEntrySchema,
+  deepFreeze,
   emptyDoc,
   type Doc,
   type ModuleEntry,
@@ -66,9 +67,12 @@ export interface KernelConfig<M extends AnyModule> {
   system?: Record<string, SystemOperationSpec<M, AnyInput>>;
   /** Other spellings of operation names, mapped to full names. */
   aliases?: Record<string, string>;
-  /** Fix the harmless mistakes models make in an operation's fields before validation. */
-  normalise?(fields: Record<string, unknown>): Record<string, unknown>;
-  /** Turn a document from before the envelope into one, or return null to start empty. */
+  /**
+   * Fix the harmless mistakes models make in an operation's fields before validation. `op` is
+   * the full name of the operation, so a fix can be limited to the operations it is meant for.
+   */
+  normalise?(fields: Record<string, unknown>, op: string): Record<string, unknown>;
+  /** Turn a document from before the envelope into one, or return null when it is not one. */
   upgrade?(raw: unknown): Doc | null;
   /** At most this many operations are read from one model answer. */
   maxOperations?: number;
@@ -98,12 +102,21 @@ export interface ParsedOperations {
 
 export interface RecordsOptions {
   lang?: string;
-  /** The fact currently stored for a module, a day and a key. */
-  get(module: ModuleId, day: string, key: string): Json | undefined;
+  /**
+   * The fact currently stored for a module, a day and a key. `upcoming` says how the record
+   * means its days (see `RecordSpec.upcoming`), so the host looks at the right date.
+   */
+  get(module: ModuleId, day: string, key: string, upcoming: boolean): Json | undefined;
 }
 
+/**
+ * A fact to store: which module asked, how its day is meant, and the position of the record
+ * operation it comes from, so a host that fails to store it can say which one.
+ */
+export type ResolvedWrite = RecordWrite & { module: ModuleId; upcoming: boolean; index: number };
+
 export interface RecordsResult {
-  writes: (RecordWrite & { module: ModuleId })[];
+  writes: ResolvedWrite[];
   changes: Change[];
   rejected: Rejection[];
 }
@@ -126,8 +139,13 @@ export interface Kernel<M extends AnyModule> {
   messages<T extends M>(module: T, lang?: string): T["messages"][string];
   /** A document nobody has used yet. */
   empty(layout?: readonly ModuleId[]): Doc;
-  /** Read stored JSON: checks the envelope, upgrades old documents and migrates module data. */
-  read(raw: unknown): Doc;
+  /**
+   * Read stored JSON: checks the envelope, upgrades old documents and migrates module data.
+   * Returns null when `raw` is not a document this kernel understands. A caller must treat
+   * that as an error and never as an empty document: saving an empty one over what is stored
+   * would lose it.
+   */
+  read(raw: unknown): Doc | null;
   /** Modules whose stored data this version cannot read. Their data is kept and never written. */
   unreadable(doc: Doc): ReadonlySet<ModuleId>;
   /** A module's data. Returns its empty data when it has none, or when it cannot be read. */
@@ -136,7 +154,7 @@ export interface Kernel<M extends AnyModule> {
   onScreen(doc: Doc): M[];
   /** Validate raw operations one by one, so a bad one never discards the good ones. */
   parse(raw: readonly unknown[]): ParsedOperations;
-  /** Apply operations. Pure: never changes `doc`. */
+  /** Apply operations. Pure: never changes `doc`. Documents it returns are frozen. */
   apply(doc: Doc, operations: readonly Operation[], options?: ApplyOptions): ApplyResult;
   /** Work out the dated facts a list of record operations asks to store. */
   resolveRecords(doc: Doc, records: readonly Operation[], options: RecordsOptions): RecordsResult;
@@ -146,6 +164,10 @@ export interface Kernel<M extends AnyModule> {
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The entry of a module in a document, never something inherited from Object. */
+const entryOf = (doc: Doc, id: ModuleId): ModuleEntry | undefined =>
+  Object.hasOwn(doc.modules, id) ? doc.modules[id] : undefined;
 
 /** Keep what can be kept of a document whose envelope is damaged. */
 function salvage(raw: unknown): Doc | null {
@@ -209,9 +231,12 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
   const system = { ...layoutOperations<M>(), ...config.system };
   for (const [name, spec] of Object.entries(system)) addTarget({ kind: "system", name, spec });
 
+  // What `state` hands out for a module with no data. A frozen copy, so that nothing a module
+  // returns from `empty()` is ever shared between two documents, or two people on a server.
   const empties = new Map<ModuleId, unknown>();
   const emptyOf = (module: M): unknown => {
-    if (!empties.has(module.id)) empties.set(module.id, module.empty());
+    if (!empties.has(module.id))
+      empties.set(module.id, deepFreeze(structuredClone(module.empty())));
     return empties.get(module.id);
   };
 
@@ -229,10 +254,15 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
     );
   };
 
-  /** The full operation name behind whatever the model or an old client wrote. */
+  /**
+   * The full operation name behind whatever the model or an old client wrote. A name that
+   * exists always means itself: another spelling can never take an operation away from a module.
+   */
+  const aliases = config.aliases ?? {};
   const canonical = (op: string): string => {
     const name = op.trim().toLowerCase().replaceAll("_", ".");
-    return config.aliases?.[name] ?? name;
+    if (targetByName.has(name) || !Object.hasOwn(aliases, name)) return name;
+    return aliases[name]!;
   };
 
   // Documents are never changed in place, so what we learn about one stays true for it.
@@ -242,7 +272,7 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
     if (known) return known;
     const broken = new Set<ModuleId>();
     for (const module of modules) {
-      const entry = doc.modules[module.id];
+      const entry = entryOf(doc, module.id);
       if (!entry) continue;
       if (entry.v !== module.version || !module.schema.safeParse(entry.data).success)
         broken.add(module.id);
@@ -251,26 +281,42 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
     return broken;
   };
 
-  const read = (raw: unknown): Doc => {
+  /** Operations `parse` already validated: `apply` takes their fields as they are. */
+  const validated = new WeakSet<object>();
+
+  const read = (raw: unknown): Doc | null => {
     const parsed = DocSchema.safeParse(raw);
-    const doc: Doc = parsed.success
+    const found: Doc | null = parsed.success
       ? (parsed.data as Doc)
-      : (config.upgrade?.(raw) ?? salvage(raw) ?? emptyDoc());
+      : (config.upgrade?.(raw) ?? salvage(raw));
+    if (!found) return null;
+    let doc: Doc;
+    try {
+      // A copy of its own: the document is frozen below, and what the caller handed in is not.
+      doc = structuredClone(found);
+    } catch {
+      return null;
+    }
     for (const module of modules) {
-      const entry = doc.modules[module.id];
+      const entry = entryOf(doc, module.id);
       if (!entry || entry.v >= module.version || !module.migrate) continue;
       try {
-        const data = module.migrate(structuredClone(entry.data), entry.v);
-        if (isObject(data)) doc.modules[module.id] = { v: module.version, data };
+        // Only data the module itself accepts replaces what is stored. Anything else is left
+        // as written: the module shows as unreadable and its data is kept untouched.
+        const migrated = module.schema.safeParse(
+          module.migrate(structuredClone(entry.data), entry.v),
+        );
+        if (migrated.success && isObject(migrated.data))
+          doc.modules[module.id] = { v: module.version, data: migrated.data };
       } catch {
-        // Left as written: the module shows as unreadable and its data is kept untouched.
+        // Left as written.
       }
     }
-    return doc;
+    return deepFreeze(doc);
   };
 
   const state = <T extends M>(doc: Doc, module: T): StateOf<T> => {
-    const entry = doc.modules[module.id];
+    const entry = entryOf(doc, module.id);
     if (!entry || unreadable(doc).has(module.id)) return emptyOf(module) as StateOf<T>;
     return entry.data as StateOf<T>;
   };
@@ -286,14 +332,17 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
     const target = targetByName.get(name);
     if (!target) return { name };
     const { op: _op, ...rest } = operation;
-    const input = target.spec.input.safeParse(config.normalise ? config.normalise(rest) : rest);
+    if (validated.has(operation)) return { name, target, input: rest };
+    const fields = config.normalise ? config.normalise(rest, name) : rest;
+    const input = target.spec.input.safeParse(fields);
     return input.success ? { name, target, input: input.data } : { name, target };
   };
 
   const parse = (raw: readonly unknown[]): ParsedOperations => {
     const operations: Operation[] = [];
     const records: Operation[] = [];
-    let dropped = 0;
+    // Whatever the cap leaves out is reported, not silently lost.
+    let dropped = Math.max(0, raw.length - maxOperations);
     for (const item of raw.slice(0, maxOperations)) {
       if (!isObject(item) || typeof item.op !== "string") {
         dropped += 1;
@@ -305,6 +354,7 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
         continue;
       }
       const operation: Operation = { op: name, ...input };
+      validated.add(operation);
       (target.kind === "record" ? records : operations).push(operation);
     }
     return { operations, records, dropped };
@@ -319,18 +369,8 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
     const makeId = options.newId ?? defaultNewId;
     const broken = unreadable(doc);
     const next: Doc = structuredClone(doc);
-    const log: { index: number; module: ModuleId; change: Change }[] = [];
+    const changes: Change[] = [];
     const rejected: Rejection[] = [];
-    const touched = new Set<ModuleId>();
-    const shown = new Set<ModuleId>();
-
-    /** A module that just changed belongs on screen. */
-    const show = (id: ModuleId, emitted: Change[]) => {
-      if (next.layout.includes(id) || next.layout.length >= MAX_LAYOUT) return;
-      next.layout.push(id);
-      shown.add(id);
-      emitted.unshift({ kind: "add", module: "app", scope: "app", label: id });
-    };
 
     const open = (
       id: ModuleId,
@@ -341,13 +381,15 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
       if (!module || broken.has(id)) return null;
       // Keep the entry as it was before this operation, to put it back if the operation fails.
       if (!opened.has(id)) {
-        const before = next.modules[id];
+        const before = entryOf(next, id);
         opened.set(id, before ? structuredClone(before) : undefined);
       }
-      const entry: ModuleEntry = (next.modules[id] ??= {
-        v: module.version,
-        data: module.empty() as Record<string, unknown>,
-      });
+      let entry = entryOf(next, id);
+      if (!entry) {
+        // A copy: whatever `empty()` returns must not be shared with another document.
+        entry = { v: module.version, data: structuredClone(module.empty()) };
+        next.modules[id] = entry;
+      }
       const ctx: ApplyContext<unknown> = {
         newId: makeId,
         t: messages(module, lang),
@@ -356,6 +398,24 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
       return { module, state: entry.data as unknown, ctx };
     };
 
+    /**
+     * A module has the last word on its own data. Tidy what an operation touched and check it
+     * against the module's schema; false when a module does not accept what it was left with.
+     */
+    const settle = (opened: Iterable<ModuleId>): boolean => {
+      for (const id of opened) {
+        const module = byId.get(id);
+        const entry = entryOf(next, id);
+        if (!module || !entry) return false;
+        module.normalize?.(entry.data);
+        const checked = module.schema.safeParse(entry.data);
+        if (!checked.success || !isObject(checked.data)) return false;
+        next.modules[id] = { v: module.version, data: checked.data };
+      }
+      return true;
+    };
+
+    // Each operation applies whole or not at all, and the ones after it see the result.
     operations.forEach((operation, index) => {
       const { name, target, input } = check(operation);
       const reject = (reason: RejectionReason) => rejected.push({ index, op: name, reason });
@@ -379,11 +439,12 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
           const slot = open(target.module.id, emitted, opened);
           reason = slot ? target.spec.apply(slot.state, input, slot.ctx) : "unavailable";
         }
+        // Nothing changes without a line in the receipt.
+        if (!reason && emitted.length === 0) reason = "noop";
+        if (!reason && !settle(opened.keys())) reason = "invalid";
       } catch {
         reason = "invalid";
       }
-      // Nothing changes without a line in the receipt.
-      if (!reason && emitted.length === 0) reason = "noop";
       if (reason) {
         next.layout = layoutBefore;
         for (const [id, before] of opened) {
@@ -392,51 +453,20 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
         }
         return reject(reason);
       }
-      for (const id of opened.keys()) touched.add(id);
-      if (target.kind === "operation") show(target.module.id, emitted);
-      for (const change of emitted) log.push({ index, module: change.module, change });
+      // A module that just changed belongs on screen.
+      if (target.kind === "operation") {
+        const id = target.module.id;
+        if (!next.layout.includes(id) && next.layout.length < MAX_LAYOUT) {
+          next.layout.push(id);
+          changes.push({ kind: "add", module: "app", scope: "app", label: id });
+        }
+      }
+      changes.push(...emitted);
     });
 
-    // A module has the last word on its own data: anything it does not accept is undone.
-    for (const id of touched) {
-      const module = byId.get(id);
-      const entry = next.modules[id];
-      if (!module || !entry) continue;
-      let valid = false;
-      try {
-        module.normalize?.(entry.data);
-        const checked = module.schema.safeParse(entry.data);
-        if (checked.success && isObject(checked.data)) {
-          next.modules[id] = { v: module.version, data: checked.data };
-          valid = true;
-        }
-      } catch {
-        valid = false;
-      }
-      if (valid) continue;
-      const original = doc.modules[id];
-      if (original) next.modules[id] = structuredClone(original);
-      else delete next.modules[id];
-      if (shown.has(id)) next.layout = next.layout.filter((other) => other !== id);
-      const undone = new Set<number>();
-      for (let i = log.length - 1; i >= 0; i -= 1) {
-        const line = log[i]!;
-        const ownScreenLine = line.module === "app" && line.change.label === id && shown.has(id);
-        if (line.module !== id && !ownScreenLine) continue;
-        undone.add(line.index);
-        log.splice(i, 1);
-      }
-      for (const index of undone) {
-        const name = canonical(String(operations[index]?.op ?? ""));
-        rejected.push({ index, op: name, reason: "invalid" });
-      }
-    }
-
-    rejected.sort((a, b) => a.index - b.index);
-    const changes = log.map((line) => line.change);
     if (changes.length === 0) return { doc, changes, rejected };
     unreadableOf.set(next, broken);
-    return { doc: next, changes, rejected };
+    return { doc: deepFreeze(next), changes, rejected };
   };
 
   const resolveRecords = (
@@ -445,12 +475,13 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
     options: RecordsOptions,
   ): RecordsResult => {
     const lang = options.lang ?? fallback;
-    const writes: (RecordWrite & { module: ModuleId })[] = [];
+    const writes: ResolvedWrite[] = [];
     const changes: Change[] = [];
     const rejected: Rejection[] = [];
     // Later operations in the same request see what earlier ones stored.
     const pending = new Map<string, Json | null>();
-    const slot = (module: ModuleId, day: string, key: string) => `${module}|${day}|${key}`;
+    const slot = (module: ModuleId, day: string, key: string, upcoming: boolean) =>
+      `${module}|${upcoming ? "next" : "this"}|${day}|${key}`;
 
     records.forEach((operation, index) => {
       const { name, target, input } = check(operation);
@@ -460,19 +491,21 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
       if (unreadable(doc).has(module.id)) return reject("unavailable");
       if (input === undefined) return reject("invalid");
 
-      const ownWrites: (RecordWrite & { module: ModuleId })[] = [];
+      const upcoming = Boolean(target.spec.upcoming);
+      const ownWrites: ResolvedWrite[] = [];
       const ownChanges: Change[] = [];
       let reason: RejectionReason | void;
       try {
+        // The data is frozen: a record operation that tried to change the plan would throw.
         reason = target.spec.resolve(state(doc, module), input, {
           t: messages(module, lang),
           get: (day, key) => {
-            const id = slot(module.id, day, key);
+            const id = slot(module.id, day, key, upcoming);
             if (pending.has(id)) return pending.get(id) ?? undefined;
-            return options.get(module.id, day, key);
+            return options.get(module.id, day, key, upcoming);
           },
           write: (write, change) => {
-            ownWrites.push({ ...write, module: module.id });
+            ownWrites.push({ ...write, module: module.id, upcoming, index });
             ownChanges.push({ ...change, module: module.id });
           },
         });
@@ -482,7 +515,7 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
       if (!reason && ownWrites.length === 0) reason = "noop";
       if (reason) return reject(reason);
       for (const write of ownWrites)
-        pending.set(slot(write.module, write.day, write.key), write.value);
+        pending.set(slot(write.module, write.day, write.key, upcoming), write.value);
       writes.push(...ownWrites);
       changes.push(...ownChanges);
     });

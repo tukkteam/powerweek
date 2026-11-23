@@ -41,6 +41,8 @@ export interface FormReader {
   orUndefined(name: string): string | undefined;
   /** The raw value, for radios and anything that is not text. */
   raw(name: string): FormDataEntryValue | null;
+  /** Every value under one name, for a group of checkboxes. */
+  all(name: string): string[];
 }
 
 /**
@@ -75,7 +77,15 @@ export function EditorDialog({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      // Start in the first field to write in, not on the close button.
+      dialog
+        .querySelector<HTMLElement>(
+          'form input:not([type]), form input[type="text"], form textarea',
+        )
+        ?.focus();
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
@@ -141,6 +151,7 @@ function EditorForm({
         orNull: (name) => text(name) || null,
         orUndefined: (name) => text(name) || undefined,
         raw: (name) => data.get(name),
+        all: (name) => data.getAll(name).map(String),
       }),
     );
   }

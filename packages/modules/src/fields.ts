@@ -24,10 +24,10 @@ export const opt = <T extends z.ZodType>(schema: T) =>
 /** When updating: leaving it out keeps the value, null clears it. */
 export const clearable = <T extends z.ZodType>(schema: T) => schema.nullable().optional();
 
-/** A whole number that may arrive as "4". */
+/** A whole number that may arrive as "4" or "-1". */
 export const looseInt = (min: number, max: number) =>
   z.preprocess(
-    (value) => (typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : value),
+    (value) => (typeof value === "string" && /^-?\d+$/.test(value.trim()) ? Number(value) : value),
     z.number().int().min(min).max(max),
   );
 
@@ -47,6 +47,15 @@ export function compact<T extends object>(value: T): T {
   return value;
 }
 
-/** True when two titles are the same ignoring case and accents. */
-export const sameText = (a: string, b: string) =>
-  a.localeCompare(b, undefined, { sensitivity: "base" }) === 0;
+const fold = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+/**
+ * True when two titles are the same ignoring case, accents and the spaces around them. It does
+ * not depend on the language of the device, so a browser and a server always agree.
+ */
+export const sameText = (a: string, b: string) => fold(a) === fold(b);

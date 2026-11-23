@@ -14,6 +14,7 @@ export const messages: Record<Locale, NotesMessages> = {
   es: {
     name: "Notas",
     description: "Una nota libre para cada día: lo que no cabe en ninguna otra caja.",
+    example: "Apunta el sábado: día de descanso",
     empty: "Sin nota. Prueba: «apunta el sábado: día de descanso».",
     label: "Nota",
     placeholder: "Escribe una nota para este día",
@@ -23,6 +24,7 @@ export const messages: Record<Locale, NotesMessages> = {
   en: {
     name: "Notes",
     description: "One free note for each day: whatever fits in no other box.",
+    example: "Note for Saturday: rest day",
     empty: "No note. Try: “note for Saturday: rest day”.",
     label: "Note",
     placeholder: "Write a note for this day",

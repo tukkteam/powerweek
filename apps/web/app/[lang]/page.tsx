@@ -100,7 +100,6 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {MODULES.map((module) => {
                 const names = kernel.messages(module, lang);
-                const example = t.moduleExamples[module.id];
                 return (
                   <article
                     key={module.id}
@@ -111,11 +110,9 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
                       <ModuleIcon name={module.icon} size={14} strokeWidth={2} />
                       {names.name}
                     </span>
-                    {example ? (
-                      <p className="font-display stretch-semi text-[1.375rem] leading-tight font-extrabold">
-                        {example}
-                      </p>
-                    ) : null}
+                    <p className="font-display stretch-semi text-[1.375rem] leading-tight font-extrabold">
+                      {dict.modules.quote(names.example)}
+                    </p>
                     <p className="type-body text-ink-muted">{names.description}</p>
                   </article>
                 );

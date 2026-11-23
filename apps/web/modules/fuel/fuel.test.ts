@@ -152,8 +152,9 @@ describe("picking an option for a date", () => {
       ],
       options,
     );
+    // A pick looks ahead: the host stores it for the next time that day comes.
     expect(picked.writes).toEqual([
-      { module: "fuel", day: "sat", key: "pick:dinner", value: "o2" },
+      { module: "fuel", day: "sat", key: "pick:dinner", value: "o2", upcoming: true, index: 0 },
     ]);
     expect(picked.rejected.map((r) => r.reason)).toEqual(["not_found", "not_found"]);
     expect(kernel.describe(picked.changes[0]!, "es")).toBe("Cena: Elegido: Sushi");
@@ -168,7 +169,7 @@ describe("picking an option for a date", () => {
       options,
     );
     expect(cleared.writes).toEqual([
-      { module: "fuel", day: "sat", key: "pick:dinner", value: null },
+      { module: "fuel", day: "sat", key: "pick:dinner", value: null, upcoming: true, index: 0 },
     ]);
     expect(cleared.rejected.map((r) => r.reason)).toEqual(["noop"]);
   });

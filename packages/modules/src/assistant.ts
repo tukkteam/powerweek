@@ -29,6 +29,15 @@ export interface AssistantOutput extends ParsedOperations {
 
 const MAX_REPLY = 400;
 
+/** Run something a module provides; undefined when it throws. */
+function attempt<T>(run: () => T): T | undefined {
+  try {
+    return run();
+  } catch {
+    return undefined;
+  }
+}
+
 const line = (name: string, example: PromptExample) =>
   `${JSON.stringify({ op: name, ...example.fields })}${example.hint ? `   ${example.hint}` : ""}`;
 
@@ -60,9 +69,11 @@ export function systemPrompt<M extends AnyModule>(
     .map((rule, index) => `${index + 1}. ${rule}`)
     .join("\n");
 
+  // A module whose reference throws is left out; the rest of the prompt still works.
   const references = modules
     .filter((module) => onScreen.includes(module.id) && module.assistant.reference)
-    .map((module) => module.assistant.reference!())
+    .map((module) => attempt(() => module.assistant.reference!()))
+    .filter((text): text is string => typeof text === "string" && text.length > 0)
     .join("\n\n");
 
   return [
@@ -90,7 +101,9 @@ export function userPrompt<M extends AnyModule>(
   for (const module of shown) {
     if (broken.has(module.id)) continue;
     const state = kernel.state(doc, module);
-    plan[module.id] = module.assistant.view ? module.assistant.view(state) : state;
+    // The data is frozen, so a view cannot change it; one that throws is left out.
+    const seen = module.assistant.view ? attempt(() => module.assistant.view!(state)) : state;
+    if (seen !== undefined) plan[module.id] = seen;
   }
   const ids = (list: readonly AnyModule[]) => list.map((module) => module.id).join(", ");
   return [

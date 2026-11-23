@@ -35,6 +35,7 @@ export const messages: Record<Locale, FuelMessages> = {
   es: {
     name: "Comidas",
     description: "Desayuno, comida, cena y picoteo, con opciones para elegir cada día.",
+    example: "Entre semana desayuno avena con plátano",
     empty: "Sin comidas. Prueba: «el viernes ceno salmón con verduras».",
     summary: (n) => plural(n, "1 comida", "# comidas"),
     slots: { breakfast: "Desayuno", lunch: "Comida", snack: "Picoteo", dinner: "Cena" },
@@ -64,6 +65,7 @@ export const messages: Record<Locale, FuelMessages> = {
   en: {
     name: "Meals",
     description: "Breakfast, lunch, dinner and snacks, with options to choose from each day.",
+    example: "Oatmeal with banana for breakfast on weekdays",
     empty: "No meals. Try: “salmon and veggies for dinner on Friday”.",
     summary: (n) => plural(n, "1 meal", "# meals"),
     slots: { breakfast: "Breakfast", lunch: "Lunch", snack: "Snack", dinner: "Dinner" },

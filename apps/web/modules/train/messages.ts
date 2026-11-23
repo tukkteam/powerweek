@@ -48,6 +48,7 @@ export const messages: Record<Locale, TrainMessages> = {
     name: "Entreno",
     description:
       "Tu rutina de cada día con series, repeticiones y peso, dibujada ejercicio a ejercicio.",
+    example: "El viernes empuje: press banca 4 × 8",
     empty: "Sin entreno. Prueba: «los lunes hago pierna: sentadilla 5 × 5».",
     defaultTitle: "Entrenamiento",
     exercises: (n) => plural(n, "1 ejercicio", "# ejercicios"),
@@ -125,6 +126,7 @@ export const messages: Record<Locale, TrainMessages> = {
   en: {
     name: "Training",
     description: "Each day's workout with sets, reps and load, drawn exercise by exercise.",
+    example: "Friday is push day: bench press 4 × 8",
     empty: "No training. Try: “Mondays are leg day: squats 5 × 5”.",
     defaultTitle: "Workout",
     exercises: (n) => plural(n, "1 exercise", "# exercises"),

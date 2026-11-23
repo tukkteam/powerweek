@@ -1,7 +1,7 @@
 import { compact, sequentialIds, type Change, type Doc, type Json } from "@tukkteam/modules";
 import { describe, expect, it } from "vitest";
 import { kernel } from "../index";
-import { read, week } from "../test-kit";
+import { open, read, week } from "../test-kit";
 import { applyOperations, type Change as ChangeV1 } from "./oracle/apply";
 import { OperationSchema, type Operation as OperationV1 } from "./oracle/operations";
 import { DAY_KEYS, MEAL_SLOTS, PlanDocSchema, emptyPlan, type PlanDoc } from "./plan-v1";
@@ -11,6 +11,11 @@ import { DAY_KEYS, MEAL_SLOTS, PlanDocSchema, emptyPlan, type PlanDoc } from "./
  * operations are applied there and, under their old names, through the modules. Both must end
  * with the same data and the same receipt. This is what makes the move to modules safe for the
  * plans people already have.
+ *
+ * The oracle takes the operations of a request one at a time. Version 1 tidied a plan (sorted
+ * its lists) once per request; with modules every operation applies whole and leaves tidy data
+ * for the next one, as if each had come alone. The two only differ in which new id a copied
+ * item gets when the same request added something to that day first, and ids mean nothing.
  */
 
 /** A small seeded generator, so a failure can be reproduced from its seed. */
@@ -185,6 +190,22 @@ const NAMES: Record<string, string> = {
   "day.note": "notes.set",
 };
 
+/** Version 1, one operation at a time, sharing one source of ids. */
+function oneByOne(
+  plan: PlanDoc,
+  operations: readonly OperationV1[],
+  options: Parameters<typeof applyOperations>[2],
+): ReturnType<typeof applyOperations> {
+  const result: ReturnType<typeof applyOperations> = { plan, changes: [], rejected: [] };
+  operations.forEach((operation, index) => {
+    const step = applyOperations(result.plan, [operation], options);
+    result.plan = step.plan;
+    result.changes.push(...step.changes);
+    result.rejected.push(...step.rejected.map((rejection) => ({ ...rejection, index })));
+  });
+  return result;
+}
+
 const sorted = (changes: Change[]) =>
   changes.map((change) => JSON.stringify(change, Object.keys(change).sort())).sort();
 
@@ -212,7 +233,7 @@ function compare(seed: number, rounds: number, perRound: number) {
     }
 
     const prefix = `r${round}-`;
-    const oracle = applyOperations(plan, parsed, {
+    const oracle = oneByOne(plan, parsed, {
       newId: sequentialIds(prefix),
       defaultWorkoutTitle: "Entrenamiento",
     });
@@ -220,7 +241,7 @@ function compare(seed: number, rounds: number, perRound: number) {
     const at = `seed ${seed}, round ${round}`;
 
     expect(PlanDocSchema.safeParse(oracle.plan).success, at).toBe(true);
-    expect(read(modules.doc), at).toEqual(read(kernel.read(structuredClone(oracle.plan))));
+    expect(read(modules.doc), at).toEqual(read(open(structuredClone(oracle.plan))));
     // Same lines in the receipt. Their order may differ in one place: version 1 listed a day's
     // meal options in the order they were stored, modules list them in the order of the day.
     expect(sorted(modules.changes), at).toEqual(sorted(oracle.changes.map(toChange)));
@@ -272,7 +293,7 @@ describe("parity with plan version 1", () => {
     const parsed = raw.map((op) => OperationSchema.parse(op));
     const oracle = applyOperations(emptyPlan(), parsed, { newId: sequentialIds("t") });
     const modules = kernel.apply(week(), raw, { newId: sequentialIds("t"), lang: "en" });
-    expect(read(modules.doc)).toEqual(read(kernel.read(oracle.plan)));
+    expect(read(modules.doc)).toEqual(read(open(oracle.plan)));
     expect(modules.rejected.map((r) => [r.index, r.reason])).toEqual(
       oracle.rejected.map((r) => [r.index, r.reason]),
     );

@@ -49,6 +49,19 @@ export interface Doc {
   modules: Record<ModuleId, ModuleEntry>;
 }
 
+/**
+ * Freeze a value and everything inside it. Documents are values: once the kernel has read or
+ * produced one, nothing can change it in place, so a view, a hook or a record operation that
+ * tried to would fail loudly instead of slipping a change in without a receipt.
+ */
+export function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const inner of Object.values(value)) deepFreeze(inner);
+  }
+  return value;
+}
+
 export function emptyDoc(layout: readonly ModuleId[] = []): Doc {
   return { schemaVersion: DOC_VERSION, layout: [...layout], modules: {} };
 }

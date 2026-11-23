@@ -92,8 +92,9 @@ Routes are prefixed (`/es`, `/en`). `proxy.ts` sends un-prefixed paths to the la
 | Concern                              | Control                                                                                                         |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | Who can read or write a plan         | RLS: owner-only `select`; writes only through `save_plan` / `undo_plan` (security definer, `auth.uid()` checks) |
-| Plan integrity                       | `CHECK (plan_doc_is_valid(doc))` on the envelope and a 512 KB limit; each module's schema before every save     |
-| An old app overwriting newer data    | `save_plan` refuses a document with an older `schemaVersion` (`PW001`)                                          |
+| Plan integrity                       | `CHECK (plan_doc_is_valid(doc))` on the envelope and a 1 MB limit; each module's schema after every operation   |
+| An old app overwriting newer data    | `save_plan` refuses a document with an older `schemaVersion` (`PW001`); the assistant asks for `docVersion`     |
+| Showing a plan the app cannot read   | `kernel.read` returns nothing for it; the app reports it and never shows or saves an empty plan in its place    |
 | Model key                            | Server-only env var; the browser never sees it                                                                  |
 | Abuse of the assistant               | Per-user limits per minute and per day (lower for anonymous users), input ≤ 600 characters                      |
 | Cross-site requests to the assistant | JSON body only and an `Origin` host check                                                                       |

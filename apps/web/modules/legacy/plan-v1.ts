@@ -189,27 +189,6 @@ export function emptyPlan(): PlanDoc {
   };
 }
 
-/**
- * Parse a stored plan. Days that fail validation are reset individually so one
- * corrupted day never takes the whole week down.
- */
-export function coercePlan(input: unknown): PlanDoc {
-  const strict = PlanDocSchema.safeParse(input);
-  if (strict.success) return strict.data;
-
-  const plan = emptyPlan();
-  const source = input as { days?: Record<string, unknown>; menu?: unknown } | null;
-  const days = source?.days;
-  if (!days || typeof days !== "object") return plan;
-  for (const key of DAY_KEYS) {
-    const parsed = DaySchema.safeParse(days[key]);
-    if (parsed.success) plan.days[key] = parsed.data;
-  }
-  const menu = WeekMenuSchema.safeParse(source?.menu);
-  if (menu.success && source?.menu !== undefined) plan.menu = menu.data;
-  return plan;
-}
-
 const MEAL_ORDER: Record<MealSlot, number> = { breakfast: 0, lunch: 1, snack: 2, dinner: 3 };
 
 /** Timed items first in time order; untimed items keep their relative order at the end. */
@@ -285,15 +264,18 @@ const eachDay = <T>(make: (day: DayKey) => T) =>
   Object.fromEntries(DAY_KEYS.map((day) => [day, make(day)])) as Record<DayKey, T>;
 
 /**
- * Turn a version 1 plan into a document made of modules; null when `raw` is not version 1.
+ * Turn a version 1 plan into a document made of modules; null when `raw` is not a valid
+ * version 1 plan.
  *
  * Someone with anything planned keeps the three modules they had (plus Notes when a day has a
  * note). A blank week becomes a blank document: that person chooses their modules.
  */
 export function upgradeV1(raw: unknown): Doc | null {
-  if (!raw || typeof raw !== "object" || (raw as { schemaVersion?: unknown }).schemaVersion !== 1)
-    return null;
-  const plan = coercePlan(raw);
+  // Only a plan that validates whole is upgraded. Guessing at a damaged one would drop the days
+  // that do not validate, and the first save afterwards would make that loss permanent.
+  const strict = PlanDocSchema.safeParse(raw);
+  if (!strict.success) return null;
+  const plan = strict.data;
   const noted = DAY_KEYS.filter((day) => plan.days[day].note);
   const used =
     noted.length > 0 ||

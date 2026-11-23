@@ -18,7 +18,15 @@ export const MODULE_ID_PATTERN = /^[a-z][a-z0-9-]{1,31}$/;
 export type ModuleId = string;
 
 /** Ids the kernel keeps for itself: screen changes and operations that span modules. */
-export const RESERVED_IDS: readonly string[] = ["app", "layout", "day", "week", "module"];
+export const RESERVED_IDS: readonly string[] = [
+  "app",
+  "layout",
+  "day",
+  "week",
+  "module",
+  // Every object already has a property by this name.
+  "constructor",
+];
 
 /** Local operation name inside a module: "add", "exercise.add". */
 export const OPERATION_NAME_PATTERN = /^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*$/;
@@ -45,14 +53,17 @@ export interface Change {
 export type ChangeDraft = Omit<Change, "module">;
 
 /**
- * Why an operation did not apply:
+ * Why an operation did not apply. A module returns one of the first four; the kernel adds the
+ * last two.
  * - `not_found`: it names something that does not exist.
  * - `limit`: a list is full.
  * - `noop`: nothing would change.
- * - `invalid`: its fields did not validate, or it left the data in a shape the module rejects.
+ * - `conflict`: it clashes with something already there (a second item with the same name).
+ * - `invalid`: its fields did not validate, it threw, or it left data the module's schema rejects.
  * - `unavailable`: the module is unknown here, or its stored data cannot be read by this version.
  */
-export type RejectionReason = "not_found" | "limit" | "noop" | "invalid" | "unavailable";
+export type RejectionReason =
+  "not_found" | "limit" | "noop" | "conflict" | "invalid" | "unavailable";
 
 export interface Rejection {
   index: number;
@@ -66,6 +77,11 @@ export interface ModuleMessages {
   name: string;
   /** One sentence for the module gallery: what it helps with. */
   description: string;
+  /**
+   * One thing a person can say to it, as they would say it and without quotation marks:
+   * "Dentist on Thursday at 1:30 pm". Hosts show it wherever they introduce the module.
+   */
+  example: string;
 }
 
 /** A line of the assistant prompt: the operation's fields and what to say about them. */
@@ -97,7 +113,9 @@ export interface OperationSpec<State, Msg, Input> {
   examples: readonly PromptExample[];
   /**
    * Change `state` in place and report what changed with `ctx.change`. Return a reason to skip
-   * the operation; the kernel then restores the data as it was.
+   * the operation; the kernel then restores the data as it was. It does the same when the
+   * operation throws, reports nothing, or leaves data the module's schema rejects: an operation
+   * applies whole or not at all.
    */
   apply(state: State, input: Input, ctx: ApplyContext<Msg>): RejectionReason | void;
 }
@@ -125,6 +143,14 @@ export interface RecordContext<Msg> {
 export interface RecordSpec<State, Msg, Input> {
   input: z.ZodType<Input>;
   examples: readonly PromptExample[];
+  /**
+   * How this record means its days. By default a day is one of the current period, which may
+   * already be behind ("I did it on Monday"). With `upcoming`, a day is the next time it comes,
+   * today included ("tomorrow I'll have the lentils"), so on a Sunday "Monday" is tomorrow and
+   * not six days ago.
+   */
+  upcoming?: boolean;
+  /** Work out what to store. `state` is read-only here: a record never changes the plan. */
   resolve(state: State, input: Input, ctx: RecordContext<Msg>): RejectionReason | void;
 }
 
@@ -163,7 +189,10 @@ export interface ModuleSpec<State, Msg extends ModuleMessages = ModuleMessages> 
   migrate?(data: unknown, fromVersion: number): unknown;
   operations: Record<string, OperationSpec<State, Msg, AnyInput>>;
   records?: Record<string, RecordSpec<State, Msg, AnyInput>>;
-  /** Runs once after operations touched the data: keep lists sorted, drop empty containers. */
+  /**
+   * Runs after every operation that touched the data, before the schema checks it: keep lists
+   * sorted, drop empty containers.
+   */
   normalize?(state: State): void;
   /** One readable line for a change this module reported. */
   describe(change: Change, t: Msg): string;
@@ -215,7 +244,7 @@ export interface ModuleManifest {
   author?: string;
   tone: string;
   icon: string;
-  names: Record<string, { name: string; description: string }>;
+  names: Record<string, { name: string; description: string; example: string }>;
   operations: string[];
   records: string[];
 }
@@ -231,7 +260,7 @@ export function manifestOf(module: AnyModule): ModuleManifest {
     names: Object.fromEntries(
       Object.entries(module.messages as Record<string, ModuleMessages>).map(([lang, t]) => [
         lang,
-        { name: t.name, description: t.description },
+        { name: t.name, description: t.description, example: t.example },
       ]),
     ),
     operations: Object.keys(module.operations).map((name) => `${module.id}.${name}`),

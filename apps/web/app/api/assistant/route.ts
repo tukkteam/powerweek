@@ -1,5 +1,11 @@
-import { parseOutput, type Change, type Operation, type Rejection } from "@tukkteam/modules";
-import { dayKeyOf, isDayKey, weekDates } from "@tukkteam/modules/week";
+import {
+  DOC_VERSION,
+  parseOutput,
+  type Change,
+  type Operation,
+  type Rejection,
+} from "@tukkteam/modules";
+import { addDays, dayKeyOf, isDayKey, weekDates } from "@tukkteam/modules/week";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { completeJson, ModelError } from "@/lib/assistant/model";
@@ -14,6 +20,7 @@ import {
   writeEntry,
   type Db,
 } from "@/lib/plan-api";
+import { recordDate } from "@/lib/record-date";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { kernel } from "@/modules";
 
@@ -23,6 +30,12 @@ const BodySchema = z.object({
   input: z.string().trim().min(1).max(600),
   lang: z.enum(locales),
   today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  /**
+   * The document version the caller reads. A tab left open since before an upgrade does not
+   * send it and is turned away: it would not understand the answer, and this way it keeps its
+   * plan on screen until it reloads.
+   */
+  docVersion: z.literal(DOC_VERSION),
 });
 
 const LIMITS = { perMinute: 8, perDayAnonymous: 120, perDay: 400 };
@@ -83,29 +96,44 @@ async function storeRecords(
   records: readonly Operation[],
   today: string,
   lang: (typeof locales)[number],
-): Promise<{ changes: Change[]; rejected: Rejection[] }> {
-  if (records.length === 0) return { changes: [], rejected: [] };
-  const dates = weekDates(today);
-  const stored = (await fetchEntries(db, dates.mon, dates.sun)) ?? new Map();
+): Promise<{ changes: Change[]; rejected: Rejection[]; failed: number }> {
+  if (records.length === 0) return { changes: [], rejected: [], failed: 0 };
+  // A fact that looks ahead may belong to next week, and "yesterday" to the last one.
+  const week = weekDates(today);
+  const stored = (await fetchEntries(db, addDays(week.mon, -7), addDays(week.sun, 7))) ?? new Map();
   const resolved = kernel.resolveRecords(doc, records, {
     lang,
-    get: (module, day, key) =>
-      isDayKey(day) ? stored.get(entryKey(dates[day], module, key)) : undefined,
+    get: (module, day, key, upcoming) =>
+      isDayKey(day)
+        ? stored.get(entryKey(recordDate(today, day, upcoming), module, key))
+        : undefined,
   });
   const changes: Change[] = [];
-  for (const [index, write] of resolved.writes.entries()) {
-    if (!isDayKey(write.day)) continue;
-    const saved = await writeEntry(db, {
-      userId,
-      isoDate: dates[write.day],
-      module: write.module,
-      key: write.key,
-      value: write.value,
-    });
-    const change = resolved.changes[index];
+  const rejected = [...resolved.rejected];
+  let failed = 0;
+  for (const [position, write] of resolved.writes.entries()) {
+    const saved =
+      isDayKey(write.day) &&
+      (await writeEntry(db, {
+        userId,
+        isoDate: recordDate(today, write.day, write.upcoming),
+        module: write.module,
+        key: write.key,
+        value: write.value,
+      }));
+    const change = resolved.changes[position];
     if (saved && change) changes.push(change);
+    if (saved) continue;
+    // Not stored: count it, or the receipt would take the assistant's word for it.
+    failed += 1;
+    rejected.push({
+      index: write.index,
+      op: records[write.index]?.op ?? "",
+      reason: "unavailable",
+    });
   }
-  return { changes, rejected: resolved.rejected };
+  rejected.sort((a, b) => a.index - b.index);
+  return { changes, rejected, failed };
 }
 
 /**
@@ -133,8 +161,11 @@ export async function POST(request: NextRequest) {
   let current: Awaited<ReturnType<typeof fetchPlan>>;
   try {
     current = await fetchPlan(db);
-  } catch {
-    return fail("server_error", 500);
+  } catch (error) {
+    // A plan this build cannot read was written by a newer one: the page has to reload.
+    return error instanceof PlanError && error.isOutdated
+      ? fail("outdated", 409)
+      : fail("server_error", 500);
   }
 
   let modelName: string | null = null;
@@ -161,6 +192,11 @@ export async function POST(request: NextRequest) {
   if (applied.changes.length === 0) {
     const noted = await storeRecords(db, user.id, current.doc, records, today, lang);
     const done = noted.changes.length > 0;
+    if (!done && noted.failed > 0) {
+      // Nothing was stored at all: that is an error, not an answer with nothing to change.
+      await logRequest(db, user.id, "model_error", modelName, startedAt);
+      return fail("server_error", 500);
+    }
     await logRequest(db, user.id, done ? "ok" : "no_changes", modelName, startedAt);
     return NextResponse.json({
       status: done ? "ok" : "no_changes",

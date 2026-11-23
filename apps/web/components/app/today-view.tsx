@@ -35,13 +35,18 @@ export function TodayView() {
   const dateLabel = shortDate(dates[selectedDay], lang);
   const counts = summaries(shown, selectedDay);
 
+  // The desk works on a copy of the screen. When the screen itself changes while it is open
+  // (by voice, or on another device), it starts over from the new one, so "Done" can never put
+  // back what that change took away.
+  const layoutKey = doc.layout.join(" ");
+
   const arrange = (order: string[] | null) => {
     setArranging(false);
     if (order) void edit([{ op: "layout.set", modules: order }]);
   };
 
   // Nothing on screen yet: the person chooses what they want to organise.
-  if (shown.length === 0) return <ModuleDesk doc={doc} welcome onDone={arrange} />;
+  if (shown.length === 0) return <ModuleDesk key={layoutKey} doc={doc} welcome onDone={arrange} />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,7 +120,7 @@ export function TodayView() {
       </div>
 
       {arranging ? (
-        <ModuleDesk doc={doc} onDone={arrange} />
+        <ModuleDesk key={layoutKey} doc={doc} onDone={arrange} />
       ) : (
         <section aria-label={dict.modules.title} className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">

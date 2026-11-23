@@ -61,23 +61,22 @@ export function defineWeekModule<State, Msg extends ModuleMessages = ModuleMessa
 
 const reference = z.string().trim().min(1).max(64);
 
-/** The modules an operation on a whole day works on: the ones named, or everything on screen. */
+/**
+ * The modules an operation on a whole day works on: everything on screen, or only the modules
+ * named among those. A module that is off screen is never touched: what a person cannot see,
+ * a whole-day operation does not change.
+ */
 function chosen<M extends AnyWeekModule>(
   doc: Doc,
   names: readonly string[] | undefined,
   ctx: SystemContext<M>,
 ): M[] {
-  if (!names) {
-    return doc.layout
-      .map((id) => ctx.modules.find((module) => module.id === id))
-      .filter((module): module is M => module !== undefined);
-  }
-  const out: M[] = [];
-  for (const name of names) {
-    const module = ctx.find(name);
-    if (module && !out.includes(module)) out.push(module);
-  }
-  return out;
+  const shown = doc.layout
+    .map((id) => ctx.modules.find((module) => module.id === id))
+    .filter((module): module is M => module !== undefined);
+  if (!names) return shown;
+  const wanted = new Set(names.map((name) => ctx.find(name)?.id));
+  return shown.filter((module) => wanted.has(module.id));
 }
 
 /** Operations on a whole day, across every module that takes part: clear it, copy it. */
@@ -141,7 +140,8 @@ export function createWeekKernel<M extends AnyWeekModule>(config: KernelConfig<M
   return createKernel({
     ...config,
     system: { ...dayOperations<M>(), ...config.system },
-    normalise: (fields) => normaliseDayFields(config.normalise ? config.normalise(fields) : fields),
+    normalise: (fields, op) =>
+      normaliseDayFields(config.normalise ? config.normalise(fields, op) : fields, op),
   });
 }
 

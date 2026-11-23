@@ -16,12 +16,12 @@ const TaskSchema = z.object({ id: itemId, title: text(80), time: TimeSchema.opti
 export const TasksSchema = z.object({ days: dayRecord(z.array(TaskSchema).max(3)) }).strict();
 export type Tasks = z.infer<typeof TasksSchema>;
 
-interface TaskMessages extends ModuleMessages {
+export interface TaskMessages extends ModuleMessages {
   untitled: string;
   count: (n: number) => string;
 }
 
-const { operation, record } = parts<Tasks, TaskMessages>();
+export const { operation, record } = parts<Tasks, TaskMessages>();
 
 const find = (state: Tasks, id: string) => {
   for (const day of DAY_KEYS) {
@@ -40,12 +40,14 @@ export const tasks = defineWeekModule<Tasks, TaskMessages>({
     es: {
       name: "Tareas",
       description: "Cosas por hacer cada día.",
+      example: "El lunes, llamar a mamá a las 18:00",
       untitled: "Tarea",
       count: (n) => `${n} tareas`,
     },
     en: {
       name: "Tasks",
       description: "Things to do each day.",
+      example: "Call mum on Monday at 6 pm",
       untitled: "Task",
       count: (n) => `${n} tasks`,
     },
@@ -180,8 +182,12 @@ export const note = defineWeekModule<Note>({
   tone: "sand",
   icon: "sticky-note",
   messages: {
-    es: { name: "Nota", description: "Una nota para la semana." },
-    en: { name: "Note", description: "One note for the week." },
+    es: {
+      name: "Nota",
+      description: "Una nota para la semana.",
+      example: "Apunta: comprar flores",
+    },
+    en: { name: "Note", description: "One note for the week.", example: "Note: buy flowers" },
   },
   schema: NoteSchema,
   empty: () => ({}),

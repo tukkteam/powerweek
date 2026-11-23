@@ -117,12 +117,6 @@ export const es = {
     modulesTitle: "Tu semana, por módulos.",
     modulesLead:
       "Cada módulo organiza una parte de tu semana. Pon en pantalla solo los que uses, ordénalos a tu gusto y cámbialos cuando quieras, también con la voz: «quita las comidas», «pon el entreno lo primero».",
-    moduleExamples: {
-      agenda: "«Los miércoles, inglés de 20:00 a 21:00»",
-      train: "«El viernes empuje: press banca 4 × 8»",
-      fuel: "«Entre semana desayuno avena con plátano»",
-      notes: "«Apunta el sábado: día de descanso»",
-    } as Record<string, string>,
     modulesMoreTitle: "El siguiente puede ser tuyo",
     modulesMoreBody:
       "Un módulo es una carpeta: qué guarda, qué cambios admite y cómo se dibuja. Con eso ya se puede usar con la voz.",
@@ -213,6 +207,8 @@ export const es = {
     moveLater: (name: string) => `Mover ${name} después`,
     hint: "Arrastra para ordenar. Lo que quites no se borra: vuelve tal cual si lo añades otra vez.",
     by: (author: string) => `De ${author}`,
+    say: (text: string) => `Di: «${text}»`,
+    quote: (text: string) => `«${text}»`,
     welcomeTitle: "¿Qué quieres organizar?",
     welcomeLead:
       "Elige tus módulos, o dímelo: «quiero organizar mis comidas y mi agenda». Podrás cambiarlos cuando quieras.",
@@ -281,6 +277,7 @@ export const es = {
       not_found: "No encuentro eso en tu semana.",
       limit: "Ahí ya no cabe nada más.",
       noop: "Eso ya estaba así.",
+      conflict: "Eso choca con algo que ya tienes.",
       invalid: "No he entendido bien ese cambio. Prueba a decirlo de otra forma.",
       unavailable: "Ese módulo necesita una versión más nueva. Recarga PowerWeek.",
     } satisfies Record<RejectionReason, string>,

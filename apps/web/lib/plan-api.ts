@@ -37,7 +37,18 @@ export async function fetchPlan(db: Db): Promise<{ doc: Doc; version: number }> 
   if (error) throw new PlanError(error.message, error.code);
   const row = data?.[0];
   if (!row) throw new PlanError("Plan not found");
-  return { doc: kernel.read(row.doc), version: row.version };
+  return { doc: readPlan(row.doc), version: row.version };
+}
+
+/**
+ * Read a stored plan. Throws when this build does not recognise it, which means a newer build
+ * wrote it. An empty plan in its place would look like a lost week, and the next save would
+ * make it one.
+ */
+export function readPlan(raw: unknown): Doc {
+  const doc = kernel.read(raw);
+  if (!doc) throw new PlanError("This build cannot read the stored plan", CLIENT_OUTDATED);
+  return doc;
 }
 
 /** Optimistic-concurrency save. Throws PlanError with code 40001 on a stale version. */

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   createKernel,
   docJsonSchema,
@@ -10,8 +11,8 @@ import {
   type Doc,
 } from "../src";
 import { checkModule } from "../src/testing";
-import { createWeekKernel, weekLoads } from "../src/week";
-import { faulty, note, tasks } from "./toy";
+import { createWeekKernel, DayKeySchema, defineWeekModule, eachDay, weekLoads } from "../src/week";
+import { faulty, note, operation, record, tasks, type TaskMessages, type Tasks } from "./toy";
 
 const locales = ["es", "en"] as const;
 const kernel = createWeekKernel({ modules: [tasks, note], locales });
@@ -20,6 +21,13 @@ const ids = () => ({ newId: sequentialIds("t") });
 function docWith(build: (doc: Doc) => void): Doc {
   const doc = kernel.empty(["tasks"]);
   build(doc);
+  return doc;
+}
+
+/** Read stored JSON the test knows to be a document. */
+function read(raw: unknown, from: { read(raw: unknown): Doc | null } = kernel): Doc {
+  const doc = from.read(raw);
+  if (!doc) throw new Error("Not a document");
   return doc;
 }
 
@@ -38,7 +46,7 @@ describe("documents", () => {
         gone: { v: 3, data: { anything: [1, 2, 3] } },
       },
     };
-    const doc = kernel.read(stored);
+    const doc = read(stored);
     expect(doc.modules.gone).toEqual({ v: 3, data: { anything: [1, 2, 3] } });
     expect(kernel.onScreen(doc).map((module) => module.id)).toEqual(["tasks"]);
     const { doc: next } = kernel.apply(doc, [{ op: "tasks.add", day: "mon", title: "Leer" }]);
@@ -47,7 +55,7 @@ describe("documents", () => {
   });
 
   it("salvages what it can from a damaged envelope and falls back to the upgrade hook", () => {
-    const doc = kernel.read({
+    const doc = read({
       schemaVersion: 2,
       layout: ["tasks", "Not An Id", "tasks"],
       modules: { tasks: { v: 1, data: tasks.empty() }, broken: "nope" },
@@ -55,7 +63,6 @@ describe("documents", () => {
     });
     expect(doc.layout).toEqual(["tasks"]);
     expect(Object.keys(doc.modules)).toEqual(["tasks"]);
-    expect(kernel.read("garbage")).toEqual(kernel.empty());
 
     const upgrading = createKernel({
       modules: [note],
@@ -69,16 +76,88 @@ describe("documents", () => {
             }
           : null,
     });
-    expect(upgrading.state(upgrading.read({ legacy: "hola" }), note)).toEqual({ text: "hola" });
+    expect(upgrading.state(read({ legacy: "hola" }, upgrading), note)).toEqual({ text: "hola" });
+    expect(upgrading.read({ other: true })).toBeNull();
+  });
+
+  it("says so when something is not a document, and never makes up an empty one", () => {
+    const strangers = [
+      "garbage",
+      null,
+      undefined,
+      7,
+      [],
+      {},
+      { schemaVersion: 1, days: {} },
+      { schemaVersion: 3, layout: [], modules: {} },
+    ];
+    for (const raw of strangers) expect(kernel.read(raw)).toBeNull();
+  });
+
+  it("hands out frozen documents and leaves alone what it was given", () => {
+    const stored = {
+      schemaVersion: 2,
+      layout: ["tasks"],
+      modules: { tasks: { v: 1, data: tasks.empty() } },
+    };
+    const doc = read(stored);
+    expect(Object.isFrozen(stored.modules.tasks.data.days.mon)).toBe(false);
+    expect(Object.isFrozen(doc)).toBe(true);
+    expect(() => kernel.state(doc, tasks).days.mon.push({ id: "x", title: "x" })).toThrow();
+    expect(() => doc.layout.push("note")).toThrow();
+
+    const next = kernel.apply(doc, [{ op: "tasks.add", day: "mon", title: "Leer" }]).doc;
+    expect(Object.isFrozen(kernel.state(next, tasks).days.mon[0])).toBe(true);
+    expect(kernel.state(doc, tasks).days.mon).toEqual([]);
+    // The data of a module nobody has used is frozen too: it is the same for everyone.
+    expect(Object.isFrozen(kernel.state(kernel.empty(), tasks).days.mon)).toBe(true);
+  });
+
+  it("never shares what empty() returns between two documents", () => {
+    const shared = eachDay<Tasks["days"]["mon"]>(() => []);
+    const lazy = defineWeekModule<Tasks, TaskMessages>({
+      ...tasks,
+      empty: () => ({ days: shared }),
+    });
+    const sharing = createWeekKernel({ modules: [lazy], locales });
+    const one = sharing.apply(sharing.empty(), [{ op: "tasks.add", day: "mon", title: "Leer" }]);
+    expect(sharing.state(one.doc, lazy).days.mon).toHaveLength(1);
+    expect(shared.mon).toEqual([]);
+    expect(Object.isFrozen(shared.mon)).toBe(false);
+    expect(sharing.state(sharing.empty(), lazy).days.mon).toEqual([]);
+    expect(checkModule(lazy, { locales }).join("\n")).toMatch(/nothing shared between two calls/);
   });
 
   it("migrates data written by an older version of a module", () => {
-    const doc = kernel.read({
+    const doc = read({
       schemaVersion: 2,
       layout: ["note"],
       modules: { note: { v: 1, data: { body: "Comprar flores" } } },
     });
     expect(doc.modules.note).toEqual({ v: 2, data: { text: "Comprar flores" } });
+  });
+
+  it("keeps data as stored when a migration throws or returns what the module rejects", () => {
+    const stored = {
+      schemaVersion: 2,
+      layout: ["note"],
+      modules: { note: { v: 1, data: { body: "Comprar flores" } } },
+    };
+    const migrations: ((data: unknown) => unknown)[] = [
+      () => ({ text: 5 }),
+      () => "nothing",
+      () => {
+        throw new Error("boom");
+      },
+    ];
+    for (const migrate of migrations) {
+      const careless = createKernel({ modules: [{ ...note, migrate }], locales });
+      const doc = read(stored, careless);
+      expect(doc.modules.note).toEqual(stored.modules.note);
+      expect(careless.unreadable(doc).has("note")).toBe(true);
+      const result = careless.apply(doc, [{ op: "note.set", text: "Hola" }]);
+      expect(result.doc.modules.note).toEqual(stored.modules.note);
+    }
   });
 
   it("sets aside data it cannot read: never shown, never written, never lost", () => {
@@ -90,7 +169,7 @@ describe("documents", () => {
         note: { v: 9, data: { future: true } },
       },
     };
-    const doc = kernel.read(stored);
+    const doc = read(stored);
     expect([...kernel.unreadable(doc)].sort()).toEqual(["note", "tasks"]);
     expect(kernel.state(doc, tasks)).toEqual(tasks.empty());
     const result = kernel.apply(doc, [
@@ -193,6 +272,53 @@ describe("operations", () => {
       { op: "tasks.add", day: "tue", title: "Correr" },
     ]);
   });
+
+  it("never lets another spelling take an operation away from a module", () => {
+    const shadowed = createWeekKernel({
+      modules: [tasks, note],
+      locales,
+      aliases: { "tasks.add": "note.set" },
+    });
+    const result = shadowed.apply(shadowed.empty(), [
+      { op: "tasks.add", day: "mon", title: "Leer" },
+      // Not another spelling of anything: every object inherits a property by this name.
+      { op: "constructor", text: "x" },
+    ]);
+    expect(shadowed.state(result.doc, tasks).days.mon).toHaveLength(1);
+    expect(result.rejected).toEqual([{ index: 1, op: "constructor", reason: "unavailable" }]);
+  });
+
+  it("counts what the cap on one answer leaves out", () => {
+    const capped = createWeekKernel({ modules: [tasks], locales, maxOperations: 2 });
+    const parsed = capped.parse(Array.from({ length: 5 }, () => ({ op: "tasks.add", day: "mon" })));
+    expect(parsed.operations).toHaveLength(2);
+    expect(parsed.dropped).toBe(3);
+  });
+
+  it("validates an operation once, however it arrives", () => {
+    const shouting = defineWeekModule<Tasks, TaskMessages>({
+      ...tasks,
+      operations: {
+        shout: operation({
+          input: z.object({ day: DayKeySchema, title: z.string().transform((s) => `${s}!`) }),
+          examples: [{ fields: { day: "mon", title: "Hey" } }],
+          apply(state, input, ctx) {
+            state.days[input.day].push({ id: ctx.newId(), title: input.title });
+            ctx.change({ kind: "add", day: input.day, label: input.title });
+          },
+        }),
+      },
+    });
+    const loud = createWeekKernel({ modules: [shouting], locales });
+    const parsed = loud.parse([{ op: "tasks.shout", day: "lunes", title: "Hey" }]);
+    expect(parsed.operations).toEqual([{ op: "tasks.shout", day: "mon", title: "Hey!" }]);
+    const spoken = loud.apply(loud.empty(), parsed.operations);
+    expect(loud.state(spoken.doc, shouting).days.mon[0]?.title).toBe("Hey!");
+    const typed = loud.apply(loud.empty(), [{ op: "tasks.shout", day: "mon", title: "Hey" }]);
+    expect(loud.state(typed.doc, shouting).days.mon[0]?.title).toBe("Hey!");
+    // The contract still asks for parsing that can be repeated: saved operations are replayed.
+    expect(checkModule(shouting, { locales }).join("\n")).toMatch(/not idempotent/);
+  });
 });
 
 describe("a faulty module cannot damage the document", () => {
@@ -217,25 +343,122 @@ describe("a faulty module cannot damage the document", () => {
     expect(result.doc).toBe(start);
   });
 
-  it("undoes everything a module did when it leaves data its own schema rejects", () => {
+  it("undoes an operation that leaves data the module's schema rejects, and only that one", () => {
     const result = guarded.apply(start, [
       { op: "tasks.add", day: "tue", title: "Correr" },
       { op: "tasks.corrupt", day: "tue" },
+      { op: "tasks.add", day: "tue", title: "Nadar" },
       { op: "note.set", text: "Hola" },
     ]);
-    expect(guarded.state(result.doc, faulty)).toEqual(guarded.state(start, faulty));
-    expect(result.changes.map((c) => c.module)).toEqual(["app", "note"]);
-    expect(result.rejected).toEqual([
-      { index: 0, op: "tasks.add", reason: "invalid" },
-      { index: 1, op: "tasks.corrupt", reason: "invalid" },
+    expect(guarded.state(result.doc, faulty).days.tue.map((task) => task.title)).toEqual([
+      "Correr",
+      "Nadar",
+    ]);
+    expect(result.rejected).toEqual([{ index: 1, op: "tasks.corrupt", reason: "invalid" }]);
+    expect(result.changes.map((c) => `${c.module}:${c.label}`)).toEqual([
+      "tasks:Correr",
+      "tasks:Nadar",
+      "app:note",
+      "note:Hola",
     ]);
     expect(faulty.schema.safeParse(result.doc.modules.tasks?.data).success).toBe(true);
   });
 
-  it("takes a module back off the screen when its first change is undone", () => {
+  it("does not put a module on screen for an operation it had to undo", () => {
     const result = guarded.apply(guarded.empty(["note"]), [{ op: "tasks.corrupt", day: "mon" }]);
     expect(result.doc.layout).toEqual(["note"]);
+    expect(result.doc.modules.tasks).toBeUndefined();
     expect(result.changes).toEqual([]);
+  });
+
+  it("keeps a screen change the person asked for when a later operation is undone", () => {
+    const result = guarded.apply(start, [
+      { op: "layout.remove", module: "tasks" },
+      { op: "tasks.corrupt", day: "mon" },
+    ]);
+    expect(result.doc.layout).toEqual([]);
+    expect(result.changes).toEqual([
+      { kind: "remove", module: "app", scope: "app", label: "tasks" },
+    ]);
+    expect(result.rejected).toEqual([{ index: 1, op: "tasks.corrupt", reason: "invalid" }]);
+  });
+
+  it("undoes a whole-day operation in every module when one of them breaks", () => {
+    const chores = defineWeekModule<Tasks, TaskMessages>({ ...tasks, id: "chores" });
+    const clumsy = defineWeekModule<Tasks, TaskMessages>({
+      ...tasks,
+      week: {
+        ...tasks.week,
+        copyDay(state, _from, to, ctx) {
+          (state.days as Record<string, unknown>)[to] = "broken";
+          ctx.change({ kind: "add", day: to, label: "?" });
+        },
+      },
+    });
+    const pair = createWeekKernel({ modules: [chores, clumsy], locales });
+    const filled = pair.apply(pair.empty(), [
+      { op: "chores.add", day: "mon", title: "Barrer" },
+      { op: "tasks.add", day: "mon", title: "Leer" },
+    ]).doc;
+    const result = pair.apply(filled, [{ op: "day.copy", from: "mon", to: ["tue"] }]);
+    expect(result.rejected).toEqual([{ index: 0, op: "day.copy", reason: "invalid" }]);
+    expect(result.doc).toBe(filled);
+  });
+});
+
+describe("what only reads cannot change the plan", () => {
+  const meddling = defineWeekModule<Tasks, TaskMessages>({
+    ...tasks,
+    records: {
+      done: record({
+        input: z.object({ day: DayKeySchema }),
+        examples: [{ fields: { day: "mon" } }],
+        resolve(state, input, ctx) {
+          state.days[input.day].length = 0;
+          ctx.write(
+            { day: input.day, key: "all", value: true },
+            { kind: "update", day: input.day, label: "all" },
+          );
+        },
+      }),
+    },
+    assistant: {
+      ...tasks.assistant,
+      view(state) {
+        state.days.mon.pop();
+        return state;
+      },
+    },
+    week: {
+      ...tasks.week,
+      load(state, day) {
+        state.days[day].push({ id: "x", title: "x" });
+        return 1;
+      },
+    },
+  });
+  const strict = createWeekKernel({ modules: [meddling], locales });
+  const doc = strict.apply(strict.empty(), [{ op: "tasks.add", day: "mon", title: "Leer" }], {
+    newId: sequentialIds("m"),
+  }).doc;
+
+  it("contains a hook, a view or a record operation that tries to", () => {
+    const before = JSON.stringify(doc);
+    expect(weekLoads(strict, doc).mon.count).toBe(0);
+    expect(userPrompt(strict, { doc, input: "x" })).toContain("Current plan as json:\n{}");
+    const records = strict.resolveRecords(doc, [{ op: "tasks.done", day: "mon" }], {
+      get: () => undefined,
+    });
+    expect(records.rejected).toEqual([{ index: 0, op: "tasks.done", reason: "invalid" }]);
+    expect(records.writes).toEqual([]);
+    expect(JSON.stringify(doc)).toBe(before);
+  });
+
+  it("is found by the conformance check", () => {
+    const problems = checkModule(meddling, { locales }).join("\n");
+    expect(problems).toMatch(/assistant\.view fails on .* data, or tries to change it/);
+    expect(problems).toMatch(/a week hook fails on .* data, or tries to change it/);
+    expect(problems).toMatch(/tries to change the plan/);
   });
 });
 
@@ -320,10 +543,27 @@ describe("whole days", () => {
   it("clears a day, only in the modules named when given", () => {
     const cleared = kernel.apply(start, [{ op: "day.clear", day: "mon" }]);
     expect(kernel.state(cleared.doc, tasks).days.mon).toEqual([]);
-    const other = kernel.apply(start, [{ op: "day.clear", day: "mon", modules: ["note"] }]);
+    const shown = kernel.apply(start, [{ op: "layout.add", module: "note" }]).doc;
+    const other = kernel.apply(shown, [{ op: "day.clear", day: "mon", modules: ["note"] }]);
     expect(other.rejected).toEqual([{ index: 0, op: "day.clear", reason: "noop" }]);
     const nothing = kernel.apply(start, [{ op: "day.clear", day: "sun" }]);
     expect(nothing.rejected[0]?.reason).toBe("noop");
+  });
+
+  it("leaves alone the modules that are off screen, even when they are named", () => {
+    const hidden = kernel.apply(start, [{ op: "layout.remove", module: "tasks" }]).doc;
+    const named = kernel.apply(hidden, [
+      { op: "day.clear", day: "mon", modules: ["tasks"] },
+      { op: "day.copy", from: "mon", to: ["wed"], modules: ["Tareas"] },
+    ]);
+    expect(named.rejected.map((r) => r.reason)).toEqual(["not_found", "not_found"]);
+    const everything = kernel.apply(hidden, [
+      { op: "day.clear", day: "mon" },
+      { op: "day.copy", from: "mon", to: ["wed"] },
+    ]);
+    expect(everything.rejected.map((r) => r.reason)).toEqual(["noop", "noop"]);
+    expect(everything.doc).toBe(hidden);
+    expect(kernel.state(hidden, tasks).days.mon).toHaveLength(1);
   });
 
   it("measures how busy each day is from the modules on screen", () => {
@@ -367,14 +607,38 @@ describe("dated facts", () => {
       { get: (module, day, key) => stored.get(`${module}|${day}|${key}`) },
     );
     expect(result.writes).toEqual([
-      { module: "tasks", day: "mon", key: "t1", value: true },
-      { module: "tasks", day: "mon", key: "t1", value: null },
+      { module: "tasks", day: "mon", key: "t1", value: true, upcoming: false, index: 0 },
+      { module: "tasks", day: "mon", key: "t1", value: null, upcoming: false, index: 2 },
     ]);
     expect(result.rejected.map((r) => [r.index, r.reason])).toEqual([
       [1, "noop"],
       [3, "not_found"],
     ]);
     expect(result.changes).toHaveLength(2);
+  });
+
+  it("tells the host when a record means the next time a day comes", () => {
+    const planning = defineWeekModule<Tasks, TaskMessages>({
+      ...tasks,
+      records: { done: { ...tasks.records!.done!, upcoming: true } },
+    });
+    const ahead = createWeekKernel({ modules: [planning], locales });
+    const doc = ahead.apply(
+      ahead.empty(),
+      [{ op: "tasks.add", day: "mon", title: "Leer" }],
+      ids(),
+    ).doc;
+    const asked: boolean[] = [];
+    const result = ahead.resolveRecords(doc, [{ op: "tasks.done", day: "mon", task: "Leer" }], {
+      get: (_module, _day, _key, upcoming) => {
+        asked.push(upcoming);
+        return undefined;
+      },
+    });
+    expect(asked).toEqual([true]);
+    expect(result.writes).toEqual([
+      { module: "tasks", day: "mon", key: "t1", value: true, upcoming: true, index: 0 },
+    ]);
   });
 });
 
@@ -438,14 +702,37 @@ describe("the assistant protocol", () => {
       reply: "¿Qué día?",
     });
   });
+
+  it("leaves out what a module fails to provide and keeps the rest of the prompt", () => {
+    const broken = defineWeekModule<Tasks, TaskMessages>({
+      ...tasks,
+      assistant: {
+        ...tasks.assistant,
+        reference: () => {
+          throw new Error("boom");
+        },
+        view: () => {
+          throw new Error("boom");
+        },
+      },
+    });
+    const patient = createWeekKernel({ modules: [broken, note], locales });
+    const system = systemPrompt(patient, host, { onScreen: ["tasks", "note"] });
+    expect(system).toContain('{"op":"tasks.add"');
+    expect(system).not.toContain("Task reference text");
+    const doc = patient.apply(patient.empty(), [
+      { op: "tasks.add", day: "fri", title: "Leer" },
+      { op: "note.set", text: "Hola" },
+    ]).doc;
+    expect(userPrompt(patient, { doc, input: "x" })).toContain('{"note":{"text":"Hola"}}');
+  });
 });
 
 describe("the contract", () => {
   it("refuses to start with modules that break it", () => {
     expect(() => createKernel({ modules: [tasks, tasks], locales })).toThrow(/Duplicate module/);
-    expect(() => createKernel({ modules: [{ ...tasks, id: "layout" }], locales })).toThrow(
-      /reserved/,
-    );
+    for (const id of ["layout", "day", "app", "constructor"])
+      expect(() => createKernel({ modules: [{ ...tasks, id }], locales })).toThrow(/reserved/);
     expect(() => createKernel({ modules: [{ ...tasks, id: "My Tasks" }], locales })).toThrow(
       /Invalid module id/,
     );
@@ -462,14 +749,39 @@ describe("the contract", () => {
     expect(problems).toContain('"corrupt" has no example');
 
     const mistranslated = checkModule(
-      { ...tasks, messages: { ...tasks.messages, en: { name: "Tasks", description: "" } } },
+      {
+        ...tasks,
+        messages: { ...tasks.messages, en: { name: "Tasks", description: "", example: "" } },
+      },
       { locales },
     );
     expect(mistranslated.join("\n")).toMatch(/"en" has no description/);
+    expect(mistranslated.join("\n")).toMatch(/"en" has no example of what to say/);
     expect(mistranslated.join("\n")).toMatch(/do not have the same keys/);
 
     const stale = checkModule({ ...tasks, empty: () => ({ days: {} }) as never }, { locales });
     expect(stale).toContain("empty() does not pass the schema");
+  });
+
+  it("checks a module the way its host will read it when given the host's kernel", () => {
+    // "s" is a size here, but a weekly planner reads `to` as a day and turns it into "sat".
+    const sized = defineWeekModule<Tasks, TaskMessages>({
+      ...tasks,
+      operations: {
+        ...tasks.operations,
+        resize: operation({
+          input: z.object({ to: z.enum(["s", "m", "l"]) }),
+          examples: [{ fields: { to: "s" } }],
+          apply(_state, input, ctx) {
+            ctx.change({ kind: "update", scope: "week", label: input.to });
+          },
+        }),
+      },
+    });
+    expect(checkModule(sized, { locales })).toEqual([]);
+    expect(checkModule(sized, { locales, kernel: createWeekKernel }).join("\n")).toMatch(
+      /does not validate the way the host reads it/,
+    );
   });
 
   it("describes a module as plain data for a gallery or a registry", () => {
@@ -480,8 +792,16 @@ describe("the contract", () => {
       tone: "blue",
       icon: "list",
       names: {
-        es: { name: "Tareas", description: "Cosas por hacer cada día." },
-        en: { name: "Tasks", description: "Things to do each day." },
+        es: {
+          name: "Tareas",
+          description: "Cosas por hacer cada día.",
+          example: "El lunes, llamar a mamá a las 18:00",
+        },
+        en: {
+          name: "Tasks",
+          description: "Things to do each day.",
+          example: "Call mum on Monday at 6 pm",
+        },
       },
       operations: ["tasks.add", "tasks.update", "tasks.remove"],
       records: ["tasks.done"],

@@ -53,7 +53,6 @@ function NotesCard({ data, t, day, dispatch }: CardProps<Notes, NotesMessages>) 
             maxLength={NOTE_LIMIT}
             defaultValue={note}
             placeholder={t.placeholder}
-            autoFocus
             className={`${fieldClass} h-auto py-3 leading-relaxed`}
           />
         </Field>

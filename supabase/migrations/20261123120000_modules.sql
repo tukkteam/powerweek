@@ -62,7 +62,7 @@ comment on function public.plan_doc_is_valid(jsonb) is 'True when a plan documen
 
 -- Module data is free-form inside the envelope, so the document gets a size limit.
 alter table public.plans
-  add constraint plans_doc_size check (octet_length(doc::text) <= 524288);
+  add constraint plans_doc_size check (octet_length(doc::text) <= 1048576);
 
 -- Same contract as before, plus the guard against writing an older schemaVersion.
 create or replace function public.save_plan(

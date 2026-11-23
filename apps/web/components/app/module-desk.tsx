@@ -339,6 +339,7 @@ export function ModuleDesk({
                     <span className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className="type-heading">{entry.t.name}</span>
                       <span className="type-caption text-ink-muted">{entry.t.description}</span>
+                      <span className="type-caption text-ink">{t.say(entry.t.example)}</span>
                       {module.author ? (
                         <span className="type-label mt-1 text-ink-muted">
                           {t.by(module.author)}

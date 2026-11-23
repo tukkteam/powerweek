@@ -285,7 +285,6 @@ function FuelCard({
             required
             maxLength={FUEL_LIMITS.title}
             defaultValue={editing?.kind === "meal" ? editing.item?.title : undefined}
-            autoFocus
             className={fieldClass}
           />
         </Field>
@@ -335,7 +334,6 @@ function FuelCard({
                 ? editing.options.map((option) => option.title).join("\n")
                 : undefined
             }
-            autoFocus
             className={`${fieldClass} h-auto py-3 leading-relaxed`}
           />
         </Field>

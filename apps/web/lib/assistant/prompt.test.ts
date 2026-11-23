@@ -29,8 +29,9 @@ describe("assistant prompt", () => {
       { ...at, lang: "es", doc: kernel.empty(["agenda"]) },
       "quita la agenda",
     );
+    const others = kernel.modules.map((module) => module.id).filter((id) => id !== "agenda");
     expect(user?.content).toContain(
-      "Modules on screen, in order: agenda. Not on screen: fuel, train, notes.",
+      `Modules on screen, in order: agenda. Not on screen: ${others.join(", ")}.`,
     );
     expect(system?.content).toContain('{"op":"layout.remove","module":"<module id>"}');
     expect(system?.content).toContain("layout.remove (everything in it is kept)");

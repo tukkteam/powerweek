@@ -121,7 +121,6 @@ function AgendaCard({
             required
             maxLength={AGENDA_LIMITS.title}
             defaultValue={editing?.item?.title}
-            autoFocus
             className={fieldClass}
           />
         </Field>

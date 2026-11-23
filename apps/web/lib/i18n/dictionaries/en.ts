@@ -103,12 +103,6 @@ export const en: Dictionary = {
     modulesTitle: "Your week, in modules.",
     modulesLead:
       "Each module organises one part of your week. Put on screen only the ones you use, order them your way and change them whenever you like, by voice too: “remove meals”, “put training first”.",
-    moduleExamples: {
-      agenda: "“English class on Wednesdays from 8 to 9 pm”",
-      train: "“Friday is push day: bench press 4 × 8”",
-      fuel: "“Oatmeal with banana for breakfast on weekdays”",
-      notes: "“Note for Saturday: rest day”",
-    },
     modulesMoreTitle: "The next one could be yours",
     modulesMoreBody:
       "A module is one folder: what it stores, which changes it accepts and how it draws itself. That is enough to use it by voice.",
@@ -196,6 +190,8 @@ export const en: Dictionary = {
     moveLater: (name: string) => `Move ${name} later`,
     hint: "Drag to reorder. What you remove is not deleted: it comes back as it was if you add it again.",
     by: (author: string) => `By ${author}`,
+    say: (text: string) => `Say: “${text}”`,
+    quote: (text: string) => `“${text}”`,
     welcomeTitle: "What do you want to organise?",
     welcomeLead:
       "Pick your modules, or tell me: “I want to organise my meals and my agenda”. You can change them whenever you like.",
@@ -261,6 +257,7 @@ export const en: Dictionary = {
       not_found: "I can't find that in your week.",
       limit: "There is no room for more there.",
       noop: "That was already the case.",
+      conflict: "That clashes with something you already have.",
       invalid: "I didn't quite get that change. Try saying it another way.",
       unavailable: "That module needs a newer version. Reload PowerWeek.",
     },

@@ -37,6 +37,13 @@ export function week(build?: (data: WeekData) => void): Doc {
   };
 }
 
+/** Read stored JSON the test knows to be a plan. */
+export function open(raw: unknown): Doc {
+  const doc = kernel.read(raw);
+  if (!doc) throw new Error("Not a plan");
+  return doc;
+}
+
 export function run(doc: Doc, operations: Operation[], prefix = "id") {
   return kernel.apply(doc, operations, { newId: sequentialIds(prefix), lang: "es" });
 }

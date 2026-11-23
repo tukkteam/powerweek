@@ -60,7 +60,11 @@ describe("calendar helpers", () => {
   it("forgives day names in Spanish and English", () => {
     expect(
       normaliseDayFields({ day: "Lunes", from: "friday", to: "miércoles", days: ["sáb", "D"] }),
-    ).toEqual({ day: "mon", from: "fri", to: ["wed"], days: ["sat", "sun"] });
+    ).toEqual({ day: "mon", from: "fri", to: "wed", days: ["sat", "sun"] });
+    // Only a whole-day copy takes one target for a list; a module's own `to` stays as written.
+    expect(normaliseDayFields({ to: "martes" }, "day.copy")).toEqual({ to: ["tue"] });
+    expect(normaliseDayFields({ to: "martes" }, "trips.add")).toEqual({ to: "tue" });
+    expect(normaliseDayFields({ to: "Marta" }, "gifts.add")).toEqual({ to: "Marta" });
     expect(normaliseDayFields({ day: "someday", title: "Lunes" })).toEqual({
       day: "someday",
       title: "Lunes",

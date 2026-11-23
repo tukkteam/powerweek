@@ -58,15 +58,26 @@ export function normaliseDay(value: unknown): unknown {
 }
 
 /**
- * Fix day names in the fields operations use for days: `day`, `from`, `days` and `to`. A single
+ * Field names that mean a day in every operation. A day name written in one of them ("Lunes",
+ * "friday") becomes its day key; anything that is not a day name is left as it is. A module
+ * should not use these names for something else.
+ */
+export const DAY_FIELDS = ["day", "from", "to", "days"] as const;
+
+/**
+ * Fix day names in the fields that mean a day (`DAY_FIELDS`). For `day.copy` only, a single
  * target in `to` becomes a list.
  */
-export function normaliseDayFields(fields: Record<string, unknown>): Record<string, unknown> {
+export function normaliseDayFields(
+  fields: Record<string, unknown>,
+  op?: string,
+): Record<string, unknown> {
   const out = { ...fields };
-  if ("day" in out) out.day = normaliseDay(out.day);
-  if ("from" in out) out.from = normaliseDay(out.from);
-  if (Array.isArray(out.days)) out.days = out.days.map(normaliseDay);
-  if (Array.isArray(out.to)) out.to = out.to.map(normaliseDay);
-  else if (typeof out.to === "string") out.to = [normaliseDay(out.to)];
+  for (const name of DAY_FIELDS) {
+    if (!(name in out)) continue;
+    const value = out[name];
+    out[name] = Array.isArray(value) ? value.map(normaliseDay) : normaliseDay(value);
+  }
+  if (op === "day.copy" && typeof out.to === "string") out.to = [out.to];
   return out;
 }

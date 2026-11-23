@@ -1,4 +1,5 @@
-import { createWeekKernel } from "@tukkteam/modules/week";
+import type { KernelConfig } from "@tukkteam/modules";
+import { createWeekKernel, type AnyWeekModule } from "@tukkteam/modules/week";
 import { locales } from "@/lib/i18n/config";
 import { agenda } from "./agenda/module";
 import { fuel } from "./fuel/module";
@@ -32,8 +33,8 @@ const ALIASES: Record<string, string> = {
 };
 
 /** Whole-day operations used to name "categories"; they name modules now. */
-function normalise(fields: Record<string, unknown>): Record<string, unknown> {
-  if (!("categories" in fields) || "modules" in fields) return fields;
+function normalise(fields: Record<string, unknown>, op: string): Record<string, unknown> {
+  if (!op.startsWith("day.") || !("categories" in fields) || "modules" in fields) return fields;
   const { categories, ...rest } = fields;
   return { ...rest, modules: categories };
 }
@@ -41,13 +42,22 @@ function normalise(fields: Record<string, unknown>): Record<string, unknown> {
 /** At most this many operations in one assistant answer. */
 export const MAX_OPERATIONS = 60;
 
-export const kernel = createWeekKernel<AppModule>({
+/**
+ * The kernel as PowerWeek sets it up, for any list of modules. A module's tests pass it to
+ * `checkModule`, so the module is checked the way the app will read it.
+ */
+export const createAppKernel = <M extends AnyWeekModule>(config: KernelConfig<M>) =>
+  createWeekKernel<M>({
+    ...config,
+    aliases: ALIASES,
+    normalise,
+    maxOperations: MAX_OPERATIONS,
+  });
+
+export const kernel = createAppKernel<AppModule>({
   modules: MODULES,
   locales,
-  aliases: ALIASES,
-  normalise,
   upgrade: upgradeV1,
-  maxOperations: MAX_OPERATIONS,
 });
 
 export { agenda, fuel, notes, train };
