@@ -100,8 +100,8 @@ describe("habits", () => {
       { op: "habits.add", title: "AGUA", target: 10 },
     ]);
     expect(rejected).toEqual([
-      { index: 0, op: "habits.add", reason: "noop" },
-      { index: 1, op: "habits.add", reason: "noop" },
+      { index: 0, op: "habits.add", reason: "conflict" },
+      { index: 1, op: "habits.add", reason: "conflict" },
     ]);
     expect(doc).toBe(start);
   });
@@ -156,7 +156,7 @@ describe("habits", () => {
       "noop",
       "noop",
       "noop",
-      "invalid",
+      "conflict",
     ]);
     expect(doc).toBe(start);
   });
@@ -241,8 +241,8 @@ describe("logging a habit on a date", () => {
       { op: "habits.log", habit: "Correr", day: "mon" },
     ]);
     expect(logged.writes).toEqual([
-      { module: "habits", day: "mon", key: "h1", value: 1 },
-      { module: "habits", day: "mon", key: "h2", value: 8 },
+      { module: "habits", day: "mon", key: "h1", value: 1, upcoming: false, index: 0 },
+      { module: "habits", day: "mon", key: "h2", value: 8, upcoming: false, index: 1 },
     ]);
     expect(logged.changes[0]).toEqual({
       kind: "add",

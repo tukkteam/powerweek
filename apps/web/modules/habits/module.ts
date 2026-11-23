@@ -118,12 +118,6 @@ const field = {
   days: z.array(DayKeySchema).min(1).max(7),
 };
 
-/** A whole number that may be negative and may arrive as "-1" or "+1". */
-const signedInt = z.preprocess(
-  (value) => (typeof value === "string" && /^[+-]?\d+$/.test(value.trim()) ? Number(value) : value),
-  z.number().int(),
-);
-
 /** When updating a text: leaving it out keeps it, null or "" clears it. */
 const clearableText = <T extends z.ZodType>(schema: T) =>
   z.preprocess(
@@ -150,7 +144,7 @@ const LogInput = z.object({
   habit: field.title,
   day: DayKeySchema,
   value: clearable(looseInt(0, Number.MAX_SAFE_INTEGER)),
-  add: opt(signedInt),
+  add: opt(looseInt(-HABIT_LIMITS.amount, HABIT_LIMITS.amount)),
 });
 
 /** What `habits.add` takes, and what an editor form states: a habit without its id. */
@@ -235,7 +229,8 @@ export const habits = defineWeekModule<Habits, HabitsMessages>({
         },
       ],
       apply(state, input, ctx) {
-        if (state.items.some((habit) => sameText(habit.title, input.title))) return "noop";
+        // Titles stay unique: the assistant logs a habit by its title.
+        if (state.items.some((habit) => sameText(habit.title, input.title))) return "conflict";
         if (state.items.length >= HABIT_LIMITS.items) return "limit";
         const habit: Habit = { id: ctx.newId(), ...tidy(input) };
         state.items.push(habit);
@@ -262,11 +257,10 @@ export const habits = defineWeekModule<Habits, HabitsMessages>({
         });
         const changes = changesTo(habit, next);
         if (Object.keys(changes).length === 0) return "noop";
-        // Titles stay unique: the assistant logs a habit by its title.
         const taken = state.items.some(
           (other) => other !== habit && sameText(other.title, next.title),
         );
-        if (changes.title !== undefined && taken) return "invalid";
+        if (changes.title !== undefined && taken) return "conflict";
         const changed: Habit = { id: habit.id, ...next };
         state.items[state.items.indexOf(habit)] = changed;
         ctx.change(planLine("update", changed));
@@ -348,7 +342,7 @@ export const habits = defineWeekModule<Habits, HabitsMessages>({
     about:
       'things done regularly on some or all days of the week, ticked or counted each day. A list of habits { id, title, target, unit, days }: "target" is how many times or units a day (left out = once, a simple tick), "unit" is what is counted ("glasses"), "days" are the weekdays it applies to (left out = every day). What was done on each date is not part of the plan and is not shown.',
     rules: [
-      'Habits: something done regularly and ticked or counted each day ("meditate every day", "8 glasses of water a day", "creatine on weekdays") is a habit: ONE habits.add, with "days" for the weekdays it applies to (never one operation per day; omit "days" for every day), "target" when it is counted and "unit" for what is counted. What the user says they did is not a change to the plan: "I meditated", "3 glasses so far" or "one more glass" is habits.log with that day (today unless they name another): nothing else = done, "value" = the amount so far, "add" = that many more. A one-off thing with a time ("dentist on Thursday at 13:30") is not a habit: it belongs in the agenda.',
+      'Habits: something done regularly and ticked or counted each day ("meditate every day", "8 glasses of water a day", "creatine on weekdays") is a habit: ONE habits.add, with "days" for the weekdays it applies to (omit "days" for every day), "target" when it is counted and "unit" for what is counted. If a habit with that name exists, change it with habits.update instead. What the user says they did is not a change to the plan: "I meditated", "3 glasses so far" or "one more glass" is habits.log with that day (today unless they name another): nothing else = done, "value" = the amount so far, "add" = that many more. A one-off thing with a time ("dentist on Thursday at 13:30") is not a habit: it belongs in the agenda.',
     ],
     view: (state) => state.items,
   },

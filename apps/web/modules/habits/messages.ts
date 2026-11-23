@@ -33,6 +33,7 @@ export const messages: Record<Locale, HabitsMessages> = {
   es: {
     name: "Hábitos",
     description: "Meditar, beber agua, leer: lo que repites cada día, marcado o contado.",
+    example: "Quiero beber 8 vasos de agua al día",
     empty: "Sin hábitos. Prueba: «quiero beber 8 vasos de agua al día».",
     noneToday: "Ningún hábito para este día.",
     summary: (n) => plural(n, "1 hábito", "# hábitos"),
@@ -56,6 +57,7 @@ export const messages: Record<Locale, HabitsMessages> = {
   en: {
     name: "Habits",
     description: "Meditate, drink water, read: what you repeat each day, ticked or counted.",
+    example: "I want to drink 8 glasses of water a day",
     empty: "No habits. Try: “I want to drink 8 glasses of water a day”.",
     noneToday: "No habits for this day.",
     summary: (n) => plural(n, "1 habit", "# habits"),

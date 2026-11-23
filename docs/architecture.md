@@ -24,7 +24,7 @@ PowerWeek is a **web-first** product. The web app is the only implementation of 
 
 ### Four rules that shape the code
 
-1. **A plan is a document of modules.** Agenda, Meals, Training and Notes are modules; each owns its data, its operations and its views in one folder under `apps/web/modules`. Which modules are on screen, and in what order, is part of the plan. The contract a module honours is in [modules.md](modules.md).
+1. **A plan is a document of modules.** Agenda, Meals, Training, Notes and Habits are modules; each owns its data, its operations and its views in one folder under `apps/web/modules`. Which modules are on screen, and in what order, is part of the plan. The contract a module honours is in [modules.md](modules.md).
 2. **Plans only change through operations.** Manual edits and the assistant both produce `Operation[]`. The kernel (`packages/modules`) routes each one to its module, undoes any that fail, and returns the new document plus a list of `Change`s for the receipt. The result is saved with optimistic concurrency, and every version is kept in `plan_revisions`.
 3. **Each module is the source of truth for its own shape.** Its zod schema validates what the assistant writes, types its views and has the last word before anything is saved. Postgres checks the envelope around the modules with `pg_jsonschema`; a drift test fails CI if the envelope's schema and the migration diverge.
 4. **The server holds no user data logic it doesn't need.** Pages are static shells. The browser talks to Supabase directly with the user's JWT, and Row Level Security plus security-definer RPCs enforce access. The only server-side code is the assistant route, which exists to keep the model key secret.

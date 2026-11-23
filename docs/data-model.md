@@ -79,6 +79,8 @@ The document is an envelope of modules ([ADR 0010](adr/0010-modules.md)):
 
 **Notes.** One optional text per day, up to 500 characters.
 
+**Habits.** Up to 20 habits, each with a title that is unique ignoring case and accents, an optional `target` (how many times or units a day; left out, the habit is a simple tick), an optional `unit` and optional `days` (left out, it applies every day). A habit belongs to the week, not to a day. What was done on a date is a dated fact: the key is the habit's id and the value the amount, a whole number from 1 to 99.
+
 ## Dated facts
 
 The plan says what a week looks like. What happened on a calendar date lives in `entries`, one row per user, date, module and key ([ADR 0011](adr/0011-dated-facts.md)):

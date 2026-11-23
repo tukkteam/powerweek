@@ -60,7 +60,7 @@ Every text pair passes WCAG AA in both themes; the palette was checked with a co
 
 Every module keeps one colour everywhere. A module names a **tone** and the host sets it on the element that wraps the module (`toneStyle` in [`modules/look.tsx`](../apps/web/modules/look.tsx)); inside, views never name a colour: they write `text-tone`, `bg-tone`, `bg-tone/15`. That is what lets a new module, or a person, pick a colour without touching a view.
 
-There are seven tones: `blue` (Agenda), `volt` (Training, the brand colour), `orange` (Meals), `sand` (Notes), `violet`, `rose` and `teal`. Each is a pair of colours, Night and Day. Boxes use a 7 % tint of the tone as ground and a 30 % edge; bars and fills use the full tone.
+There are seven tones: `blue` (Agenda), `volt` (Training, the brand colour), `orange` (Meals), `sand` (Notes), `teal` (Habits), `violet` and `rose`. Each is a pair of colours, Night and Day. Boxes use a 7 % tint of the tone as ground and a 30 % edge; bars and fills use the full tone.
 
 A tone has three jobs, and [`scripts/tones.mjs`](../packages/design-tokens/scripts/tones.mjs) checks all three on every build:
 

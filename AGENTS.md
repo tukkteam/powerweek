@@ -5,7 +5,7 @@ Instructions for AI coding agents (and humans in a hurry) working in this reposi
 ## Map
 
 - `apps/web`: Next.js 16 app. Landing at `app/[lang]/page.tsx`, the app shell and the screens that host modules in `components/app`, the assistant route in `app/api/assistant/route.ts`. Exercise illustrations in `public/moves` (generated, CC BY-SA 4.0).
-- `apps/web/modules`: the modules, one folder each (`agenda`, `fuel`, `train`, `notes`): `module.ts` (data, operations, what the assistant knows), `messages.ts` (strings), `views.tsx` and tests. `index.ts` and `views.tsx` are the registry. Read [docs/modules.md](docs/modules.md) before writing or changing one.
+- `apps/web/modules`: the modules, one folder each (`agenda`, `fuel`, `train`, `notes`, `habits`): `module.ts` (data, operations, what the assistant knows), `messages.ts` (strings), `views.tsx` and tests. `index.ts` and `views.tsx` are the registry. Read [docs/modules.md](docs/modules.md) before writing or changing one.
 - `packages/modules` (`@tukkteam/modules`): the module contract and the kernel that binds modules into one document: it routes operations, keeps receipts, composes the assistant prompt. It imports nothing from the app. `src/week` is the weekly layer (days, times, the day timeline); `src/testing.ts` is the conformance check.
 - `packages/design-tokens`: `tokens.json` → `tokens.css`. Do not edit `tokens.css` by hand.
 - `supabase`: migrations (never edit an applied one), pgTAP tests, `config.toml` (auth as code).

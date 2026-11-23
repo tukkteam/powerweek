@@ -1,7 +1,7 @@
 "use client";
 
-import { sameText, type Operation } from "@tukkteam/modules";
-import { DAY_KEYS, type DayKey } from "@tukkteam/modules/week";
+import { sameText } from "@tukkteam/modules";
+import { DAY_KEYS, isDayKey, type DayKey } from "@tukkteam/modules/week";
 import { Check, Minus, Pencil } from "lucide-react";
 import { useState } from "react";
 import { EditorDialog, Field, fieldClass, type FormReader } from "@/components/app/editor-dialog";
@@ -38,15 +38,13 @@ const amountOn = (records: ModuleRecords, habit: Habit, day: DayKey): number =>
 const tally = (records: ModuleRecords, list: readonly Habit[], day: DayKey): string =>
   `${list.filter((habit) => isDone(habit, amountOn(records, habit, day))).length}/${list.length}`;
 
-const dayField = (day: DayKey) => `day-${day}`;
-
 /** The habit a submitted form states, as it would be stored. No day ticked means every day. */
 function readForm(form: FormReader): Omit<Habit, "id"> {
   return tidy({
     title: form.text("title"),
     target: Number(form.text("target")) || undefined,
     unit: form.orUndefined("unit"),
-    days: DAY_KEYS.filter((day) => form.raw(dayField(day)) !== null),
+    days: form.all("days").filter(isDayKey),
   });
 }
 
@@ -59,15 +57,6 @@ function HabitsCard({ data, t, day, records, dispatch }: CardProps<Habits, Habit
   const [editing, setEditing] = useState<Editing>(null);
   const today = habitsOn(data, day);
   const item = editing?.item;
-
-  // Saving a habit that was not changed (an update with nothing but its id) has nothing to send:
-  // the dialog just closes.
-  const save = (operations: Operation[]) => {
-    const changing = operations.filter(
-      (operation) => operation.op !== "habits.update" || Object.keys(operation).length > 2,
-    );
-    return changing.length > 0 ? dispatch(changing) : Promise.resolve(true);
-  };
 
   const taken = (title: string) =>
     data.items.some((other) => other.id !== item?.id && sameText(other.title, title.trim()));
@@ -106,7 +95,7 @@ function HabitsCard({ data, t, day, records, dispatch }: CardProps<Habits, Habit
         formKey={item?.id ?? "new"}
         title={item ? t.editor.editTitle : t.editor.newTitle}
         onClose={() => setEditing(null)}
-        dispatch={save}
+        dispatch={dispatch}
         onSubmit={(form): HabitOperation => {
           const fields = readForm(form);
           return item
@@ -121,7 +110,6 @@ function HabitsCard({ data, t, day, records, dispatch }: CardProps<Habits, Habit
             required
             maxLength={HABIT_LIMITS.title}
             defaultValue={item?.title}
-            autoFocus
             onChange={(event) =>
               event.currentTarget.setCustomValidity(
                 taken(event.currentTarget.value) ? t.editor.duplicate : "",
@@ -164,7 +152,8 @@ function HabitsCard({ data, t, day, records, dispatch }: CardProps<Habits, Habit
               >
                 <input
                   type="checkbox"
-                  name={dayField(key)}
+                  name="days"
+                  value={key}
                   defaultChecked={item ? appliesOn(item, key) : true}
                   className="sr-only"
                 />
@@ -299,7 +288,8 @@ function Bar({ habit, amount, className }: { habit: Habit; amount: number; class
 
 /**
  * The visible week in miniature: one bar per weekday, as full as that day was. The day on screen
- * is the wide one; days the habit does not apply to are dimmed.
+ * is the wide one; a day the habit does not apply to is a stub, so the difference does not hang
+ * on a shade.
  */
 function WeekBars({
   habit,
@@ -317,9 +307,9 @@ function WeekBars({
         return (
           <span
             key={day}
-            className={`pw-bar relative block h-4 overflow-hidden rounded-full bg-tone/15 ${
+            className={`pw-bar relative block overflow-hidden rounded-full bg-tone/15 ${
               day === current ? "w-2.5" : "w-1.5"
-            } ${appliesOn(habit, day) ? "" : "opacity-35"}`}
+            } ${appliesOn(habit, day) ? "h-4" : "h-1.5"}`}
           >
             <span
               className="pw-bar absolute inset-x-0 bottom-0 bg-tone"
