@@ -37,6 +37,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"entries": {
+                  Row: {
+                    "key": string,"module": string,"on_date": string,"updated_at": string,"user_id": string,"value": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "key": string,"module": string,"on_date": string,"updated_at"?: string,"user_id"?: string,"value": NonNullable<Json>
+                  }
+                  Update: {
+                    "key"?: string,"module"?: string,"on_date"?: string,"updated_at"?: string,"user_id"?: string,"value"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"meal_picks": {
                   Row: {
                     "on_date": string,"option_id": string,"slot": string,"updated_at": string,"user_id": string
@@ -112,6 +126,9 @@ export type Database = {
                            },
 "plan_doc_is_valid":
 { Args: { "doc": Json }; Returns: boolean
+                           },
+"plan_doc_version":
+{ Args: { "doc": Json }; Returns: number
                            },
 "save_plan":
 { Args: { "p_changes"?: Json,"p_doc": Json,"p_expected_version": number,"p_input"?: string,"p_operations"?: Json,"p_source": string }; Returns: number

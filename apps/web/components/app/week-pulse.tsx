@@ -1,12 +1,13 @@
 "use client";
 
-import { DAY_KEYS, weekLoads, type DayKey, type PlanDoc } from "@powerweek/core";
+import { DAY_KEYS, type DayKey, type DayLoad } from "@tukkteam/modules/week";
 import type { CSSProperties } from "react";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { dayOfMonth } from "@/lib/format";
 
 interface WeekPulseProps {
-  plan: PlanDoc;
+  /** How busy each day is, from the modules on screen. */
+  loads: Record<DayKey, DayLoad>;
   todayKey: DayKey;
   selected: DayKey;
   onSelect: (day: DayKey) => void;
@@ -29,7 +30,7 @@ interface WeekPulseProps {
  * day's label turns volt-ink.
  */
 export function WeekPulse({
-  plan,
+  loads,
   todayKey,
   selected,
   onSelect,
@@ -38,7 +39,6 @@ export function WeekPulse({
   className = "",
 }: WeekPulseProps) {
   const { dict } = useLocale();
-  const loads = weekLoads(plan);
 
   return (
     <div

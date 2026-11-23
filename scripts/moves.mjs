@@ -6,7 +6,8 @@
  *
  * - Optimises every frame with SVGO (whole-unit coordinates, no fill colour) into
  *   apps/web/public/moves/<slug>/<frame>.svg. The app tints them with CSS masks.
- * - Writes the catalogue (name, equipment, muscles, type) to packages/core/src/moves-data.ts.
+ * - Writes the catalogue (name, equipment, muscles, type) to
+ *   apps/web/modules/train/moves-data.ts.
  *
  * Usage: pnpm moves              downloads the pinned commit from GitHub
  *        pnpm moves --from DIR   uses a local checkout of bryllim/workout-guide instead
@@ -32,9 +33,9 @@ const FRAMES = [1, 2, 3];
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const publicDir = join(root, "apps/web/public/moves");
-const dataFile = join(root, "packages/core/src/moves-data.ts");
+const dataFile = join(root, "apps/web/modules/train/moves-data.ts");
 
-/** Upstream equipment and muscle names → PowerWeek ids (see packages/core/src/moves.ts). */
+/** Upstream equipment and muscle names → PowerWeek ids (see apps/web/modules/train/moves.ts). */
 const EQUIPMENT = {
   Barbell: "barbell",
   Dumbbell: "dumbbell",

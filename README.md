@@ -6,13 +6,14 @@
 
 <p align="center">
   <strong>Talk your week into shape.</strong><br>
-  A voice-first weekly planner for your agenda, your training and your meals.<br>
+  A voice-first weekly planner made of modules: agenda, training, meals, notes, and the next one.<br>
   Web-first, cross-platform, open source.
 </p>
 
 <p align="center">
   <a href="README.es.md">Español</a> ·
   <a href="docs/architecture.md">Architecture</a> ·
+  <a href="docs/modules.md">Modules</a> ·
   <a href="docs/native-strategy.md">Native strategy</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
@@ -28,11 +29,16 @@
 
 ## What it does
 
-You say _"Mondays are leg day: squats 5×5 at 80 kg and Romanian deadlifts 3×10. Work 9 to 6 on weekdays, padel on Wednesday at 6:30 pm"_ and PowerWeek turns it into a plan:
+You say _"Mondays are leg day: squats 5×5 at 80 kg and Romanian deadlifts 3×10. Work 9 to 6 on weekdays, padel on Wednesday at 6:30 pm"_ and PowerWeek turns it into a plan.
+
+The plan is a screen of **modules**. You choose which ones you see and in what order, by hand or by saying it (_"remove meals"_, _"put training first"_), and a module you take off the screen keeps its data for when it comes back:
 
 - **Agenda** (blue): timed items for each day of a recurring week, drawn as progress bars that fill as the day goes by.
 - **Training** (volt): one workout per day with sets, reps and load. Every exercise gets a drawing from an open library of 302 illustrated moves, linked by the assistant, plus a muscle map of what the session works.
-- **Fuel** (orange): breakfast, lunch, snack and dinner as a four-slot gauge.
+- **Meals** (orange): breakfast, lunch, snack and dinner as a four-slot gauge, with options to choose from each day.
+- **Notes** (sand): one free note per day.
+
+A module is one folder: what it stores, which changes it accepts and how it draws itself. That is enough for it to be used by voice, with receipts and undo. [docs/modules.md](docs/modules.md) is the contract and the guide to writing one.
 
 Every change arrives with a **Change Receipt** (what was added, changed, moved or removed) and one-tap **Undo**. The **Week Pulse**, seven bars as tall as each day is busy, keeps the whole week in view, and the **Day Bar** shows the day itself filling up from morning to midnight.
 
@@ -53,16 +59,16 @@ Spanish and English, dark ("Night") and light ("Day") themes, installable as a P
                                          │                    │
                                          │          {"operations": [...], "reply": "..."}
                                          ▼                    │
-                          zod validation ◄────────────────────┘
+          each operation validated by its module ◄────┘
                                          │
-                 @powerweek/core applyOperations(plan, ops)   ← the same pure reducer the UI uses
+              kernel.apply(doc, operations)   ← the same kernel the interface uses for manual edits
                                          │
             Postgres save_plan(doc, expected_version) ──► plan_revisions (undo history)
                                          │
                     Supabase Realtime ──► every open device updates
 ```
 
-The language model never writes the plan directly. It proposes **typed operations** (`agenda.add`, `exercise.update`, `meal.set`, `day.copy`, …) that are validated, applied by a pure, unit-tested reducer and saved with optimistic concurrency. The database checks the result against a JSON Schema generated from the same zod schema. Read more in [docs/assistant.md](docs/assistant.md) and [docs/data-model.md](docs/data-model.md).
+The language model never writes the plan directly. It proposes **typed operations** (`agenda.add`, `train.exercise.update`, `fuel.meal.set`, `layout.move`, `day.copy`, …). Each one belongs to a module, is validated on its own and applied by a pure, unit-tested kernel; one that fails is undone and the rest still apply. The result is saved with optimistic concurrency, and Postgres checks the document's envelope against a JSON Schema generated from the same zod schema. Read more in [docs/assistant.md](docs/assistant.md), [docs/modules.md](docs/modules.md) and [docs/data-model.md](docs/data-model.md).
 
 ## Stack
 
@@ -70,7 +76,7 @@ The language model never writes the plan directly. It proposes **typed operation
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Web app          | [Next.js 16](https://nextjs.org) (App Router, Cache Components, `proxy.ts`), React 19, TypeScript                         |
 | Styling          | Tailwind CSS 4 on design tokens generated from the [PowerWeek design system](docs/design-system.md)                       |
-| Domain           | `@powerweek/core`: zod schemas, typed operations and a pure reducer (Vitest)                                              |
+| Modules          | `@tukkteam/modules`: the module contract and its kernel (zod, Vitest); the modules themselves in `apps/web/modules`       |
 | Backend          | [Supabase](https://supabase.com): Postgres with Row Level Security, Auth (anonymous + email), Realtime                    |
 | Assistant        | Any OpenAI-compatible chat completions endpoint (OmniRoute in production)                                                 |
 | Hosting          | [Vercel](https://vercel.com) for the web app, Supabase cloud (EU) for data                                                |
@@ -80,7 +86,8 @@ The language model never writes the plan directly. It proposes **typed operation
 
 ```
 apps/web                 Next.js app: landing, app shell, assistant route, PWA
-packages/core            Domain model: plan schema, operations, reducer, calendar helpers
+apps/web/modules         The modules, one folder each: agenda, fuel, train, notes
+packages/modules         The module contract and the kernel that binds modules into one plan
 packages/design-tokens   tokens.json (same file as the Claude Design System) → tokens.css
 supabase/                Migrations, pgTAP tests, auth configuration as code
 docs/                    Architecture, data model, assistant, native strategy, ADRs
@@ -113,6 +120,7 @@ The full setup, including a local Supabase stack, is in [docs/development.md](do
 ## Documentation
 
 - [Architecture](docs/architecture.md): how the pieces fit, request flows and the reasons behind them.
+- [Modules](docs/modules.md): the module contract and a guide to writing a module.
 - [Data model](docs/data-model.md): tables, Row Level Security, RPCs, revisions and realtime.
 - [Assistant](docs/assistant.md): prompt, operation contract, validation, limits and privacy.
 - [Design system](docs/design-system.md): tokens, type, colour rules and the signature components.

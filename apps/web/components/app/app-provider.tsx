@@ -1,18 +1,7 @@
 "use client";
 
-import {
-  applyOperations,
-  coercePlan,
-  emptyPlan,
-  isValidTimeZone,
-  weekDates,
-  zonedToday,
-  type Change,
-  type DayKey,
-  type MealSlot,
-  type Operation,
-  type PlanDoc,
-} from "@powerweek/core";
+import type { Change, Doc, Json, Operation, Rejection, RejectionReason } from "@tukkteam/modules";
+import { isValidTimeZone, weekDates, zonedToday, type DayKey } from "@tukkteam/modules/week";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import {
@@ -28,8 +17,20 @@ import {
 import { useLocale } from "@/components/i18n/locale-provider";
 import type { AssistantErrorCode } from "@/app/api/assistant/route";
 import type { Locale } from "@/lib/i18n";
-import { fetchPlan, PlanError, savePlan, undoPlan } from "@/lib/plan-api";
+import {
+  entryKey,
+  fetchEntries,
+  fetchPlan,
+  PlanError,
+  savePlan,
+  undoPlan,
+  writeEntry,
+  type Entries,
+} from "@/lib/plan-api";
+import { unmet } from "@/lib/receipt";
 import { getBrowserSupabase } from "@/lib/supabase/client";
+import { kernel } from "@/modules";
+import type { ModuleRecords } from "@/modules/host";
 
 export interface AppUser {
   id: string;
@@ -51,6 +52,10 @@ export interface Receipt {
   /** Version produced by the change, used for undo. Null when nothing changed. */
   version: number | null;
   reply: string;
+  /** How many things the assistant asked for that could not be done. */
+  skipped: number;
+  /** Why, for the first of them; shown instead of the assistant's sentence when nothing changed. */
+  problem: RejectionReason | null;
 }
 
 export interface Notice {
@@ -65,17 +70,16 @@ interface AppValue {
   phase: Phase;
   user: AppUser | null;
   profile: Profile;
-  plan: PlanDoc;
+  /** The person's plan: which modules are on screen and the data of each one. */
+  doc: Doc;
   version: number;
   today: { dayKey: DayKey; isoDate: string };
   dates: Record<DayKey, string>;
   selectedDay: DayKey;
   selectDay: (day: DayKey) => void;
-  isDone: (itemId: string, day: DayKey) => boolean;
-  toggleDone: (itemId: string, day: DayKey) => void;
-  /** The option chosen for a meal slot on this week's date of `day`, if any. */
-  pickOf: (day: DayKey, slot: MealSlot) => string | null;
-  pick: (day: DayKey, slot: MealSlot, optionId: string | null) => void;
+  /** The dated facts of one module for the week on screen. */
+  recordsOf: (module: string) => ModuleRecords;
+  /** Apply operations made by hand; resolves true once they are saved. */
   edit: (operations: Operation[]) => Promise<boolean>;
   ask: (input: string) => Promise<boolean>;
   thinking: boolean;
@@ -113,8 +117,6 @@ function toAppUser(user: User): AppUser {
   };
 }
 
-const doneKey = (isoDate: string, itemId: string) => `${isoDate}|${itemId}`;
-
 /** A fixed Monday used until the boot effect knows the real date in the user's time zone. */
 const PLACEHOLDER_DAY = { dayKey: "mon" as DayKey, isoDate: "2026-01-05" };
 
@@ -130,19 +132,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     timeZone: "Europe/Madrid",
     displayName: null,
   }));
-  const [plan, setPlan] = useState<PlanDoc>(() => emptyPlan());
+  const [doc, setDoc] = useState<Doc>(() => kernel.empty());
   const [version, setVersion] = useState(0);
   // The clock is read in effects only: the shell is prerendered, so render must not depend on "now".
   const [today, setToday] = useState<{ dayKey: DayKey; isoDate: string }>(PLACEHOLDER_DAY);
   const [selectedDay, setSelectedDay] = useState<DayKey>(PLACEHOLDER_DAY.dayKey);
-  const [done, setDone] = useState<Set<string>>(() => new Set());
-  const [picks, setPicks] = useState<Map<string, string>>(() => new Map());
+  const [entries, setEntries] = useState<Entries>(() => new Map());
   const [thinking, setThinking] = useState(false);
   const [listening, setListening] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
-  const planRef = useRef(plan);
+  const docRef = useRef(doc);
   const versionRef = useRef(version);
   const receiptRef = useRef(receipt);
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
@@ -155,10 +156,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const dates = useMemo(() => weekDates(today.isoDate), [today.isoDate]);
 
-  const commit = useCallback((nextPlan: PlanDoc, nextVersion: number) => {
-    planRef.current = nextPlan;
+  const commit = useCallback((nextDoc: Doc, nextVersion: number) => {
+    docRef.current = nextDoc;
     versionRef.current = nextVersion;
-    setPlan(nextPlan);
+    setDoc(nextDoc);
     setVersion(nextVersion);
   }, []);
 
@@ -176,7 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const reload = useCallback(async () => {
     const fresh = await fetchPlan(supabase);
-    commit(fresh.plan, fresh.version);
+    commit(fresh.doc, fresh.version);
   }, [supabase, commit]);
 
   // Boot: who is signed in, their plan and their profile.
@@ -195,7 +196,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from("profiles").select("display_name, locale, time_zone").maybeSingle(),
       ]);
       if (cancelled) return;
-      commit(fresh.plan, fresh.version);
+      commit(fresh.doc, fresh.version);
       const row = profileRow.data;
       const timeZone =
         row?.time_zone && isValidTimeZone(row.time_zone) ? row.time_zone : browserTimeZone();
@@ -242,46 +243,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [profile.timeZone]);
 
-  // Completions for the visible week.
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    supabase
-      .from("completions")
-      .select("on_date, item_id")
-      .gte("on_date", dates.mon)
-      .lte("on_date", dates.sun)
-      .then(({ data }) => {
-        if (cancelled || !data) return;
-        setDone(new Set(data.map((row) => doneKey(row.on_date, row.item_id))));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, user, dates.mon, dates.sun]);
-
-  // Meal picks for the visible week (one option per date and slot).
-  const loadPicks = useCallback(async () => {
-    const { data } = await supabase
-      .from("meal_picks")
-      .select("on_date, slot, option_id")
-      .gte("on_date", dates.mon)
-      .lte("on_date", dates.sun);
-    if (data) setPicks(new Map(data.map((row) => [`${row.on_date}|${row.slot}`, row.option_id])));
+  // Dated facts (ticks, picks, counts) of every module for the visible week.
+  const loadEntries = useCallback(async () => {
+    const fresh = await fetchEntries(supabase, dates.mon, dates.sun);
+    if (fresh) setEntries(fresh);
   }, [supabase, dates.mon, dates.sun]);
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    supabase
-      .from("meal_picks")
-      .select("on_date, slot, option_id")
-      .gte("on_date", dates.mon)
-      .lte("on_date", dates.sun)
-      .then(({ data }) => {
-        if (cancelled || !data) return;
-        setPicks(new Map(data.map((row) => [`${row.on_date}|${row.slot}`, row.option_id])));
-      });
+    void fetchEntries(supabase, dates.mon, dates.sun).then((fresh) => {
+      if (!cancelled && fresh) setEntries(fresh);
+    });
     return () => {
       cancelled = true;
     };
@@ -298,7 +271,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const row = payload.new as { doc?: unknown; version?: number };
           if (typeof row.version === "number" && row.version > versionRef.current) {
-            commit(coercePlan(row.doc), row.version);
+            commit(kernel.read(row.doc), row.version);
           }
         },
       )
@@ -309,9 +282,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [supabase, user, commit]);
 
   const showReceipt = useCallback(
-    (source: Receipt["source"], changes: Change[], nextVersion: number | null, reply = "") => {
+    (
+      source: Receipt["source"],
+      changes: Change[],
+      nextVersion: number | null,
+      reply = "",
+      skipped: ReturnType<typeof unmet> = { count: 0, problem: null },
+    ) => {
       counter.current += 1;
-      updateReceipt({ id: counter.current, source, changes, version: nextVersion, reply });
+      updateReceipt({
+        id: counter.current,
+        source,
+        changes,
+        version: nextVersion,
+        reply,
+        skipped: skipped.count,
+        problem: skipped.problem,
+      });
     },
     [updateReceipt],
   );
@@ -321,37 +308,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notify(dict.errors.conflict);
   }, [reload, notify, dict.errors.conflict]);
 
+  /** What to do when a save fails: catch up after a conflict, otherwise say what happened. */
+  const handleSaveError = useCallback(
+    async (error: unknown) => {
+      if (error instanceof PlanError && error.isConflict) await handleConflict();
+      else if (error instanceof PlanError && error.isOutdated) notify(dict.errors.outdated);
+      else notify(navigator.onLine ? dict.errors.generic : dict.errors.network);
+    },
+    [handleConflict, notify, dict.errors],
+  );
+
   const edit = useCallback(
     (operations: Operation[]) =>
       enqueue(async () => {
-        const before = planRef.current;
+        const before = docRef.current;
         const expected = versionRef.current;
-        const result = applyOperations(before, operations, {
-          defaultWorkoutTitle: dict.app.defaultWorkoutTitle,
-        });
+        const result = kernel.apply(before, operations, { lang });
         if (result.changes.length === 0) return false;
-        commit(result.plan, expected);
+        commit(result.doc, expected);
         try {
           const saved = await savePlan(supabase, {
-            plan: result.plan,
+            doc: result.doc,
             expectedVersion: expected,
             source: "manual",
             operations,
             changes: result.changes,
           });
-          commit(result.plan, saved);
+          commit(result.doc, saved);
           showReceipt("manual", result.changes, saved);
           return true;
         } catch (error) {
-          if (error instanceof PlanError && error.isConflict) await handleConflict();
-          else {
-            commit(before, expected);
-            notify(navigator.onLine ? dict.errors.generic : dict.errors.network);
-          }
+          commit(before, expected);
+          await handleSaveError(error);
           return false;
         }
       }),
-    [enqueue, commit, supabase, showReceipt, handleConflict, notify, dict],
+    [enqueue, commit, supabase, showReceipt, handleSaveError, lang],
   );
 
   const ask = useCallback(
@@ -373,6 +365,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               router.replace(`/${lang}/login`);
             } else if (code === "conflict") {
               await handleConflict();
+            } else if (code === "outdated") {
+              notify(dict.errors.outdated);
             } else {
               const messages: Partial<Record<AssistantErrorCode, string>> = {
                 rate_limited: dict.errors.rateLimited,
@@ -384,13 +378,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return false;
           }
           const changes = (body.changes ?? []) as Change[];
-          if (changes.length > 0) commit(coercePlan(body.plan), body.version as number);
-          if (body.picked) void loadPicks();
+          if (changes.length > 0) commit(kernel.read(body.doc), body.version as number);
+          if (body.recorded) void loadEntries();
           showReceipt(
             "assistant",
             changes,
             changes.length && body.undoable !== false ? (body.version as number) : null,
             String(body.reply ?? ""),
+            unmet({
+              changes: changes.length,
+              rejected: (body.rejected ?? []) as Rejection[],
+              dropped: Number(body.dropped ?? 0),
+            }),
           );
           return true;
         } catch {
@@ -410,7 +409,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       commit,
       showReceipt,
       dict,
-      loadPicks,
+      loadEntries,
     ],
   );
 
@@ -425,77 +424,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
           updateReceipt(null);
           notify(dict.receipt.undone, "info");
         } catch (error) {
-          if (error instanceof PlanError && error.isConflict) await handleConflict();
-          else notify(dict.errors.generic);
+          await handleSaveError(error);
         }
       }),
-    [enqueue, supabase, reload, notify, handleConflict, updateReceipt, dict],
+    [enqueue, supabase, reload, notify, handleSaveError, updateReceipt, dict],
   );
 
-  const isDone = useCallback(
-    (itemId: string, day: DayKey) => done.has(doneKey(dates[day], itemId)),
-    [done, dates],
-  );
-
-  const toggleDone = useCallback(
-    (itemId: string, day: DayKey) => {
-      if (!user) return;
-      const key = doneKey(dates[day], itemId);
-      const wasDone = done.has(key);
-      const flip = (on: boolean) =>
-        setDone((previous) => {
-          const next = new Set(previous);
-          if (on) next.add(key);
-          else next.delete(key);
-          return next;
-        });
-      flip(!wasDone);
-      const request = wasDone
-        ? supabase.from("completions").delete().eq("on_date", dates[day]).eq("item_id", itemId)
-        : supabase
-            .from("completions")
-            .insert({ user_id: user.id, on_date: dates[day], item_id: itemId });
-      void request.then(({ error }) => {
-        if (error) {
-          flip(wasDone);
+  const recordsOf = useCallback(
+    (module: string): ModuleRecords => ({
+      get: (day, key) => entries.get(entryKey(dates[day], module, key)),
+      set: (day, key, value) => {
+        if (!user) return;
+        const isoDate = dates[day];
+        const id = entryKey(isoDate, module, key);
+        const before = entries.get(id);
+        const put = (next: Json | null | undefined) =>
+          setEntries((previous) => {
+            const copy = new Map(previous);
+            if (next === null || next === undefined) copy.delete(id);
+            else copy.set(id, next);
+            return copy;
+          });
+        put(value);
+        void writeEntry(supabase, { userId: user.id, isoDate, module, key, value }).then((ok) => {
+          if (ok) return;
+          put(before);
           notify(dict.errors.generic);
-        }
-      });
-    },
-    [user, dates, done, supabase, notify, dict.errors.generic],
-  );
-
-  const pickOf = useCallback(
-    (day: DayKey, slot: MealSlot) => picks.get(`${dates[day]}|${slot}`) ?? null,
-    [picks, dates],
-  );
-
-  const pick = useCallback(
-    (day: DayKey, slot: MealSlot, optionId: string | null) => {
-      if (!user) return;
-      const key = `${dates[day]}|${slot}`;
-      const before = picks.get(key) ?? null;
-      const set = (value: string | null) =>
-        setPicks((previous) => {
-          const next = new Map(previous);
-          if (value) next.set(key, value);
-          else next.delete(key);
-          return next;
         });
-      set(optionId);
-      const request = optionId
-        ? supabase
-            .from("meal_picks")
-            .upsert({ user_id: user.id, on_date: dates[day], slot, option_id: optionId })
-        : supabase.from("meal_picks").delete().eq("on_date", dates[day]).eq("slot", slot);
-      void request.then(({ error }) => {
-        if (error) {
-          set(before);
-          notify(dict.errors.generic);
-        }
-      });
-    },
-    [user, dates, picks, supabase, notify, dict.errors.generic],
+      },
+    }),
+    [entries, dates, user, supabase, notify, dict.errors.generic],
   );
 
   const updateProfile = useCallback(
@@ -559,16 +517,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       phase,
       user,
       profile,
-      plan,
+      doc,
       version,
       today,
       dates,
       selectedDay,
       selectDay: setSelectedDay,
-      isDone,
-      toggleDone,
-      pickOf,
-      pick,
+      recordsOf,
       edit,
       ask,
       thinking,
@@ -590,15 +545,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       phase,
       user,
       profile,
-      plan,
+      doc,
       version,
       today,
       dates,
       selectedDay,
-      isDone,
-      toggleDone,
-      pickOf,
-      pick,
+      recordsOf,
       edit,
       ask,
       thinking,

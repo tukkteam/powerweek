@@ -1,5 +1,7 @@
-import type { Change, ChangeKind } from "@powerweek/core";
+import type { Change, ChangeKind } from "@tukkteam/modules";
+import { isDayKey } from "@tukkteam/modules/week";
 import type { Dictionary, Locale } from "@/lib/i18n";
+import { kernel } from "@/modules";
 
 const intlLocale: Record<Locale, string> = { es: "es-ES", en: "en-GB" };
 
@@ -55,24 +57,40 @@ export const OP_SYMBOL: Record<ChangeKind, string> = {
 };
 export const OP_CLASS: Record<ChangeKind, string> = {
   add: "text-volt-ink",
-  update: "text-agenda",
-  move: "text-agenda",
+  update: "text-tone-blue",
+  move: "text-tone-blue",
   remove: "text-danger",
 };
 
-/** One readable line per change for the Change Receipt. User content stays as written. */
-export function describeChange(change: Change, dict: Dictionary): string {
-  const moved = change.kind === "move" && change.toDay ? ` → ${dict.days.long[change.toDay]}` : "";
-  switch (change.category) {
-    case "agenda":
-      return `${[change.label, change.time].filter(Boolean).join(" · ")}${moved}`;
-    case "train":
-      if (change.exerciseCount !== undefined)
-        return `${change.label} · ${dict.receipt.exercises(change.exerciseCount)}`;
-      return [change.label, change.prescription].filter(Boolean).join(" · ");
-    case "fuel":
-      return `${change.slot ? `${dict.slots[change.slot]}: ` : ""}${change.label}${moved}`;
-    case "note":
-      return `${dict.receipt.dayNote}: ${change.label}`;
+/** The name a person sees for a module; its id when this build does not know it. */
+export function moduleName(id: string, lang: Locale): string {
+  const known = kernel.get(id);
+  return known ? kernel.messages(known, lang).name : id;
+}
+
+/**
+ * One readable line per change for the Change Receipt. Each module describes its own changes;
+ * changes to the screen itself are described here. User content stays as written.
+ */
+export function describeChange(change: Change, dict: Dictionary, lang: Locale): string {
+  if (change.module === "app") {
+    const t = dict.modules.receipt;
+    const order = change.data?.order;
+    if (Array.isArray(order))
+      return t.order(order.map((id) => moduleName(String(id), lang)).join(", "));
+    const name = moduleName(change.label, lang);
+    const position = change.data?.position;
+    if (change.kind === "move" && typeof position === "number") return t.moved(name, position);
+    return change.kind === "remove" ? t.removed(name) : t.added(name);
   }
+  const moved =
+    change.kind === "move" && isDayKey(change.toDay) ? ` → ${dict.days.long[change.toDay]}` : "";
+  return `${kernel.describe(change, lang)}${moved}`;
+}
+
+/** Where a change happened, for the middle column of the receipt. */
+export function whereChanged(change: Change, dict: Dictionary): string {
+  if (change.scope === "app") return dict.modules.receipt.screen;
+  if (change.scope === "week" || !isDayKey(change.day)) return dict.receipt.week;
+  return dict.days.long[change.day];
 }

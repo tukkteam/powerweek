@@ -22,43 +22,62 @@ PowerWeek is a **web-first** product. The web app is the only implementation of 
                 └────────────────────────────────────────┘
 ```
 
-### Three rules that shape the code
+### Four rules that shape the code
 
-1. **One source of truth for the plan's shape.** `packages/core` defines the plan with zod. The same schema validates assistant output, types the UI and generates the JSON Schema that Postgres enforces with `pg_jsonschema`. A drift test fails CI if they diverge.
-2. **Plans only change through operations.** Manual edits and the assistant both produce `Operation[]` and run the same pure `applyOperations` reducer. The result (a new document plus a list of `Change`s for the receipt) is saved with optimistic concurrency, and every version is kept in `plan_revisions`.
-3. **The server holds no user data logic it doesn't need.** Pages are static shells. The browser talks to Supabase directly with the user's JWT, and Row Level Security plus security-definer RPCs enforce access. The only server-side code is the assistant route, which exists to keep the model key secret.
+1. **A plan is a document of modules.** Agenda, Meals, Training and Notes are modules; each owns its data, its operations and its views in one folder under `apps/web/modules`. Which modules are on screen, and in what order, is part of the plan. The contract a module honours is in [modules.md](modules.md).
+2. **Plans only change through operations.** Manual edits and the assistant both produce `Operation[]`. The kernel (`packages/modules`) routes each one to its module, undoes any that fail, and returns the new document plus a list of `Change`s for the receipt. The result is saved with optimistic concurrency, and every version is kept in `plan_revisions`.
+3. **Each module is the source of truth for its own shape.** Its zod schema validates what the assistant writes, types its views and has the last word before anything is saved. Postgres checks the envelope around the modules with `pg_jsonschema`; a drift test fails CI if the envelope's schema and the migration diverge.
+4. **The server holds no user data logic it doesn't need.** Pages are static shells. The browser talks to Supabase directly with the user's JWT, and Row Level Security plus security-definer RPCs enforce access. The only server-side code is the assistant route, which exists to keep the model key secret.
+
+## How the pieces fit
+
+```
+ apps/web/modules/<id>      one module: data, operations, strings, views
+        │  registered in modules/index.ts (data side) and modules/views.tsx (views)
+        ▼
+ packages/modules           the kernel: read · apply · receipts · prompt · parse
+        │
+        ├── components/app   screens that host modules: Today, the week board, the Day Bar, the desk
+        ├── api/assistant    sentence → operations → kernel → save
+        └── lib/plan-api     my_plan · save_plan · undo_plan · entries
+```
+
+Screens never read a module's data directly. They ask [`modules/board.ts`](../apps/web/modules/board.ts) what the modules on screen contribute (a count, a load, spans for the timeline), and they render a module's card through a slot that gives it its colour and contains its failures. A module that throws contributes nothing; the rest of the screen keeps working.
 
 ## Request flows
 
 ### Opening the app
 
 1. `proxy.ts` sees `/es/app`, refreshes the Supabase session cookie and redirects to `/es/login` if there is no session (an optimistic check; Postgres is the real gate).
-2. The static shell renders a skeleton; `AppProvider` (client) calls `auth.getUser()`, the `my_plan()` RPC and reads `profiles`.
+2. The static shell renders a skeleton; `AppProvider` (client) calls `auth.getUser()`, the `my_plan()` RPC and reads `profiles`. The kernel reads the stored document: it upgrades a plan from before modules and migrates module data written by an older version.
 3. It subscribes to Realtime changes on `plans` filtered to the user, so other devices' saves appear live.
-4. Completions for the visible week load from `completions`.
+4. The dated facts of the visible week (ticks, picks) load from `entries`.
+5. A document with nothing on screen shows the module desk, where the person chooses what they want to organise.
 
 ### A manual edit
 
 ```
-ItemEditor → Operation → applyOperations (optimistic UI) → rpc save_plan(doc, expected_version, 'manual', ops, changes)
-                                                          ↳ 40001 version_conflict → reload + notice
+a module's editor → Operation → kernel.apply (optimistic UI) → rpc save_plan(doc, expected_version, 'manual', ops, changes)
+                                                             ↳ 40001 version_conflict → reload + notice
+                                                             ↳ PW001 client_outdated → "reload the page"
 ```
 
-Edits are queued on the client so two saves never race each other's version.
+Edits are queued on the client so two saves never race each other's version. Rearranging the screen is the same flow: the desk sends one `layout.set`.
 
 ### An assistant command
 
 ```
 VoiceDock → POST /api/assistant {input, lang, today}
   → getUser (JWT) → rate limit (assistant_requests)
-  → my_plan() → buildMessages(plan, today, lang) → LLM in JSON mode
-  → parseAssistantOutput (forgiving per-operation zod validation)
-  → applyOperations → save_plan(..., 'assistant', input, ops, changes)
+  → my_plan() → kernel.read → buildMessages(doc, today, lang) → LLM in JSON mode
+  → parseOutput (each operation validated on its own by its module)
+  → kernel.apply → save_plan(..., 'assistant', input, ops, changes)
       ↳ on version conflict: reload, re-apply the same operations once
-  → {plan, version, changes, rejected, reply}
+  → record operations → kernel.resolveRecords → entries
+  → {doc, version, changes, rejected, dropped, reply}
 ```
 
-Dictation turns speech into that `input` in the browser (`lib/voice/speech.ts`); on desktop Chromium it listens to the microphone picked in Settings ([ADR 0009](adr/0009-dictation-listens-to-our-microphone.md)). The client replaces its plan with the returned one and shows the Change Receipt. **Undo** calls `undo_plan(version)`, which restores the previous revision only if nothing changed since, and records the revert as a new version.
+Dictation turns speech into that `input` in the browser (`lib/voice/speech.ts`); on desktop Chromium it listens to the microphone picked in Settings ([ADR 0009](adr/0009-dictation-listens-to-our-microphone.md)). The client replaces its plan with the returned one and shows the Change Receipt. The model writes its sentence before anything is applied, so when nothing could be done the receipt says why instead of repeating it. **Undo** calls `undo_plan(version)`, which restores the previous revision only if nothing changed since, and records the revert as a new version.
 
 ## Rendering model
 
@@ -73,7 +92,8 @@ Routes are prefixed (`/es`, `/en`). `proxy.ts` sends un-prefixed paths to the la
 | Concern                              | Control                                                                                                         |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | Who can read or write a plan         | RLS: owner-only `select`; writes only through `save_plan` / `undo_plan` (security definer, `auth.uid()` checks) |
-| Plan integrity                       | `CHECK (plan_doc_is_valid(doc))` with the generated JSON Schema                                                 |
+| Plan integrity                       | `CHECK (plan_doc_is_valid(doc))` on the envelope and a 512 KB limit; each module's schema before every save     |
+| An old app overwriting newer data    | `save_plan` refuses a document with an older `schemaVersion` (`PW001`)                                          |
 | Model key                            | Server-only env var; the browser never sees it                                                                  |
 | Abuse of the assistant               | Per-user limits per minute and per day (lower for anonymous users), input ≤ 600 characters                      |
 | Cross-site requests to the assistant | JSON body only and an `Origin` host check                                                                       |

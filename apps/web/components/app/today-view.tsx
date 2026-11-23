@@ -1,47 +1,47 @@
 "use client";
 
-import { MEAL_SLOTS, mealSlots, type Exercise } from "@powerweek/core";
-import { StickyNote } from "lucide-react";
-import { useState } from "react";
-import { AgendaBox } from "@/components/app/agenda-box";
+import { weekLoads } from "@tukkteam/modules/week";
+import { Plus } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/components/app/app-provider";
 import { DayBar } from "@/components/app/day-bar";
-import { ExerciseSheet } from "@/components/app/exercise-sheet";
-import { FuelBox } from "@/components/app/fuel-box";
-import { ItemEditor, type EditorTarget } from "@/components/app/item-editor";
-import { TrainBox } from "@/components/app/train-box";
+import { ModuleDesk } from "@/components/app/module-desk";
+import { ModuleSlot } from "@/components/app/module-slot";
 import { useDayClock } from "@/components/app/use-day-clock";
 import { WeekPulse } from "@/components/app/week-pulse";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { Button } from "@/components/ui/button";
 import { shortDate } from "@/lib/format";
-import { TONE } from "@/lib/tone";
+import { kernel } from "@/modules";
+import { shownModules, summaries } from "@/modules/board";
+import { toneStyle } from "@/modules/look";
 
 /**
- * One day, drawn: the Week Pulse to pick a day, the day as a progress bar, then the agenda as
- * timed bars, the meals as a fuel gauge and the workout as illustrated tiles.
+ * One day, drawn: the Week Pulse to pick a day, the day as a progress bar, then one card per
+ * module on screen, in the person's order. The last box is always the outline of the next
+ * module: tapping it (or "Arrange") turns the cards into a desk of tiles to add, remove and
+ * reorder them.
  */
 export function TodayView() {
-  const { plan, today, dates, selectedDay, selectDay, listening } = useApp();
+  const { doc, today, dates, selectedDay, selectDay, listening, recordsOf, edit } = useApp();
   const { lang, dict } = useLocale();
-  const [editor, setEditor] = useState<EditorTarget | null>(null);
-  const [sheetId, setSheetId] = useState<string | null>(null);
+  const [focus, setFocus] = useState<{ module: string; id: string; nonce: number } | null>(null);
+  const [arranging, setArranging] = useState(false);
 
-  const day = plan.days[selectedDay];
+  const shown = useMemo(() => shownModules(doc, lang), [doc, lang]);
+  const loads = useMemo(() => weekLoads(kernel, doc), [doc]);
   const { relation, now } = useDayClock(selectedDay);
   const isToday = relation === "today";
   const dateLabel = shortDate(dates[selectedDay], lang);
-  const slots = mealSlots(plan, selectedDay);
-  const counts = {
-    agenda: day.agenda.length,
-    train: day.workout?.exercises.length ?? 0,
-    fuel: MEAL_SLOTS.reduce((n, slot) => {
-      const s = slots[slot];
-      return n + (s.kind === "fixed" ? s.meals.length : s.kind === "options" ? 1 : 0);
-    }, 0),
+  const counts = summaries(shown, selectedDay);
+
+  const arrange = (order: string[] | null) => {
+    setArranging(false);
+    if (order) void edit([{ op: "layout.set", modules: order }]);
   };
-  const empty = counts.agenda + counts.fuel === 0 && !day.workout;
-  const sheet: Exercise | null =
-    (sheetId && day.workout?.exercises.find((ex) => ex.id === sheetId)) || null;
+
+  // Nothing on screen yet: the person chooses what they want to organise.
+  if (shown.length === 0) return <ModuleDesk doc={doc} welcome onDone={arrange} />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,17 +61,18 @@ export function TodayView() {
           ) : null}
         </div>
         <h1 className="type-display">{dict.days.long[selectedDay]}</h1>
-        {empty ? (
+        {counts.length === 0 ? (
           <p className="type-caption text-ink-muted">{dict.week.freeDay}</p>
         ) : (
           <p className="flex flex-wrap gap-x-4 gap-y-1">
-            {(["agenda", "train", "fuel"] as const).map((category) => (
+            {counts.map((count) => (
               <span
-                key={category}
+                key={count.id}
+                style={toneStyle(count.tone)}
                 className="type-caption flex items-center gap-1.5 text-ink-muted"
               >
-                <span className={`size-2 rounded-full ${TONE[category].fill}`} aria-hidden="true" />
-                {dict.day.summary[category](counts[category])}
+                <span className="size-2 rounded-full bg-tone" aria-hidden="true" />
+                {count.text}
               </span>
             ))}
           </p>
@@ -93,7 +94,7 @@ export function TodayView() {
           </p>
           <WeekPulse
             className="lg:flex-1"
-            plan={plan}
+            loads={loads}
             todayKey={today.dayKey}
             selected={selectedDay}
             onSelect={selectDay}
@@ -102,75 +103,54 @@ export function TodayView() {
           />
         </section>
         <DayBar
-          day={day}
-          dayKey={selectedDay}
-          onMenu={() =>
-            document.getElementById("fuel")?.scrollIntoView({ behavior: "smooth", block: "start" })
-          }
+          shown={shown}
+          day={selectedDay}
           relation={relation}
           now={now}
-          onAgenda={(item) => setEditor({ kind: "agenda", item })}
-          onMeal={(meal) => setEditor({ kind: "meal", item: meal })}
-          onTrain={() =>
-            document.getElementById("train")?.scrollIntoView({ behavior: "smooth", block: "start" })
+          record={(module, key) => recordsOf(module).get(selectedDay, key)}
+          onOpen={(module, id) =>
+            setFocus((previous) => ({ module, id, nonce: (previous?.nonce ?? 0) + 1 }))
           }
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <AgendaBox
-          day={day}
-          dayKey={selectedDay}
-          relation={relation}
-          now={now}
-          onEdit={(item) => setEditor({ kind: "agenda", item })}
-          onAdd={() => setEditor({ kind: "agenda" })}
-        />
-        <FuelBox
-          plan={plan}
-          dayKey={selectedDay}
-          onEditOptions={(target) =>
-            setEditor({ kind: "menu", ...target, days: plan.menu?.[target.slot]?.days })
-          }
-          relation={relation}
-          now={now}
-          onEdit={(meal) => setEditor({ kind: "meal", item: meal })}
-          onAdd={(slot) => setEditor({ kind: "meal", slot })}
-        />
-        <TrainBox
-          className="lg:col-span-2"
-          day={day}
-          dayKey={selectedDay}
-          onOpen={(exercise) => setSheetId(exercise.id)}
-          onAdd={() => setEditor({ kind: "exercise" })}
-          onEditWorkout={() =>
-            day.workout &&
-            setEditor({ kind: "workout", title: day.workout.title, time: day.workout.time })
-          }
-        />
-      </div>
-
-      {day.note ? (
-        <section className="flex items-start gap-3 rounded-[14px] border border-line bg-surface p-4">
-          <StickyNote
-            size={20}
-            strokeWidth={1.75}
-            className="mt-0.5 shrink-0 text-ink-muted"
-            aria-hidden="true"
-          />
-          <div>
-            <p className="type-label text-ink-muted">{dict.app.note}</p>
-            <p className="type-body mt-1">{day.note}</p>
+      {arranging ? (
+        <ModuleDesk doc={doc} onDone={arrange} />
+      ) : (
+        <section aria-label={dict.modules.title} className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="type-label text-ink-muted">{dict.modules.title}</h2>
+            <Button variant="ghost" onClick={() => setArranging(true)}>
+              {dict.modules.arrange}
+            </Button>
+          </div>
+          <div className="grid grid-flow-dense gap-4 lg:grid-cols-2">
+            {shown.map((entry) => (
+              <ModuleSlot
+                key={entry.module.id}
+                entry={entry}
+                day={selectedDay}
+                relation={relation}
+                now={now}
+                focus={focus?.module === entry.module.id ? focus : null}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => setArranging(true)}
+              className="group flex min-h-32 flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-line text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+            >
+              <span className="flex size-10 items-center justify-center rounded-full border border-dashed border-current">
+                <Plus size={20} strokeWidth={2} aria-hidden="true" />
+              </span>
+              <span className="type-heading">{dict.modules.add}</span>
+              <span aria-hidden="true" className="type-label tracking-[0.4em]">
+                ···
+              </span>
+            </button>
           </div>
         </section>
-      ) : null}
-
-      <ItemEditor target={editor} day={selectedDay} onClose={() => setEditor(null)} />
-      <ExerciseSheet
-        exercise={sheet}
-        onClose={() => setSheetId(null)}
-        onEdit={(exercise) => setEditor({ kind: "exercise", item: exercise })}
-      />
+      )}
     </div>
   );
 }

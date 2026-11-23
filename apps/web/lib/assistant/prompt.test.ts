@@ -1,47 +1,47 @@
-import { emptyPlan } from "@powerweek/core";
 import { describe, expect, it } from "vitest";
-import { buildMessages, MOVE_CATALOGUE, tomorrowOf } from "./prompt";
+import { kernel } from "@/modules";
+import { buildMessages } from "./prompt";
+
+const blank = kernel.empty(["agenda", "fuel", "train"]);
+const at = { todayIso: "2026-11-13", todayKey: "fri" } as const;
 
 describe("assistant prompt", () => {
-  it("wraps the week around for tomorrow", () => {
-    expect(tomorrowOf("sun")).toBe("mon");
-    expect(tomorrowOf("wed")).toBe("thu");
-  });
-
   it("mentions json in the user message (the gateway requires it for JSON mode)", () => {
-    const [system, user] = buildMessages(
-      { lang: "es", todayIso: "2026-11-13", todayKey: "fri", plan: emptyPlan() },
-      "hola",
-    );
+    const [system, user] = buildMessages({ ...at, lang: "es", doc: blank }, "hola");
     expect(system?.role).toBe("system");
     expect(user?.content).toMatch(/json/);
     expect(user?.content).toContain('"hola"');
+    expect(user?.content).toContain("Today is Friday (fri), 2026-11-13.");
     expect(system?.content).toContain("Today is fri; tomorrow is sat");
   });
 
-  it("asks for replies in the interface language", () => {
-    const [es] = buildMessages(
-      { lang: "es", todayIso: "2026-11-13", todayKey: "fri", plan: emptyPlan() },
-      "x",
-    );
-    const [en] = buildMessages(
-      { lang: "en", todayIso: "2026-11-13", todayKey: "fri", plan: emptyPlan() },
-      "x",
-    );
+  it("asks for replies in the interface language and names modules as the user sees them", () => {
+    const [es] = buildMessages({ ...at, lang: "es", doc: blank }, "x");
+    const [en] = buildMessages({ ...at, lang: "en", doc: blank }, "x");
     expect(es?.content).toContain("Spanish");
+    expect(es?.content).toContain('- fuel (the user calls it "Comidas")');
     expect(en?.content).toContain("in English");
+    expect(en?.content).toContain('- fuel (the user calls it "Meals")');
   });
 
-  it("lists every move slug once so the model can link exercises to illustrations", () => {
-    const slugs = MOVE_CATALOGUE.split("\n").flatMap((line) => line.split(": ")[1]!.split(", "));
-    expect(slugs).toHaveLength(302);
-    expect(new Set(slugs).size).toBe(302);
-    expect(MOVE_CATALOGUE).toMatch(/^chest: bench-press, /);
-    const [system] = buildMessages(
-      { lang: "es", todayIso: "2026-11-13", todayKey: "fri", plan: emptyPlan() },
-      "x",
+  it("tells the model what is on screen and how to change it", () => {
+    const [system, user] = buildMessages(
+      { ...at, lang: "es", doc: kernel.empty(["agenda"]) },
+      "quita la agenda",
     );
-    expect(system?.content).toContain('"move"');
-    expect(system?.content).toContain("hammer-curl");
+    expect(user?.content).toContain(
+      "Modules on screen, in order: agenda. Not on screen: fuel, train, notes.",
+    );
+    expect(system?.content).toContain('{"op":"layout.remove","module":"<module id>"}');
+    expect(system?.content).toContain("layout.remove (everything in it is kept)");
+  });
+
+  it("sends the move library only while Training is on screen", () => {
+    const [withTraining] = buildMessages({ ...at, lang: "es", doc: blank }, "x");
+    const [without] = buildMessages({ ...at, lang: "es", doc: kernel.empty(["agenda"]) }, "x");
+    expect(withTraining?.content).toContain("hammer-curl");
+    expect(without?.content).not.toContain("hammer-curl");
+    // Its operations stay listed, so "los lunes hago pierna" can bring the module back.
+    expect(without?.content).toContain('{"op":"train.workout.set"');
   });
 });

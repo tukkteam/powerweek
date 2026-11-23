@@ -1,21 +1,21 @@
-import {
-  applyOperations,
-  dayKeyOf,
-  type Operation,
-  mealSlots,
-  weekDates,
-  type Change,
-  type Pick,
-  type PlanDoc,
-} from "@powerweek/core";
+import { parseOutput, type Change, type Operation, type Rejection } from "@tukkteam/modules";
+import { dayKeyOf, isDayKey, weekDates } from "@tukkteam/modules/week";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { completeJson, ModelError } from "@/lib/assistant/model";
-import { parseAssistantOutput } from "@/lib/assistant/parse";
 import { buildMessages } from "@/lib/assistant/prompt";
-import { getDictionary, locales } from "@/lib/i18n";
-import { fetchPlan, PlanError, savePlan, type Db } from "@/lib/plan-api";
+import { locales } from "@/lib/i18n";
+import {
+  entryKey,
+  fetchEntries,
+  fetchPlan,
+  PlanError,
+  savePlan,
+  writeEntry,
+  type Db,
+} from "@/lib/plan-api";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { kernel } from "@/modules";
 
 export const maxDuration = 60;
 
@@ -36,6 +36,7 @@ export type AssistantErrorCode =
   | "assistant_unavailable"
   | "assistant_invalid"
   | "conflict"
+  | "outdated"
   | "server_error";
 
 const fail = (error: AssistantErrorCode, status: number) =>
@@ -71,65 +72,46 @@ async function overLimit(db: Db, isAnonymous: boolean): Promise<boolean> {
 }
 
 /**
- * Store the options the user chose for dates of the current week. Options are matched by id or
- * title among the day's resolved options; unknown options are ignored.
+ * Store the dated facts the assistant noted for this week ("today I'll have the sushi"). Each
+ * module resolves its own record operations; this only reads what is stored and writes the
+ * result. Facts are not plan versions, so there is nothing to undo.
  */
-async function applyPicks(
+async function storeRecords(
   db: Db,
   userId: string,
-  plan: PlanDoc,
+  doc: Parameters<typeof kernel.resolveRecords>[0],
+  records: readonly Operation[],
   today: string,
-  picks: readonly Pick[],
-  label: (title: string) => string,
-): Promise<Change[]> {
+  lang: (typeof locales)[number],
+): Promise<{ changes: Change[]; rejected: Rejection[] }> {
+  if (records.length === 0) return { changes: [], rejected: [] };
   const dates = weekDates(today);
+  const stored = (await fetchEntries(db, dates.mon, dates.sun)) ?? new Map();
+  const resolved = kernel.resolveRecords(doc, records, {
+    lang,
+    get: (module, day, key) =>
+      isDayKey(day) ? stored.get(entryKey(dates[day], module, key)) : undefined,
+  });
   const changes: Change[] = [];
-  for (const pick of picks) {
-    const slot = mealSlots(plan, pick.day)[pick.slot];
-    if (pick.option === null) {
-      const { error } = await db
-        .from("meal_picks")
-        .delete()
-        .eq("on_date", dates[pick.day])
-        .eq("slot", pick.slot);
-      if (!error)
-        changes.push({
-          kind: "remove",
-          day: pick.day,
-          category: "fuel",
-          slot: pick.slot,
-          label: label("—"),
-        });
-      continue;
-    }
-    if (slot.kind !== "options") continue;
-    const wanted = pick.option.toLocaleLowerCase();
-    const option = slot.options.find(
-      (o) => o.id === pick.option || o.title.toLocaleLowerCase() === wanted,
-    );
-    if (!option) continue;
-    const { error } = await db.from("meal_picks").upsert({
-      user_id: userId,
-      on_date: dates[pick.day],
-      slot: pick.slot,
-      option_id: option.id,
+  for (const [index, write] of resolved.writes.entries()) {
+    if (!isDayKey(write.day)) continue;
+    const saved = await writeEntry(db, {
+      userId,
+      isoDate: dates[write.day],
+      module: write.module,
+      key: write.key,
+      value: write.value,
     });
-    if (!error)
-      changes.push({
-        kind: "update",
-        day: pick.day,
-        category: "fuel",
-        slot: pick.slot,
-        label: label(option.title),
-      });
+    const change = resolved.changes[index];
+    if (saved && change) changes.push(change);
   }
-  return changes;
+  return { changes, rejected: resolved.rejected };
 }
 
 /**
- * The assistant turns a sentence into typed plan operations:
- * load the caller's plan → ask the model → validate → apply with @powerweek/core → save a
- * new version (with the input, operations and changes in the revision log) → return it.
+ * The assistant turns a sentence into typed operations: load the caller's plan → ask the model
+ * → validate → apply through the modules → save a new version (with the input, operations and
+ * changes in the revision log) → return it.
  */
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
@@ -156,16 +138,13 @@ export async function POST(request: NextRequest) {
   }
 
   let modelName: string | null = null;
-  let parsed: ReturnType<typeof parseAssistantOutput>;
+  let parsed: ReturnType<typeof parseOutput>;
   try {
     const result = await completeJson(
-      buildMessages(
-        { lang, todayIso: today, todayKey: dayKeyOf(today), plan: current.plan },
-        input,
-      ),
+      buildMessages({ lang, todayIso: today, todayKey: dayKeyOf(today), doc: current.doc }, input),
     );
     modelName = result.model;
-    parsed = parseAssistantOutput(result.content);
+    parsed = parseOutput(kernel, result.content);
   } catch (error) {
     await logRequest(db, user.id, "model_error", modelName, startedAt);
     console.error("assistant: model error", error instanceof ModelError ? error.message : error);
@@ -176,42 +155,34 @@ export async function POST(request: NextRequest) {
     await logRequest(db, user.id, "invalid_output", modelName, startedAt);
     return fail("assistant_invalid", 422);
   }
+  const { operations, records, reply, dropped } = parsed;
 
-  const dict = getDictionary(lang);
-  const apply = (operations: Operation[], plan = current.plan) =>
-    applyOperations(plan, operations, { defaultWorkoutTitle: dict.app.defaultWorkoutTitle });
-
-  let applied = apply(parsed.operations);
+  let applied = kernel.apply(current.doc, operations, { lang });
   if (applied.changes.length === 0) {
-    const picked = await applyPicks(
-      db,
-      user.id,
-      current.plan,
-      today,
-      parsed.picks,
-      dict.fuel.picked,
-    );
-    await logRequest(db, user.id, picked.length ? "ok" : "no_changes", modelName, startedAt);
+    const noted = await storeRecords(db, user.id, current.doc, records, today, lang);
+    const done = noted.changes.length > 0;
+    await logRequest(db, user.id, done ? "ok" : "no_changes", modelName, startedAt);
     return NextResponse.json({
-      status: picked.length ? "ok" : "no_changes",
-      plan: current.plan,
+      status: done ? "ok" : "no_changes",
+      doc: current.doc,
       version: current.version,
-      changes: picked,
-      rejected: applied.rejected,
-      reply: parsed.reply,
-      picked: picked.length,
-      // Picks are not plan versions: there is nothing to undo.
+      changes: noted.changes,
+      rejected: [...applied.rejected, ...noted.rejected],
+      dropped,
+      reply,
+      recorded: noted.changes.length,
+      // Facts are not plan versions: there is nothing to undo.
       undoable: false,
     });
   }
 
   const save = (expectedVersion: number) =>
     savePlan(db, {
-      plan: applied.plan,
+      doc: applied.doc,
       expectedVersion,
       source: "assistant",
       input,
-      operations: parsed.operations,
+      operations,
       changes: applied.changes,
     });
 
@@ -219,6 +190,10 @@ export async function POST(request: NextRequest) {
   try {
     version = await save(current.version);
   } catch (error) {
+    if (error instanceof PlanError && error.isOutdated) {
+      await logRequest(db, user.id, "conflict", modelName, startedAt);
+      return fail("outdated", 409);
+    }
     if (!(error instanceof PlanError && error.isConflict)) {
       await logRequest(db, user.id, "model_error", modelName, startedAt);
       return fail("server_error", 500);
@@ -226,7 +201,8 @@ export async function POST(request: NextRequest) {
     // Another device saved in between: re-apply the same operations to the fresh plan once.
     try {
       current = await fetchPlan(db);
-      applied = apply(parsed.operations, current.plan);
+      applied = kernel.apply(current.doc, operations, { lang });
+      if (applied.changes.length === 0) throw new PlanError("Nothing left to apply");
       version = await save(current.version);
     } catch {
       await logRequest(db, user.id, "conflict", modelName, startedAt);
@@ -234,15 +210,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const picked = await applyPicks(db, user.id, applied.plan, today, parsed.picks, dict.fuel.picked);
+  const noted = await storeRecords(db, user.id, applied.doc, records, today, lang);
   await logRequest(db, user.id, "ok", modelName, startedAt);
   return NextResponse.json({
     status: "ok",
-    plan: applied.plan,
+    doc: applied.doc,
     version,
-    changes: [...applied.changes, ...picked],
-    rejected: applied.rejected,
-    reply: parsed.reply,
-    picked: picked.length,
+    changes: [...applied.changes, ...noted.changes],
+    rejected: [...applied.rejected, ...noted.rejected],
+    dropped,
+    reply,
+    recorded: noted.changes.length,
   });
 }

@@ -1,30 +1,27 @@
 "use client";
 
-import {
-  DAY_KEYS,
-  MEAL_SLOTS,
-  mealSlots,
-  weekLoads,
-  type DayKey,
-  type PlanDoc,
-} from "@powerweek/core";
+import { DAY_KEYS, type DayKey, type DayLoad } from "@tukkteam/modules/week";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { summaries, type Shown } from "@/modules/board";
+import { toneStyle } from "@/modules/look";
 
 /**
- * The Week Pulse split by colour: each day's bar stacks its agenda (blue), training (volt) and
- * meals (orange), as tall as the day is busy. Tapping a bar jumps to that day.
+ * The Week Pulse split by colour: each day's bar stacks what every module on screen plans for
+ * it, each in its own tone, as tall as the day is busy. Tapping a bar jumps to that day.
  */
 export function WeekStack({
-  plan,
+  shown,
+  loads,
   todayKey,
   onSelect,
 }: {
-  plan: PlanDoc;
+  shown: readonly Shown[];
+  loads: Record<DayKey, DayLoad>;
   todayKey: DayKey;
   onSelect: (day: DayKey) => void;
 }) {
   const { dict } = useLocale();
-  const loads = weekLoads(plan);
+  const toneOf = new Map(shown.map((entry) => [entry.module.id, entry.module.tone]));
 
   return (
     <div
@@ -33,35 +30,18 @@ export function WeekStack({
       className="grid w-full max-w-2xl grid-cols-7 items-end gap-2 sm:gap-4"
     >
       {DAY_KEYS.map((day) => {
-        const d = plan.days[day];
-        const slots = mealSlots(plan, day);
-        const fuel = MEAL_SLOTS.reduce((n, slot) => {
-          const s = slots[slot];
-          return n + (s.kind === "fixed" ? s.meals.length : s.kind === "options" ? 1 : 0);
-        }, 0);
-        const parts = [
-          { key: "agenda", count: d.agenda.length, className: "bg-agenda" },
-          {
-            key: "train",
-            count: d.workout ? Math.max(1, d.workout.exercises.length) : 0,
-            className: "bg-train",
-          },
-          { key: "fuel", count: fuel, className: "bg-fuel" },
-        ].filter((part) => part.count > 0);
-        const { count, ratio } = loads[day];
+        const { count, ratio, parts } = loads[day];
         const isToday = day === todayKey;
+        const spoken = summaries(shown, day)
+          .map((summary) => summary.text)
+          .join(", ");
         return (
           <button
             key={day}
             type="button"
             onClick={() => onSelect(day)}
             aria-current={isToday ? "date" : undefined}
-            aria-label={dict.week.stackDay(
-              dict.days.long[day],
-              d.agenda.length,
-              d.workout?.exercises.length ?? 0,
-              fuel,
-            )}
+            aria-label={dict.week.stackDay(dict.days.long[day], spoken)}
             className="group flex flex-col items-center gap-2 rounded-xl pt-1 pb-0.5"
           >
             <span className="flex h-28 w-full items-end justify-center">
@@ -72,9 +52,13 @@ export function WeekStack({
                 {parts.length ? (
                   parts.map((part) => (
                     <span
-                      key={part.key}
-                      className={`min-h-1.5 rounded-full ${part.className}`}
-                      style={{ flexGrow: part.count, flexBasis: 0 }}
+                      key={part.module}
+                      className="min-h-1.5 rounded-full bg-tone"
+                      style={{
+                        ...toneStyle(toneOf.get(part.module) ?? "volt"),
+                        flexGrow: part.count,
+                        flexBasis: 0,
+                      }}
                     />
                   ))
                 ) : (

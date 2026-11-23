@@ -2,6 +2,8 @@
 
 Date: 2026-11-13 · Status: Accepted
 
+> Operations are still the only way a plan changes; since [0010](0010-modules.md) each one belongs to a module and a kernel routes them.
+
 ## Context
 
 The prototype asked the language model to return the whole week. Any omission silently deleted data, and there was no way to show the user what changed.

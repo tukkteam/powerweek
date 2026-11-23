@@ -5,11 +5,11 @@ coverage
 packages/design-tokens/tokens.css
 apps/web/lib/supabase/database.types.ts
 supabase/.temp
-packages/core/schema
+packages/modules/schema
 apps/web/AGENTS.md
 apps/web/public/offline.html
 test-results
 playwright-report
 packages/design-tokens/tokens.json
-packages/core/src/moves-data.ts
+apps/web/modules/train/moves-data.ts
 apps/web/public/moves

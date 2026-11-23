@@ -43,23 +43,24 @@ supabase test db             # run the pgTAP tests
 
 ## Everyday commands
 
-| Command                              | Purpose                                                                       |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `pnpm dev`                           | Next.js dev server on http://localhost:3000                                   |
-| `pnpm verify`                        | What CI runs: tokens check, lint, typecheck, unit tests and production build  |
-| `pnpm test`                          | Unit tests (core reducer and schema, web parser, prompt, i18n and formatting) |
-| `pnpm --filter @powerweek/web e2e`   | Playwright smoke tests (build first with `pnpm build`)                        |
-| `pnpm tokens`                        | Regenerate `tokens.css` from `tokens.json`                                    |
-| `pnpm moves`                         | Re-import the exercise illustrations and catalogue (needs network)            |
-| `pnpm --filter @powerweek/web icons` | Regenerate app icons from the mark                                            |
-| `pnpm db:types`                      | Regenerate `database.types.ts` from the linked project                        |
+| Command                              | Purpose                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------- |
+| `pnpm dev`                           | Next.js dev server on http://localhost:3000                                  |
+| `pnpm verify`                        | What CI runs: tokens check, lint, typecheck, unit tests and production build |
+| `pnpm test`                          | Unit tests (the kernel, every module, parity with old plans, prompt, i18n)   |
+| `pnpm --filter @powerweek/web e2e`   | Playwright smoke tests (build first with `pnpm build`)                       |
+| `pnpm tokens`                        | Regenerate `tokens.css` from `tokens.json`                                   |
+| `pnpm moves`                         | Re-import the exercise illustrations and catalogue (needs network)           |
+| `pnpm --filter @powerweek/web icons` | Regenerate app icons from the mark                                           |
+| `pnpm db:types`                      | Regenerate `database.types.ts` from the linked project                       |
 
 ## Conventions
 
 - **Next.js 16 is not the Next.js you may remember.** Read the bundled docs in `apps/web/node_modules/next/dist/docs/` before using an API (`proxy.ts` replaces middleware; Cache Components forbid reading cookies or the clock during render).
-- Plan changes go through operations (`packages/core`). Don't write `plans.doc` by hand anywhere.
-- Copy lives in `apps/web/lib/i18n/dictionaries`. Add a key to `es.ts` first; TypeScript and the parity test make you add it to `en.ts`.
-- Colours, radii and spacing come from tokens. Don't hard-code hex values in components.
+- Plan changes go through operations, and each operation belongs to a module (`apps/web/modules`). Don't write `plans.doc` by hand anywhere. To add or change a module, read [modules.md](modules.md).
+- A module's strings live in its own `messages.ts`.
+- The app's own copy lives in `apps/web/lib/i18n/dictionaries`. Add a key to `es.ts` first; TypeScript and the parity test make you add it to `en.ts`.
+- Colours, radii and spacing come from tokens. Don't hard-code hex values in components; inside a module write `text-tone`, `bg-tone`, never a colour name.
 - Accessibility is part of done: labels on icon buttons, 44 px targets, visible focus, live regions for async results.
 
 ## Working with worktrees
