@@ -33,6 +33,10 @@ El plan es una pantalla de **módulos**. Tú eliges cuáles ves y en qué orden,
 
 Un módulo es una carpeta: qué guarda, qué cambios admite y cómo se dibuja. Con eso ya se puede usar con la voz, con recibo y deshacer. [docs/modules.md](docs/modules.md) (en inglés) es el contrato y la guía para escribir uno.
 
+| Un plan en blanco te pregunta qué quieres organizar                     | Organizar la pantalla: arrastrar, quitar, añadir             |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------ |
+| ![Elegir módulos en un plan en blanco](docs/images/modules-welcome.png) | ![El escritorio de módulos](docs/images/modules-arrange.png) |
+
 Cada cambio llega con un **recibo** (qué se añade, cambia, mueve o quita) y un botón de **deshacer**. El **pulso de la semana** (siete barras tan altas como cargado está cada día) te enseña la semana entera de un vistazo, y la **barra del día** se va llenando de la mañana a la medianoche.
 
 ![Hoy: la barra del día, la agenda en barras, las comidas y un entreno ilustrado](docs/images/today.png)

@@ -40,6 +40,10 @@ The plan is a screen of **modules**. You choose which ones you see and in what o
 
 A module is one folder: what it stores, which changes it accepts and how it draws itself. That is enough for it to be used by voice, with receipts and undo. [docs/modules.md](docs/modules.md) is the contract and the guide to writing one.
 
+| A blank plan asks what you want to organise                          | Arranging the screen: drag, remove, add                            |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| ![Choosing modules on a blank plan](docs/images/modules-welcome.png) | ![The module desk: tiles to drag](docs/images/modules-arrange.png) |
+
 Every change arrives with a **Change Receipt** (what was added, changed, moved or removed) and one-tap **Undo**. The **Week Pulse**, seven bars as tall as each day is busy, keeps the whole week in view, and the **Day Bar** shows the day itself filling up from morning to midnight.
 
 ![Today: the Day Bar, agenda bars, the fuel gauge and an illustrated workout](docs/images/today.png)
