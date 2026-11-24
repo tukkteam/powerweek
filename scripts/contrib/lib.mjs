@@ -49,10 +49,11 @@ export function tryRun(cmd, cmdArgs = [], options = {}) {
 }
 
 /** Run a command with its output streamed to the terminal (stderr in --json mode). Returns true on success. */
-export function stream(cmd, cmdArgs = []) {
+export function stream(cmd, cmdArgs = [], env = {}) {
   const result = spawnSync(cmd, cmdArgs, {
     stdio: ["ignore", JSON_MODE ? process.stderr : "inherit", "inherit"],
     shell: process.platform === "win32",
+    env: { ...process.env, ...env },
   });
   return result.status === 0;
 }

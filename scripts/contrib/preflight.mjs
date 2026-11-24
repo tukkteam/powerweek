@@ -16,6 +16,7 @@ import {
   flag,
   inRoot,
   mark,
+  readText,
   root,
   run,
   say,
@@ -242,9 +243,25 @@ const db = paths.some((p) => p.startsWith("supabase/"));
 const ruleFailures = results.filter((r) => r.level === "fail");
 
 // ── 2 and 3. Commands ───────────────────────────────────────────────────────────────────────
+// The build prerenders the app shell, which needs the two public Supabase values to be set (not reachable).
+// Without them, use local placeholders so contributors with no Supabase project can still build.
+const localEnv = readText(inRoot("apps/web/.env.local")) ?? "";
+const hasValue = (name) =>
+  Boolean(process.env[name]) || new RegExp(`^${name}=\\S+`, "m").test(localEnv);
+const buildEnv = {};
+if (!hasValue("NEXT_PUBLIC_SUPABASE_URL") || !hasValue("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")) {
+  buildEnv.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+  buildEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_placeholder_for_build";
+  add(
+    "env.placeholder",
+    "info",
+    "No Supabase values set: the build used local placeholders (fine for checks; to run the app see docs/development.md).",
+  );
+}
+
 const step = (id, label, cmd, cmdArgs) => {
   say(c.bold(`\n▸ ${label}`) + c.dim(`  ${cmd} ${cmdArgs.join(" ")}`));
-  const ok = stream(cmd, cmdArgs);
+  const ok = stream(cmd, cmdArgs, buildEnv);
   add(id, ok ? "ok" : "fail", ok ? label : `${label} failed`);
   return ok;
 };
