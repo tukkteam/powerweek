@@ -45,7 +45,8 @@ const commits = git("log", "--reverse", "--format=%s%x1f%b%x1e", `${mergeBase}..
   .filter(Boolean)
   .map((x) => {
     const [subject, body = ""] = x.split("\x1f");
-    return { subject: subject.trim(), body: body.trim() };
+    const trailers = /^(Co-Authored-By|Signed-off-by|Reviewed-by|Change-Id):.*$/gim;
+    return { subject: subject.trim(), body: body.replace(trailers, "").trim() };
   });
 if (!commits.length) fail("No commits on this branch yet", "Commit your change first");
 
