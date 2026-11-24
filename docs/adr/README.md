@@ -13,3 +13,6 @@ Short records of decisions that shape the codebase: the context, the decision an
 | [0007](0007-monorepo-pnpm-workspaces.md)            | pnpm workspaces monorepo: apps and shared packages                      | Accepted |
 | [0008](0008-move-library.md)                        | Exercise illustrations from an open library that the assistant links to | Accepted |
 | [0009](0009-dictation-listens-to-our-microphone.md) | Dictation listens to a microphone the app opens (picked in Settings)    | Accepted |
+| [0010](0010-modules.md)                             | A plan is a document of modules, bound by a contract and a kernel       | Accepted |
+| [0011](0011-dated-facts.md)                         | Dated facts of every module live in one table                           | Accepted |
+| [0012](0012-modules-ship-with-the-app.md)           | Modules ship with the app; a catalogue comes before a marketplace       | Proposed |

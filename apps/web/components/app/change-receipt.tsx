@@ -5,14 +5,16 @@ import { useEffect, useState } from "react";
 import { useApp } from "@/components/app/app-provider";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
-import { describeChange, OP_CLASS, OP_SYMBOL } from "@/lib/format";
+import { describeChange, OP_CLASS, OP_SYMBOL, whereChanged } from "@/lib/format";
+import { kernel } from "@/modules";
+import { toneStyle } from "@/modules/look";
 
 const VISIBLE = 5;
 
 /** Proof of every edit: what changed, in which day, and one tap to undo it. */
 export function ChangeReceipt() {
-  const { receipt, dismissReceipt, undo } = useApp();
-  const { dict } = useLocale();
+  const { receipt, dismissReceipt, undo, dates } = useApp();
+  const { lang, dict } = useLocale();
   const [hold, setHold] = useState(false);
 
   useEffect(() => {
@@ -24,6 +26,8 @@ export function ChangeReceipt() {
 
   if (!receipt) return null;
   const count = receipt.changes.length;
+  /** Why nothing changed, when the assistant did ask for something. */
+  const unmet = count === 0 ? receipt.problem : null;
   const shown = receipt.changes.slice(0, VISIBLE);
 
   return (
@@ -40,11 +44,14 @@ export function ChangeReceipt() {
       <p className="type-heading">
         {count
           ? dict.receipt.title(count)
-          : receipt.reply.trim().endsWith("?")
-            ? dict.receipt.question
-            : dict.receipt.nothing}
+          : unmet
+            ? dict.receipt.failed[unmet]
+            : receipt.reply.trim().endsWith("?")
+              ? dict.receipt.question
+              : dict.receipt.nothing}
       </p>
-      {receipt.reply && receipt.source === "assistant" ? (
+      {/* When nothing could be done, the assistant's sentence would claim otherwise. */}
+      {receipt.reply && receipt.source === "assistant" && !unmet ? (
         <p className="type-caption mt-1 text-ink-muted">{receipt.reply}</p>
       ) : null}
 
@@ -62,15 +69,25 @@ export function ChangeReceipt() {
                 {OP_SYMBOL[change.kind]}
               </span>
               <span className="type-label truncate text-ink-muted">
-                {change.scope === "week" ? dict.receipt.week : dict.days.long[change.day]}
+                {whereChanged(change, dict, lang, dates)}
               </span>
-              <span className="type-body truncate">{describeChange(change, dict)}</span>
+              <span className="type-body flex min-w-0 items-baseline gap-2">
+                <span
+                  aria-hidden="true"
+                  className="size-2 shrink-0 translate-y-[-1px] rounded-full bg-tone"
+                  style={toneStyle(kernel.get(change.module)?.tone ?? "volt")}
+                />
+                <span className="truncate">{describeChange(change, dict, lang)}</span>
+              </span>
             </li>
           ))}
         </ul>
       ) : null}
       {count > VISIBLE ? (
         <p className="type-caption mt-1 text-ink-muted">{dict.receipt.more(count - VISIBLE)}</p>
+      ) : null}
+      {count > 0 && receipt.skipped > 0 ? (
+        <p className="type-caption mt-1 text-danger">{dict.receipt.skipped(receipt.skipped)}</p>
       ) : null}
 
       <div className="mt-3 flex justify-end gap-2">

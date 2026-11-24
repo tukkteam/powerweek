@@ -1,0 +1,26 @@
+{
+  "name": "@tukkteam/modules",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The TukkTeam module contract and its kernel: write a schema and a few typed operations, and get a module a person can talk to, with change receipts and undo.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./week": "./src/week/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^5.1.0",
+    "@types/node": "^24"
+  }
+}

@@ -1,12 +1,12 @@
 "use client";
 
-import { DAY_KEYS, zonedMinutes, type DayKey } from "@powerweek/core";
+import { DAY_KEYS, zonedMinutes, type DayKey, type DayRelation } from "@tukkteam/modules/week";
 import { useApp } from "@/components/app/app-provider";
 import { useClock } from "@/lib/clock";
 
-/** Where a day of the current week stands: already lived, today, or still ahead. */
-export type DayRelation = "past" | "today" | "future";
+export type { DayRelation };
 
+/** Where a day of the current week stands: already lived, today, or still ahead. */
 export function relationOf(day: DayKey, today: DayKey): DayRelation {
   const delta = DAY_KEYS.indexOf(day) - DAY_KEYS.indexOf(today);
   return delta < 0 ? "past" : delta > 0 ? "future" : "today";

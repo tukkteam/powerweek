@@ -17,9 +17,15 @@
   --color-volt: var(--volt);
   --color-on-volt: var(--on-volt);
   --color-volt-ink: var(--volt-ink);
-  --color-agenda: var(--agenda);
-  --color-train: var(--train);
-  --color-fuel: var(--fuel);
+  /* The colour of whatever module an element belongs to; see modules/look.ts. */
+  --color-tone: var(--tone);
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-volt: var(--tone-volt);
+  --color-tone-orange: var(--tone-orange);
+  --color-tone-sand: var(--tone-sand);
+  --color-tone-violet: var(--tone-violet);
+  --color-tone-rose: var(--tone-rose);
+  --color-tone-teal: var(--tone-teal);
   --color-danger: var(--danger);
   --color-focus: var(--focus);
 }
@@ -35,6 +41,8 @@
   --font-display: var(--font-archivo), "Arial Black", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --dock-height: 76px;
+  /* Outside any module, "tone" is the brand colour. */
+  --tone: var(--volt-ink);
 }
 
 /* Type styles from the design system (Display, Text and Mono groups). */
@@ -405,5 +413,24 @@
   }
   .pw-bar {
     transition: background-color 160ms ease-out;
+  }
+}
+
+/* Arranging modules: tiles tremble a little, like icons waiting to be moved. */
+@keyframes pw-jiggle {
+  0%,
+  100% {
+    rotate: -0.6deg;
+  }
+  50% {
+    rotate: 0.6deg;
+  }
+}
+.pw-jiggle {
+  animation: pw-jiggle 380ms ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pw-jiggle {
+    animation: none;
   }
 }

@@ -40,23 +40,35 @@ Every text pair passes WCAG AA in both themes; the palette was checked with a co
 
 ## Signature components
 
-| Component      | Where                                                | Notes                                                                                                                                                                                              |
-| -------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Week Pulse     | `components/app/week-pulse.tsx`                      | Seven capsules, Monday first, length = day load; today in volt; pulses while listening. Phones: a row above the day. Desktop: a column beside the Day Bar, same height, so tall days stay balanced |
-| Week Stack     | `components/app/week-stack.tsx`                      | The Week Pulse split by category: agenda (blue), training (volt) and meals (orange) stacked in each capsule                                                                                        |
-| Day Bar        | `components/app/day-bar.tsx`                         | The day as one progress bar (06:00–24:00): a volt rail fills with the clock, blocks fill as their own time passes                                                                                  |
-| Agenda bars    | `components/app/agenda-box.tsx`                      | Timed items are progress bars from start to end with a status (Ahora, En 2 h, Hecho); untimed items keep a round tick                                                                              |
-| Fuel gauge     | `components/app/fuel-box.tsx`                        | Four slots that fill orange as meals are planned; the slot due now is ringed                                                                                                                       |
-| Training board | `components/app/train-box.tsx`, `exercise-sheet.tsx` | Muscle map + one illustrated tile per exercise, sets drawn as volt pills, one "workout done" button. No per-exercise ticks                                                                         |
-| Move art       | `components/app/move-art.tsx`                        | Exercise line drawings used as CSS masks, so they paint in the current colour. Animated: frames 1 → 2 → 3 → 2 with cross-fades                                                                     |
-| Muscle map     | `components/app/muscle-map.tsx`                      | Low-poly front and back figures; muscles glow in four steps of volt by training volume                                                                                                             |
-| Week board     | `components/app/week-view.tsx`, `day-peek.tsx`       | One big box per day with a blue, a volt and an orange box inside, in fixed columns. Hover or press and hold to peek                                                                                |
-| Voice Dock     | `components/app/voice-dock.tsx`                      | The one primary input per screen: orb + field; states idle, listening, thinking                                                                                                                    |
-| Change Receipt | `components/app/change-receipt.tsx`                  | `+` added, `~` changed, `→` moved, `−` removed; Undo; auto-dismiss unless hovered or focused                                                                                                       |
+| Component      | Where                                               | Notes                                                                                                                                                                                              |
+| -------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Week Pulse     | `components/app/week-pulse.tsx`                     | Seven capsules, Monday first, length = day load; today in volt; pulses while listening. Phones: a row above the day. Desktop: a column beside the Day Bar, same height, so tall days stay balanced |
+| Week Stack     | `components/app/week-stack.tsx`                     | The Week Pulse split by module: what each module on screen plans, stacked in each capsule in its tone                                                                                              |
+| Day Bar        | `components/app/day-bar.tsx`                        | The day as one progress bar (06:00–24:00): a volt rail fills with the clock; any module places blocks and markers on it                                                                            |
+| Agenda bars    | `modules/agenda/views.tsx`                          | Timed items are progress bars from start to end with a status (Ahora, En 2 h, Hecho); untimed items keep a round tick                                                                              |
+| Fuel gauge     | `modules/fuel/views.tsx`                            | Four slots that fill as meals are planned; the slot due now is ringed                                                                                                                              |
+| Training board | `modules/train/views.tsx`, `exercise-sheet.tsx`     | Muscle map + one illustrated tile per exercise, sets drawn as volt pills, one "workout done" button. No per-exercise ticks                                                                         |
+| Move art       | `modules/train/move-art.tsx`                        | Exercise line drawings used as CSS masks, so they paint in the current colour. Animated: frames 1 → 2 → 3 → 2 with cross-fades                                                                     |
+| Muscle map     | `modules/train/muscle-map.tsx`                      | Low-poly front and back figures; muscles glow in four steps of volt by training volume                                                                                                             |
+| Week board     | `components/app/week-view.tsx`                      | One big box per day with one box per module inside, in fixed columns. Hover or press and hold to peek                                                                                              |
+| Module desk    | `components/app/module-desk.tsx`                    | Arranging the screen: tiles that tremble, drag to reorder, minus to take off, dashed tiles to add. Also the welcome for a blank screen                                                             |
+| Module card    | `components/app/module-card.tsx`, `module-slot.tsx` | The chrome module cards share, and the slot that gives a module its tone and contains its failures                                                                                                 |
+| Voice Dock     | `components/app/voice-dock.tsx`                     | The one primary input per screen: orb + field; states idle, listening, thinking                                                                                                                    |
+| Change Receipt | `components/app/change-receipt.tsx`                 | `+` added, `~` changed, `→` moved, `−` removed; Undo; auto-dismiss unless hovered or focused                                                                                                       |
 
-### Category colours
+### Module tones
 
-Every category keeps one colour everywhere: **Agenda is blue** (`agenda`), **Training is volt** (`train`, the brand colour) and **Meals are orange** (`fuel`). Boxes use a 7 % tint of the colour as ground and a 30 % edge; bars and fills use the full colour with `bg` text on top, which keeps at least 4.5:1 in both themes. The classes live in [`lib/tone.ts`](../apps/web/lib/tone.ts).
+Every module keeps one colour everywhere. A module names a **tone** and the host sets it on the element that wraps the module (`toneStyle` in [`modules/look.tsx`](../apps/web/modules/look.tsx)); inside, views never name a colour: they write `text-tone`, `bg-tone`, `bg-tone/15`. That is what lets a new module, or a person, pick a colour without touching a view.
+
+There are seven tones: `blue` (Agenda), `volt` (Training, the brand colour), `orange` (Meals), `sand` (Notes), `violet`, `rose` and `teal`. Each is a pair of colours, Night and Day. Boxes use a 7 % tint of the tone as ground and a 30 % edge; bars and fills use the full tone.
+
+A tone has three jobs, and [`scripts/tones.mjs`](../packages/design-tokens/scripts/tones.mjs) checks all three on every build:
+
+- **Text:** at least 4.5:1 on `bg`, `surface` and `surface-raised`.
+- **Fill:** at least 4.5:1 under text in the `bg` colour.
+- **Next to another tone:** every pair stays apart for people with red-green colour blindness (OKLab ΔE×100 of 8 or more under simulated protanopia and deuteranopia) and for full colour vision (15 or more). That is why there are seven tones and not more: the four added to the brand's three were computed, not picked by eye, and a tone that sits too close to another fails the build.
+
+One pair is a known exception: by Day, Training (`volt`) and Meals (`orange`) are hard to tell apart with red-green colour blindness (4.6). Both colours predate the check, and changing either is a brand decision. Tones are never the only cue: every module also has an icon and a name.
 
 ### Bars all the way down
 

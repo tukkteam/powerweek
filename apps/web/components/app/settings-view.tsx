@@ -1,7 +1,5 @@
 "use client";
 
-import { MOVE_SOURCE } from "@powerweek/core";
-
 import { Download, LogOut, Monitor, Moon, Sun, Trash2 } from "lucide-react";
 import {
   useMemo,
@@ -17,6 +15,7 @@ import { MicSettings } from "@/components/app/mic-settings";
 import { LanguageSwitch } from "@/components/i18n/language-switch";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
+import { MOVE_SOURCE } from "@/modules/train/moves";
 
 type Theme = "dark" | "light" | "system";
 const THEME_KEY = "pw-theme";
@@ -53,7 +52,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function SettingsView() {
-  const { user, profile, plan, updateProfile, linkEmail, signOut, deleteAccount, notify } =
+  const { phase, user, profile, doc, updateProfile, linkEmail, signOut, deleteAccount, notify } =
     useApp();
   const { dict } = useLocale();
   const t = dict.settings;
@@ -80,7 +79,7 @@ export function SettingsView() {
   }
 
   function exportPlan() {
-    const blob = new Blob([JSON.stringify(plan, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -203,7 +202,7 @@ export function SettingsView() {
 
       <Section title={t.data}>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={exportPlan}>
+          <Button onClick={exportPlan} disabled={phase !== "ready"}>
             <Download size={18} strokeWidth={1.75} aria-hidden="true" />
             {t.export}
           </Button>

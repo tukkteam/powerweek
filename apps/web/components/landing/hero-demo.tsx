@@ -5,8 +5,8 @@ import { useLocale } from "@/components/i18n/locale-provider";
 
 const OP_CLASS: Record<string, string> = {
   "+": "text-volt-ink",
-  "~": "text-agenda",
-  "→": "text-agenda",
+  "~": "text-tone-blue",
+  "→": "text-tone-blue",
   "−": "text-danger",
 };
 

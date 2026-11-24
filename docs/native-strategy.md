@@ -50,7 +50,7 @@ Sessions are cookies set by `@supabase/ssr`, which work inside WebViews loading 
 
 The architecture already supports it:
 
-- Operations are pure and replayable, and `applyOperations` runs in the browser.
+- Operations are pure and replayable, and the kernel that applies them runs in the browser.
 - Planned: cache the plan in IndexedDB, queue operations while offline, and on reconnect replay them against the latest version with the existing `save_plan(expected_version)` conflict check.
 
 ## Release process
@@ -69,5 +69,5 @@ Shell versions declare the bridge capabilities they implement (`PowerWeekNative.
 apps/web        today
 apps/mobile     Capacitor project (android/, ios/), capacitor.config.ts with server.url
 apps/desktop    Tauri project (src-tauri/), window URL + tray + shortcuts
-packages/core   shared by all of them if a shell ever needs domain logic natively
+packages/modules  the module contract and kernel, shared if a shell ever needs domain logic natively
 ```

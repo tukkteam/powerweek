@@ -1,4 +1,4 @@
-import { CalendarClock, CodeXml, Dumbbell, Utensils } from "lucide-react";
+import { ArrowRight, CodeXml } from "lucide-react";
 import { notFound } from "next/navigation";
 import { LanguageSwitch } from "@/components/i18n/language-switch";
 import { HeroDemo } from "@/components/landing/hero-demo";
@@ -6,12 +6,8 @@ import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
 import { publicEnv } from "@/lib/env";
 import { getDictionary, hasLocale } from "@/lib/i18n";
-
-const CATEGORY_STYLE = {
-  agenda: { icon: CalendarClock, color: "text-agenda" },
-  train: { icon: Dumbbell, color: "text-train" },
-  fuel: { icon: Utensils, color: "text-fuel" },
-} as const;
+import { kernel, MODULES } from "@/modules";
+import { ModuleIcon, toneStyle } from "@/modules/look";
 
 const PLATFORMS = ["web", "Android", "iOS", "macOS", "Windows"] as const;
 
@@ -97,28 +93,46 @@ export default async function LandingPage({ params }: PageProps<"/[lang]">) {
 
         <section className="border-t border-line">
           <div className="mx-auto flex max-w-7xl flex-col gap-12 px-4 py-24 sm:px-6">
-            <h2 className="type-display max-w-3xl">{t.categoriesTitle}</h2>
-            <div className="grid gap-4 md:grid-cols-3">
-              {(["agenda", "train", "fuel"] as const).map((category) => {
-                const { icon: Icon, color } = CATEGORY_STYLE[category];
+            <div className="flex max-w-3xl flex-col gap-5">
+              <h2 className="type-display">{t.modulesTitle}</h2>
+              <p className="text-[1.0625rem] leading-relaxed text-ink-muted">{t.modulesLead}</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {MODULES.map((module) => {
+                const names = kernel.messages(module, lang);
                 return (
                   <article
-                    key={category}
+                    key={module.id}
+                    style={toneStyle(module.tone)}
                     className="flex flex-col gap-4 rounded-[14px] border border-line bg-surface p-6"
                   >
-                    <span
-                      className={`type-label inline-flex items-center gap-2 self-start rounded-sm border border-current px-2 py-1 ${color}`}
-                    >
-                      <Icon size={14} strokeWidth={2} aria-hidden="true" />
-                      {dict.categories[category]}
+                    <span className="type-label inline-flex items-center gap-2 self-start rounded-sm border border-current px-2 py-1 text-tone">
+                      <ModuleIcon name={module.icon} size={14} strokeWidth={2} />
+                      {names.name}
                     </span>
                     <p className="font-display stretch-semi text-[1.375rem] leading-tight font-extrabold">
-                      {t.categoriesExample[category]}
+                      {dict.modules.quote(names.example)}
                     </p>
-                    <p className="type-body text-ink-muted">{t.categoriesBody[category]}</p>
+                    <p className="type-body text-ink-muted">{names.description}</p>
                   </article>
                 );
               })}
+              <article className="flex flex-col gap-4 rounded-[14px] border-2 border-dashed border-line p-6">
+                <span aria-hidden="true" className="type-label tracking-[0.4em] text-ink-muted">
+                  ···
+                </span>
+                <p className="font-display stretch-semi text-[1.375rem] leading-tight font-extrabold">
+                  {t.modulesMoreTitle}
+                </p>
+                <p className="type-body text-ink-muted">{t.modulesMoreBody}</p>
+                <a
+                  href={`${publicEnv.repoUrl}/blob/main/docs/modules.md`}
+                  className="mt-auto inline-flex items-center gap-1.5 self-start text-[0.9375rem] font-bold text-volt-ink underline decoration-2 underline-offset-4"
+                >
+                  {t.modulesMoreCta}
+                  <ArrowRight size={16} strokeWidth={2} aria-hidden="true" />
+                </a>
+              </article>
             </div>
           </div>
         </section>

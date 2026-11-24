@@ -1,72 +1,54 @@
 "use client";
 
+import type { Json } from "@tukkteam/modules";
 import {
-  daySpans,
   dayWindow,
   fromMinutes,
-  MEAL_TIMES,
   position,
-  MEAL_SLOTS,
-  mealSlots,
   spanProgress,
-  type AgendaItem,
-  type Day,
   type DayKey,
-  type Meal,
-  type Span,
-} from "@powerweek/core";
-import { Dumbbell, Utensils } from "lucide-react";
-import { useApp } from "@/components/app/app-provider";
+  type DayRelation,
+} from "@tukkteam/modules/week";
 import { useLocale } from "@/components/i18n/locale-provider";
-import type { DayRelation } from "@/components/app/use-day-clock";
 import { formatDuration } from "@/lib/format";
-import { TONE } from "@/lib/tone";
 import { useTween } from "@/lib/use-tween";
+import { dayTimeline, type DayTimeline, type Shown } from "@/modules/board";
+import { ModuleIcon, toneStyle } from "@/modules/look";
 
 const RAIL_TOP = 22;
 const RAIL_HEIGHT = 10;
 const LANE_TOP = RAIL_TOP + RAIL_HEIGHT + 12;
 const LANE_HEIGHT = 30;
 const LANE_GAP = 6;
-const MEAL_SIZE = 24;
+const MARKER_SIZE = 24;
 const LABELS = 20;
 
 const pct = (value: number) => `${(value * 100).toFixed(3)}%`;
 
 interface DayBarProps {
-  day: Day;
-  dayKey: DayKey;
-  /** A meal slot with options was tapped (they are chosen in the Comidas box). */
-  onMenu: () => void;
+  /** The modules on screen; each may place things on the day. */
+  shown: readonly Shown[];
+  day: DayKey;
   relation: DayRelation;
   /** Minute of the day when `relation` is today; null otherwise or before the clock starts. */
   now: number | null;
-  onAgenda: (item: AgendaItem) => void;
-  onMeal: (meal: Meal) => void;
-  onTrain: () => void;
+  /** A dated fact of a module for this day, if any. */
+  record: (module: string, key: string) => Json | undefined;
+  /** Something on the timeline was tapped: its module and the id the module gave it. */
+  onOpen: (module: string, id: string) => void;
   className?: string;
 }
 
 /**
- * The day as one progress bar: a volt rail fills from morning to midnight, and the agenda (blue),
- * the workout (volt) and the meals (orange) sit on it where they happen. Each block fills as its
- * own time passes, so the day reads at a glance: done, now, next.
+ * The day as one progress bar: a rail fills from morning to midnight, and whatever the modules
+ * on screen have at a time of day sits on it, each in its module's colour. Things that last are
+ * blocks that fill as their own time passes; things at a moment are round markers. The day
+ * reads at a glance: done, now, next.
  */
-export function DayBar({
-  day,
-  dayKey,
-  onMenu,
-  relation,
-  now,
-  onAgenda,
-  onMeal,
-  onTrain,
-  className = "",
-}: DayBarProps) {
+export function DayBar({ shown, day, relation, now, record, onOpen, className = "" }: DayBarProps) {
   const { lang, dict } = useLocale();
-  const { agenda, train, lanes } = daySpans(day);
-  const range = dayWindow(train ? [...agenda, train] : agenda);
-  const mealTimes = MEAL_TIMES[lang];
+  const timeline = dayTimeline(shown, day, lang, record);
+  const range = dayWindow(timeline.spans);
 
   const progress =
     relation === "past" ? 1 : relation === "future" || now === null ? 0 : position(now, range);
@@ -81,50 +63,14 @@ export function DayBar({
           ? dict.day.remaining(formatDuration(range.end - Math.max(now!, range.start)))
           : "";
 
-  // Meals sit at the usual time of their slot; extra snacks step 25 minutes to the right. A slot
-  // with options shows one marker: dashed until you choose, then like any other meal.
-  const { plan, pickOf } = useApp();
-  const slots = mealSlots(plan, dayKey);
-  const meals = MEAL_SLOTS.flatMap((slot) => {
-    const s = slots[slot];
-    if (s.kind === "fixed")
-      return s.meals.map((meal, index) => ({
-        key: meal.id,
-        slot,
-        at: mealTimes[slot] + index * 25,
-        title: meal.title,
-        meal: meal as Meal | null,
-        pending: false,
-      }));
-    if (s.kind !== "options") return [];
-    const chosen = s.options.find((option) => option.id === pickOf(dayKey, slot));
-    return [
-      {
-        key: `options-${slot}`,
-        slot,
-        at: mealTimes[slot],
-        title: chosen?.title ?? dict.fuel.options(s.options.length),
-        meal: null,
-        pending: !chosen,
-      },
-    ];
-  });
-
-  const agendaLanes = agenda.length ? Math.max(1, lanes) : 0;
-  const trainTop = LANE_TOP + agendaLanes * (LANE_HEIGHT + LANE_GAP);
-  const mealsTop = trainTop + (train ? LANE_HEIGHT + LANE_GAP : 0);
-  const bodyBottom = mealsTop + (meals.length ? MEAL_SIZE + LANE_GAP : 0);
-  const empty = !agenda.length && !train && !meals.length;
+  const markersTop = LANE_TOP + timeline.spanRows * (LANE_HEIGHT + LANE_GAP);
+  const bodyBottom = markersTop + timeline.markerRows * (MARKER_SIZE + LANE_GAP);
+  const empty = timeline.spans.length === 0 && timeline.markers.length === 0;
   const height = (empty ? LANE_TOP + 8 : bodyBottom + 4) + LABELS;
+  const legend = shown.filter((entry) => entry.readable && entry.module.week?.timeline);
 
   const ticks: number[] = [];
   for (let t = Math.ceil(range.start / 180) * 180; t <= range.end; t += 180) ticks.push(t);
-
-  const spanLabel = (span: Span) =>
-    dict.day.spanLabel(
-      span.title,
-      span.open ? fromMinutes(span.start) : `${fromMinutes(span.start)}–${fromMinutes(span.end)}`,
-    );
 
   return (
     <section
@@ -143,10 +89,14 @@ export function DayBar({
           </p>
         </div>
         <ul className="flex flex-wrap gap-x-4 gap-y-1" aria-hidden="true">
-          {(["agenda", "train", "fuel"] as const).map((category) => (
-            <li key={category} className="type-label flex items-center gap-1.5 text-ink-muted">
-              <span className={`size-2 rounded-full ${TONE[category].fill}`} />
-              {dict.categories[category]}
+          {legend.map((entry) => (
+            <li
+              key={entry.module.id}
+              className="type-label flex items-center gap-1.5 text-ink-muted"
+              style={toneStyle(entry.module.tone)}
+            >
+              <span className="size-2 rounded-full bg-tone" />
+              {entry.t.name}
             </li>
           ))}
         </ul>
@@ -186,65 +136,53 @@ export function DayBar({
           />
         ) : null}
 
-        {agenda.map((span, index) => {
-          const item = day.agenda.find((a) => a.id === span.id)!;
-          return (
-            <SpanBlock
-              key={span.id}
-              span={span}
-              tone="agenda"
-              delay={index * 50}
-              top={LANE_TOP + span.lane * (LANE_HEIGHT + LANE_GAP)}
-              range={range}
-              progress={spanProgress(span, now, relation).progress}
-              label={spanLabel(span)}
-              onClick={() => onAgenda(item)}
-            />
-          );
-        })}
-
-        {train ? (
+        {timeline.spans.map((span, index) => (
           <SpanBlock
-            key={`${day.workout?.title}-${train.start}`}
-            span={train}
-            tone="train"
-            delay={agenda.length * 50}
-            top={trainTop}
+            key={`${span.module}-${span.id}`}
+            span={span}
+            delay={index * 50}
+            top={LANE_TOP + span.row * (LANE_HEIGHT + LANE_GAP)}
             range={range}
-            progress={spanProgress(train, now, relation).progress}
-            label={spanLabel(train)}
-            onClick={onTrain}
-            icon
+            progress={spanProgress(span, now, relation).progress}
+            label={dict.day.spanLabel(
+              span.title,
+              span.open
+                ? fromMinutes(span.start)
+                : `${fromMinutes(span.start)}–${fromMinutes(span.end)}`,
+            )}
+            onClick={() => onOpen(span.module, span.id)}
           />
-        ) : null}
+        ))}
 
-        {meals.map(({ key, slot, at, title, meal, pending }, index) => {
-          const eaten =
-            !pending &&
-            (relation === "past" || (relation === "today" && now !== null && now >= at + 30));
+        {timeline.markers.map((marker, index) => {
+          const passed =
+            !marker.pending &&
+            (relation === "past" ||
+              (relation === "today" && now !== null && now >= marker.at + 30));
           return (
             <button
-              key={key}
+              key={`${marker.module}-${marker.id}`}
               type="button"
-              onClick={() => (meal ? onMeal(meal) : onMenu())}
-              aria-label={dict.day.spanLabel(`${dict.slots[slot]}: ${title}`, fromMinutes(at))}
-              title={`${dict.slots[slot]} · ${title}`}
+              onClick={() => onOpen(marker.module, marker.id)}
+              aria-label={dict.day.spanLabel(marker.title, fromMinutes(marker.at))}
+              title={marker.title}
               className={`pw-pop pw-slide absolute flex -translate-x-1/2 items-center justify-center rounded-full hover:scale-110 ${
-                eaten
-                  ? "bg-fuel text-bg"
-                  : pending
-                    ? "border-2 border-dashed border-fuel/70 bg-surface text-fuel"
-                    : "border-2 border-fuel bg-surface text-fuel"
+                passed
+                  ? "bg-tone text-bg"
+                  : marker.pending
+                    ? "border-2 border-dashed border-tone/70 bg-surface text-tone"
+                    : "border-2 border-tone bg-surface text-tone"
               }`}
               style={{
-                left: pct(position(at, range)),
-                top: mealsTop,
-                width: MEAL_SIZE,
-                height: MEAL_SIZE,
+                ...toneStyle(marker.tone),
+                left: pct(position(marker.at, range)),
+                top: markersTop + marker.row * (MARKER_SIZE + LANE_GAP),
+                width: MARKER_SIZE,
+                height: MARKER_SIZE,
                 animationDelay: `${120 + index * 60}ms`,
               }}
             >
-              <Utensils size={12} strokeWidth={2.25} aria-hidden="true" />
+              <ModuleIcon name={marker.glyph} size={12} strokeWidth={2.25} />
             </button>
           );
         })}
@@ -292,50 +230,47 @@ export function DayBar({
 
 function SpanBlock({
   span,
-  tone,
   top,
   range,
   progress,
   label,
   onClick,
-  icon = false,
   delay = 0,
 }: {
-  span: Span;
-  tone: "agenda" | "train";
+  span: DayTimeline["spans"][number];
   delay?: number;
   top: number;
   range: { start: number; end: number };
   progress: number;
   label: string;
   onClick: () => void;
-  icon?: boolean;
 }) {
   const left = position(span.start, range);
   const width = Math.max(0, position(span.end, range) - left);
-  const t = TONE[tone];
+  const iconed = Boolean(span.icon);
   const text = (
     <>
-      {icon ? (
-        <Dumbbell size={13} strokeWidth={2.25} aria-hidden="true" className="shrink-0" />
+      {iconed ? (
+        <ModuleIcon name={span.glyph} size={13} strokeWidth={2.25} className="shrink-0" />
       ) : null}
-      <span className={`truncate ${icon ? "@max-[4.5rem]:hidden" : ""}`}>{span.title}</span>
+      <span className={`truncate ${iconed ? "@max-[4.5rem]:hidden" : ""}`}>{span.title}</span>
       <span className="font-mono text-[0.6875rem] font-medium opacity-80 @max-[9rem]:hidden">
         {fromMinutes(span.start)}
       </span>
     </>
   );
-  const narrow = icon ? "@max-[4.5rem]:justify-center @max-[4.5rem]:px-0" : "@max-[3rem]:hidden";
+  const narrow = iconed ? "@max-[4.5rem]:justify-center @max-[4.5rem]:px-0" : "@max-[3rem]:hidden";
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`pw-reveal pw-slide @container absolute overflow-hidden rounded-[8px] border text-left hover:brightness-110 ${t.soft} ${t.edge} ${
+      className={`pw-reveal pw-slide @container absolute overflow-hidden rounded-[8px] border border-tone/30 bg-tone/15 text-left hover:brightness-110 ${
         span.open ? "border-dashed" : ""
       }`}
       style={{
+        ...toneStyle(span.tone),
         left: pct(left),
         width: `max(8px, calc(${pct(width)} - 2px))`,
         top,
@@ -344,7 +279,7 @@ function SpanBlock({
       }}
     >
       <span
-        className={`pw-fill absolute inset-y-0 left-0 ${t.fill}`}
+        className="pw-fill absolute inset-y-0 left-0 bg-tone"
         style={{ width: pct(progress) }}
       />
       <span

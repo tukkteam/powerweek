@@ -1,24 +1,21 @@
 import {
-  DAY_KEYS,
-  MAX_OPERATIONS,
-  MOVES,
-  MUSCLE_GROUPS,
-  type DayKey,
-  type MuscleGroup,
-  type PlanDoc,
-} from "@powerweek/core";
+  systemPrompt,
+  userPrompt,
+  type ChatMessage,
+  type Doc,
+  type PromptHost,
+} from "@tukkteam/modules";
+import { tomorrowOf, type DayKey } from "@tukkteam/modules/week";
 import type { Locale } from "@/lib/i18n/config";
+import { kernel, MAX_OPERATIONS } from "@/modules";
+
+export type { ChatMessage };
 
 export interface PromptContext {
   lang: Locale;
   todayIso: string;
   todayKey: DayKey;
-  plan: PlanDoc;
-}
-
-export interface ChatMessage {
-  role: "system" | "user";
-  content: string;
+  doc: Doc;
 }
 
 const LANGUAGE: Record<Locale, string> = { es: "Spanish (Spain, informal tú)", en: "English" };
@@ -33,94 +30,44 @@ const WEEKDAY_NAME: Record<DayKey, string> = {
 };
 
 /**
- * The move library as the model sees it: slugs grouped by what they train. Built once; about
- * 1,500 tokens. The model links each exercise to a slug, so no image is ever generated.
+ * What PowerWeek itself tells the model: who it is, the vocabulary every operation shares and
+ * the rules that hold whatever modules are involved. Each module adds its own data, operations
+ * and rules; the kernel puts it all together.
  */
-export const MOVE_CATALOGUE: string = (() => {
-  const groups = new Map<string, string[]>();
-  for (const move of MOVES) {
-    const group: MuscleGroup = move.stretch
-      ? "mobility"
-      : move.equipment === "cardio"
-        ? "cardio"
-        : move.primary[0]!;
-    groups.set(group, [...(groups.get(group) ?? []), move.slug]);
-  }
-  return MUSCLE_GROUPS.filter((group) => groups.has(group))
-    .map((group) => `${group}: ${groups.get(group)!.join(", ")}`)
-    .join("\n");
-})();
-
-export function tomorrowOf(day: DayKey): DayKey {
-  return DAY_KEYS[(DAY_KEYS.indexOf(day) + 1) % 7]!;
-}
-
-export function systemPrompt(ctx: Pick<PromptContext, "lang" | "todayKey">): string {
-  const tomorrow = tomorrowOf(ctx.todayKey);
-  return `You are the planning assistant inside PowerWeek. You edit ONE recurring weekly plan that repeats every week, Monday to Sunday. Days have no dates.
-
-Each day has:
-- agenda: items with an optional start "time" and "endTime" (appointments, work, classes, plans).
-- workout: null, or { title, time, exercises: [{ id, name, sets, reps, load, note, move }] }. At most one workout per day. "time" is its optional start.
-- meals: items with a slot: breakfast, lunch, snack or dinner (one meal per slot, except snack).
-- menu: optional meal options for that day only, by slot: { "lunch": [{ id, title }] }.
-The plan also has an optional week "menu": options shared by several days, by slot: { "dinner": { "options": [{ id, title }], "days": ["mon","tue"] } } (no "days" = every day). For each slot a fixed meal wins, then the day's options, then the week's. Each day the user picks one option.
-- note: optional free text for the day.
-
-You answer with a json object and nothing else: {"operations": [ ... ], "reply": "..."}
-
-Operations. Day keys are mon, tue, wed, thu, fri, sat, sun. Times are 24h "HH:MM".
-{"op":"agenda.add","day":"mon","title":"Yoga","time":"07:30","endTime":"08:30"}
-{"op":"agenda.update","id":"<agenda id>","title":"...","time":"19:00","day":"thu"}   only the fields that change; "day" moves it; null clears time, endTime or note
-{"op":"agenda.remove","id":"<agenda id>"}
-{"op":"workout.set","day":"mon","title":"Leg day","time":"19:00","exercises":[{"name":"Back squat","sets":5,"reps":"5","load":"80 kg","move":"squat"}]}   creates or replaces the whole workout of that day; time is optional
-{"op":"workout.update","day":"mon","title":"Legs and core","time":"18:30"}   null clears time or note
-{"op":"workout.clear","day":"mon"}
-{"op":"exercise.add","day":"wed","name":"Bench press","sets":4,"reps":"8","load":"60 kg","move":"bench-press"}   adds to the day's workout (creates one if missing)
-{"op":"exercise.update","id":"<exercise id>","sets":3,"reps":"10"}   a new name for a different movement also needs its new "move"
-{"op":"exercise.remove","id":"<exercise id>"}
-{"op":"meal.set","day":"fri","slot":"dinner","title":"Salmon with vegetables"}   sets or replaces the meal in that slot
-{"op":"meal.update","id":"<meal id>","title":"...","day":"sat"}
-{"op":"meal.remove","id":"<meal id>"}
-{"op":"menu.set","slot":"lunch","options":["Lentils","Chicken stir-fry","Pesto pasta"],"days":["mon","tue","wed","thu","fri"]}   options shared by several days (omit days = every day); replaces that slot's week options
-{"op":"menu.clear","slot":"lunch"}   removes the week options of a slot
-{"op":"meal.options","day":"sat","slot":"dinner","options":["Pizza","Sushi"]}   options for one day only; [] removes them
-{"op":"meal.pick","day":"fri","slot":"lunch","option":"Chicken stir-fry"}   chooses one of that day's options for this week ("today I'll have…"); option null clears the choice
-{"op":"day.clear","day":"sun","categories":["agenda","train","fuel"]}   omit categories to clear everything
-{"op":"day.copy","from":"mon","to":["wed","fri"],"categories":["train"]}
-{"op":"day.note","day":"sat","note":"Rest day"}   note null removes it
-
-Rules:
-1. Change only what the user asks for. Never invent items, times, amounts or foods they did not mention, unless they ask you to propose options (rule 6).
-2. To change, move or remove something, use its exact "id" from the current plan. If it does not exist, change nothing and say so in "reply".
-3. Expand groups of days into one operation per day: weekdays = mon to fri, weekend = sat and sun, every day = all seven. Today is ${ctx.todayKey}; tomorrow is ${tomorrow}.
-4. Times: 24h "HH:MM". "7 in the evening" or "7 pm" is "19:00". Without am/pm, use the most natural reading: sports, classes and dinners in the evening; work, breakfast and morning routines in the morning.
-5. Exercises: "4x8", "4 × 8" or "four by eight" means sets 4 and reps "8". Keep reps as text ("8-10", "45 s") and keep units in load ("80 kg").
-6. Meal slots: breakfast = desayuno; lunch = comida or almuerzo; snack = merienda or picoteo; dinner = cena. One dish is meal.set. Alternatives ("para comer lentejas, wok o pasta") are options: the same for several days or "every day" → one menu.set with days; one specific day → meal.options. "Today I'll have X" when X is one of the day's options → meal.pick. If the user asks you to propose or vary options (for a goal such as cheap and tasty, bulking, cutting or Asian food), you may create 3–4 short, realistic, varied dishes in their language that share common ingredients. Different options for each day ("un abanico distinto para cada día"): one meal.options per day and slot, varied across days with no dish repeated in the same slot; if no meal is named, do it for every slot that already has options (all four if none), then menu.clear those slots so the week options do not linger.
-7. A full routine for a day ("on Monday I do legs: squat 5x5 and lunges 3x10") is one workout.set. Adding single exercises to an existing workout is exercise.add. A time for the session ("legs at 7 pm") is the workout "time", not an agenda item.
-8. Titles are short, in the user's language, sentence case, without a final period. Keep the user's own words for names.
-9. If the request is a question or is not about the plan, return an empty operations list and answer briefly in "reply". When a request is only partly specified, act with sensible defaults and say what you assumed in "reply"; ask (empty operations, reply ending with "?") only when nothing sensible can be done.
-10. "reply" is one short sentence in ${LANGUAGE[ctx.lang]} that says what you did, or asks for the one missing detail. No emoji.
-11. At most ${MAX_OPERATIONS} operations.
-12. Give every exercise a "move": the slug from the move library below that shows the same movement, preferring the variant with the same equipment (barbell, dumbbell, cable, machine, band, bodyweight). Use only slugs from the list. Leave "move" out when nothing is close (sports, classes, chores).
-
-Move library, grouped by what each move trains:
-${MOVE_CATALOGUE}`;
-}
-
-export function userPrompt(ctx: PromptContext, input: string): string {
-  return `Today is ${WEEKDAY_NAME[ctx.todayKey]} (${ctx.todayKey}), ${ctx.todayIso}.
-Current plan as json:
-${JSON.stringify(ctx.plan.days)}
-
-Request from the user: ${JSON.stringify(input)}
-
-Respond with the json object only.`;
+export function hostPrompt(ctx: Pick<PromptContext, "lang" | "todayKey">): PromptHost {
+  return {
+    intro:
+      "You are the planning assistant inside PowerWeek. You edit ONE recurring weekly plan that repeats every week, Monday to Sunday. Days have no dates.",
+    conventions:
+      'Day keys are mon, tue, wed, thu, fri, sat, sun. Times are 24h "HH:MM". In the plan json, days with nothing in a module are left out.',
+    rules: [
+      "Change only what the user asks for. Never invent items, times, amounts or foods they did not mention, unless they ask you to propose meal options.",
+      'To change, move or remove something, use its exact "id" from the current plan. If it does not exist, change nothing and say so in "reply".',
+      `Groups of days: weekdays = mon to fri, weekend = sat and sun, every day = all seven. An operation with a "days" field takes the whole group at once; one with a single "day" is written once per day. Today is ${ctx.todayKey}; tomorrow is ${tomorrowOf(ctx.todayKey)}.`,
+      'Times: 24h "HH:MM". "7 in the evening" or "7 pm" is "19:00". Without am/pm, use the most natural reading: sports, classes and dinners in the evening; work, breakfast and morning routines in the morning.',
+      "Titles are short, in the user's language, sentence case, without a final period. Keep the user's own words for names.",
+      'If the request is a question or is not about the plan, return an empty operations list and answer briefly in "reply". When a request is only partly specified, act with sensible defaults and say what you assumed in "reply"; ask (empty operations, reply ending with "?") only when nothing sensible can be done.',
+      `"reply" is one short sentence in ${LANGUAGE[ctx.lang]} that says what you did, or asks for the one missing detail. No emoji.`,
+      `At most ${MAX_OPERATIONS} operations.`,
+      'The screen: the user decides which modules they see and in what order. "Add, show or put the X module" or "I want to organise X" is layout.add; "remove or hide X" or "I do not use X" is layout.remove (everything in it is kept); "X first", "X above Y" or "move X down" is layout.move; a full new order is layout.set. Name modules by their id. Using an operation of a module that is not on screen puts it on screen, so do that only when the request clearly belongs to that module; otherwise use the modules on screen.',
+      '"Clear or empty a day" is day.clear and "the same as Monday on Wednesday" is day.copy; both take "modules" to limit them to some modules.',
+    ],
+  };
 }
 
 export function buildMessages(ctx: PromptContext, input: string): ChatMessage[] {
   return [
-    { role: "system", content: systemPrompt(ctx) },
-    { role: "user", content: userPrompt(ctx, input) },
+    {
+      role: "system",
+      content: systemPrompt(kernel, hostPrompt(ctx), { onScreen: ctx.doc.layout, lang: ctx.lang }),
+    },
+    {
+      role: "user",
+      content: userPrompt(kernel, {
+        header: `Today is ${WEEKDAY_NAME[ctx.todayKey]} (${ctx.todayKey}), ${ctx.todayIso}.`,
+        doc: ctx.doc,
+        input,
+      }),
+    },
   ];
 }

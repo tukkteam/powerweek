@@ -17,7 +17,7 @@ each under its own license.
 
 ## Exercise catalogue: Workout Guide (MIT)
 
-`packages/core/src/moves-data.ts` is generated from Workout Guide's `manifest.json` (names,
+`apps/web/modules/train/moves-data.ts` is generated from Workout Guide's `manifest.json` (names,
 equipment, muscles).
 
 ```
@@ -46,7 +46,7 @@ SOFTWARE.
 
 ## Muscle map outlines: react-body-highlighter (MIT)
 
-`apps/web/components/app/body-data.ts` holds the front and back body polygons from
+`apps/web/modules/train/body-data.ts` holds the front and back body polygons from
 [react-body-highlighter](https://github.com/giavinh79/react-body-highlighter).
 
 ```

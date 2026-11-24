@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   // Workspace packages ship TypeScript sources.
-  transpilePackages: ["@powerweek/core"],
+  transpilePackages: ["@tukkteam/modules"],
   turbopack: {
     root: path.resolve(process.cwd(), "../.."),
     rules: {

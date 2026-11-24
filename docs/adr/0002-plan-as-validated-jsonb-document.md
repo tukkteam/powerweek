@@ -2,6 +2,8 @@
 
 Date: 2026-11-13 · Status: Accepted
 
+> The plan is still one versioned JSONB document, but since [0010](0010-modules.md) it is an envelope of modules and Postgres checks the envelope only.
+
 ## Context
 
 A plan is a recurring week (seven days of agenda, workout and meals). It is always read whole, changed in small edits, and needs undo and multi-device sync. A normalised schema (tables for items, exercises, meals) would need multi-row transactions for every edit and makes "restore the previous version" expensive.
