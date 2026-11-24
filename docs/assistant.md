@@ -28,6 +28,8 @@ Every operation belongs to a module, or to the screen. Nobody maintains a catalo
 | `fuel.options.set`                                                       | Options for one slot on one day; `[]` removes them                                          |
 | `fuel.pick` (a record, not a plan operation)                             | Chooses one option for a day of the week on screen; stored in `entries`, no undo            |
 | `notes.set`                                                              | Set or remove a free-text note for a day                                                    |
+| `habits.add` / `habits.update` / `habits.remove`                         | A habit for some or all days of the week, ticked or counted (`target`, `unit`, `days`)      |
+| `habits.log` (a record, not a plan operation)                            | What was done on a date: done, an amount so far (`value`) or some more (`add`); no undo     |
 | `layout.add` / `layout.remove` / `layout.move` / `layout.set`            | Put a module on screen, take it off (its data is kept), move it, or set the whole order     |
 | `day.clear` / `day.copy`                                                 | Clear a day, or copy it onto other days, in every module on screen or only in some          |
 

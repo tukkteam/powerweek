@@ -1,6 +1,6 @@
 # Modules
 
-PowerWeek is a screen of modules. Agenda, Training, Meals and Notes are modules; so is whatever comes next. A person decides which ones are on their screen and in what order, by hand or by voice, and a module they take off the screen keeps its data for when it comes back.
+PowerWeek is a screen of modules. Agenda, Training, Meals, Notes and Habits are modules; so is whatever comes next. A person decides which ones are on their screen and in what order, by hand or by voice, and a module they take off the screen keeps its data for when it comes back.
 
 This page is the module contract (version 1) and a guide to writing a module. The contract and the kernel that enforces it live in [`packages/modules`](../packages/modules) (`@tukkteam/modules`), which knows nothing about PowerWeek. The modules themselves live in [`apps/web/modules`](../apps/web/modules), one folder each.
 
@@ -312,4 +312,4 @@ Said plainly, so nobody builds on something that does not exist:
 - **Records are out of reach for most hooks.** `summary`, `load` and `assistant.view` see the plan and not what was done, so the model cannot answer "how many so far?" and a view reads the visible week and nothing before it. Streaks and charts over time need this.
 - **A view cannot send a record operation.** By hand, records go through `records.set`.
 - **No way to see a module without a backend.** Looking at a card means running the whole app.
-- **The contract is version 1 and young.** Three modules were ported to it and one was written for it. It will change as more are written; `CONTRACT_VERSION` in `packages/modules` says which one a module was written for.
+- **The contract is version 1 and young.** Three modules were ported to it and two were written for it. Habits was written from this page alone, by someone who had not seen the kernel, and what they ran into changed both the page and the contract. It will change as more are written; `CONTRACT_VERSION` in `packages/modules` says which one a module was written for.

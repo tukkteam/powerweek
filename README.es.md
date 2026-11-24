@@ -30,6 +30,7 @@ El plan es una pantalla de **módulos**. Tú eliges cuáles ves y en qué orden,
 - **Entreno** (pistacho): un entrenamiento por día con series, repeticiones y carga. Cada ejercicio lleva un dibujo de una librería abierta de 302 movimientos, que enlaza el asistente, y un mapa de los músculos que trabaja la sesión.
 - **Comidas** (naranja): desayuno, comida, picoteo y cena como un indicador de cuatro huecos, con opciones para elegir cada día.
 - **Notas** (arena): una nota libre por día.
+- **Hábitos** (turquesa): lo que repites algunos días o todos, marcado o contado en cada fecha, con la semana en siete barras pequeñas.
 
 Un módulo es una carpeta: qué guarda, qué cambios admite y cómo se dibuja. Con eso ya se puede usar con la voz, con recibo y deshacer. [docs/modules.md](docs/modules.md) (en inglés) es el contrato y la guía para escribir uno.
 
@@ -39,7 +40,7 @@ Un módulo es una carpeta: qué guarda, qué cambios admite y cómo se dibuja. C
 
 Cada cambio llega con un **recibo** (qué se añade, cambia, mueve o quita) y un botón de **deshacer**. El **pulso de la semana** (siete barras tan altas como cargado está cada día) te enseña la semana entera de un vistazo, y la **barra del día** se va llenando de la mañana a la medianoche.
 
-![Hoy: la barra del día, la agenda en barras, las comidas y un entreno ilustrado](docs/images/today.png)
+![Hoy con cinco módulos: los hábitos en barras que se llenan, la agenda, un entreno ilustrado y las comidas, bajo la barra del día](docs/images/today.png)
 
 | Hoy (móvil)                                      | Detalle de un ejercicio                                            | Tablero semanal                          |
 | ------------------------------------------------ | ------------------------------------------------------------------ | ---------------------------------------- |

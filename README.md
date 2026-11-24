@@ -37,6 +37,7 @@ The plan is a screen of **modules**. You choose which ones you see and in what o
 - **Training** (volt): one workout per day with sets, reps and load. Every exercise gets a drawing from an open library of 302 illustrated moves, linked by the assistant, plus a muscle map of what the session works.
 - **Meals** (orange): breakfast, lunch, snack and dinner as a four-slot gauge, with options to choose from each day.
 - **Notes** (sand): one free note per day.
+- **Habits** (teal): what you repeat on some or all days, ticked or counted on each date, with the week as seven small bars.
 
 A module is one folder: what it stores, which changes it accepts and how it draws itself. That is enough for it to be used by voice, with receipts and undo. [docs/modules.md](docs/modules.md) is the contract and the guide to writing one.
 
@@ -46,7 +47,7 @@ A module is one folder: what it stores, which changes it accepts and how it draw
 
 Every change arrives with a **Change Receipt** (what was added, changed, moved or removed) and one-tap **Undo**. The **Week Pulse**, seven bars as tall as each day is busy, keeps the whole week in view, and the **Day Bar** shows the day itself filling up from morning to midnight.
 
-![Today: the Day Bar, agenda bars, the fuel gauge and an illustrated workout](docs/images/today.png)
+![Today with five modules: habits as bars that fill, the agenda, an illustrated workout and the fuel gauge, under the Day Bar](docs/images/today.png)
 
 | Today (mobile)                                    | Exercise detail                                                      | Week board                          |
 | ------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------- |
