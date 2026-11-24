@@ -44,6 +44,49 @@ jobs:
           path: apps/web/test-results
           retention-days: 7
 
+  app:
+    name: App e2e (local Supabase)
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SITE_URL: http://localhost:3200
+      # Include the tests of the signed-in app (apps/web/e2e/app), which need a real Supabase.
+      E2E_APP: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+      - run: pnpm install --frozen-lockfile
+      # Only what the app talks to: the database, Auth, the REST API, Realtime and their gateway.
+      - run: supabase start -x studio,imgproxy,storage-api,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+      - name: Point the build at the local Supabase
+        run: |
+          status="$(supabase status -o json)"
+          url="$(jq -r '.API_URL // empty' <<<"$status")"
+          key="$(jq -r '.PUBLISHABLE_KEY // .ANON_KEY // empty' <<<"$status")"
+          if [ -z "$url" ] || [ -z "$key" ]; then
+            echo "::error::supabase status gave no API URL or key"; exit 1
+          fi
+          echo "NEXT_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+      - run: pnpm --filter @powerweek/web build
+      - name: Install Playwright browser
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm --filter @powerweek/web e2e e2e/app
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-app
+          path: apps/web/test-results
+          retention-days: 7
+
   database:
     name: Database (pgTAP)
     runs-on: ubuntu-latest
