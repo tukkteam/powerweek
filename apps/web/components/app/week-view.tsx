@@ -60,7 +60,7 @@ const HOVER_DELAY = 320;
  * hold (touch) a box to see everything in it; click or tap to open the day.
  */
 export function WeekView() {
-  const { doc, today, dates, selectDay, edit } = useApp();
+  const { doc, today, dates, selectDay, edit, thinking } = useApp();
   const { lang, dict } = useLocale();
   const router = useRouter();
   const now = useNowMinutes();
@@ -120,6 +120,7 @@ export function WeekView() {
         key={doc.layout.join(" ")}
         doc={doc}
         welcome
+        busy={thinking}
         onDone={(order) => {
           if (order) void edit([{ op: "layout.set", modules: order }]);
         }}

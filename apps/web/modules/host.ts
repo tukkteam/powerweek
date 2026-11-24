@@ -43,9 +43,10 @@ export interface CardProps<State, Msg extends ModuleMessages = ModuleMessages> e
   /** The minute of the day when `day` is today; null otherwise. */
   now: number | null;
   /**
-   * Send operations, the same ones the assistant writes. Resolves true once they are saved, and
-   * also when there was nothing to change; false when one could not be done or saved. The
-   * receipt and undo are handled outside the module.
+   * Send operations, the same ones the assistant writes. Resolves true once what could be
+   * applied is saved, and also when there was nothing to change; false when nothing could be
+   * done or the save failed. The receipt (which counts what was refused) and undo are handled
+   * outside the module.
    */
   dispatch(operations: Operation[]): Promise<boolean>;
   /**

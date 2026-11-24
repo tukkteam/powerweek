@@ -365,7 +365,8 @@ export const fuel = defineWeekModule<Fuel, FuelMessages>({
      * ticking something off. `option` is the option's title (or id); null clears the choice.
      */
     pick: record({
-      // "Tomorrow I'll have the lentils", said on a Sunday, is about the Monday that comes.
+      // A choice looks ahead: "tomorrow I'll have the lentils", said on a Sunday, is about the
+      // Monday that comes.
       upcoming: true,
       input: z.object({
         day: DayKeySchema,
@@ -375,7 +376,7 @@ export const fuel = defineWeekModule<Fuel, FuelMessages>({
       examples: [
         {
           fields: { day: "fri", slot: "lunch", option: "Chicken stir-fry" },
-          hint: "chooses one of that day's options for the next time that day comes (\"today I'll have…\"); option null clears the choice",
+          hint: "chooses one of that day's options (\"today I'll have…\"); option null clears the choice",
         },
       ],
       resolve(state, input, ctx) {

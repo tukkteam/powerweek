@@ -67,7 +67,7 @@ Edits are queued on the client so two saves never race each other's version. Rea
 ### An assistant command
 
 ```
-VoiceDock → POST /api/assistant {input, lang, today}
+VoiceDock → POST /api/assistant {input, lang, today, docVersion}
   → getUser (JWT) → rate limit (assistant_requests)
   → my_plan() → kernel.read → buildMessages(doc, today, lang) → LLM in JSON mode
   → parseOutput (each operation validated on its own by its module)

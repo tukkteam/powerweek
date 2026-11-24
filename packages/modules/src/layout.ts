@@ -91,6 +91,12 @@ export function layoutOperations<M extends AnyModule>(): Record<
       }
       if (input.modules.length > 0 && wanted.length === 0) return "not_found";
       const before = doc.layout;
+      // A module on screen that this build does not know cannot be named here, and is not ours
+      // to take off: it stays where it was. Another device may be showing it.
+      before.forEach((id, index) => {
+        if (!ctx.modules.some((module) => module.id === id))
+          wanted.splice(Math.min(index, wanted.length), 0, id);
+      });
       if (before.length === wanted.length && before.every((id, i) => id === wanted[i]))
         return "noop";
       for (const id of before) {
@@ -109,7 +115,7 @@ export function layoutOperations<M extends AnyModule>(): Record<
           module: "app",
           scope: "app",
           label: "",
-          data: { order: wanted },
+          data: { order: [...wanted] },
         });
       doc.layout = wanted;
     },

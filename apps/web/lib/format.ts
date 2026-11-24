@@ -88,9 +88,20 @@ export function describeChange(change: Change, dict: Dictionary, lang: Locale): 
   return `${kernel.describe(change, lang)}${moved}`;
 }
 
-/** Where a change happened, for the middle column of the receipt. */
-export function whereChanged(change: Change, dict: Dictionary): string {
+/**
+ * Where a change happened, for the middle column of the receipt. A dated fact that landed on a
+ * date outside the week on screen says which one ("LUN 30 NOV"): the card for that weekday will
+ * not show it, and the receipt must not suggest it does.
+ */
+export function whereChanged(
+  change: Change,
+  dict: Dictionary,
+  lang: Locale,
+  onScreen: Record<string, string>,
+): string {
   if (change.scope === "app") return dict.modules.receipt.screen;
   if (change.scope === "week" || !isDayKey(change.day)) return dict.receipt.week;
+  if (change.date && onScreen[change.day] !== change.date)
+    return `${dict.days.short[change.day]} ${shortDate(change.date, lang)}`;
   return dict.days.long[change.day];
 }

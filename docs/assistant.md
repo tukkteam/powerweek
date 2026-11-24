@@ -26,7 +26,7 @@ Every operation belongs to a module, or to the screen. Nobody maintains a catalo
 | `fuel.meal.set` / `fuel.meal.update` / `fuel.meal.remove`                | One meal per slot (breakfast, lunch, dinner), any number of snacks                          |
 | `fuel.menu.set` / `fuel.menu.clear`                                      | Options for a meal slot shared by the week (optionally only some days)                      |
 | `fuel.options.set`                                                       | Options for one slot on one day; `[]` removes them                                          |
-| `fuel.pick` (a record, not a plan operation)                             | Chooses one option for the next time that day comes; stored in `entries`, no undo           |
+| `fuel.pick` (a record, not a plan operation)                             | Chooses one option for a day of the week on screen; stored in `entries`, no undo            |
 | `notes.set`                                                              | Set or remove a free-text note for a day                                                    |
 | `layout.add` / `layout.remove` / `layout.move` / `layout.set`            | Put a module on screen, take it off (its data is kept), move it, or set the whole order     |
 | `day.clear` / `day.copy`                                                 | Clear a day, or copy it onto other days, in every module on screen or only in some          |
@@ -37,9 +37,9 @@ The names from before modules (`workout.set`, `meal.set`, `meal.pick`, `day.note
 
 1. `parseOutput` extracts the JSON (tolerating code fences), normalises harmless mistakes (Spanish or English day names, `agenda_add` spelling, a single target day for `day.copy`) and validates **each operation separately** against the module that owns it, so one bad operation never discards the good ones. Operations that do not validate are counted as `dropped`.
 2. Schemas are forgiving about _shape_ (`"8:00"` → `"08:00"`, `"4"` sets → `4`, `null` → not given) and strict about _meaning_ (valid days, slots, limits).
-3. `kernel.apply` (pure, unit-tested) routes each operation to its module. Each one applies whole or not at all: one that cannot apply (unknown id, full day, nothing to change), throws or leaves data its module's schema rejects is undone and reported in `rejected`, and the rest still apply. An operation of a module that is off screen puts that module on screen.
+3. `kernel.apply` (pure, unit-tested) routes each operation to its module. Each one applies whole or not at all: one that cannot apply (unknown id, full day, nothing to change), throws, leaves data its module's schema rejects or leaves everything as it was is undone and reported in `rejected`, and the rest still apply. An operation of a module that is off screen puts that module on screen.
 4. The new document is saved with `save_plan` and the expected version. On a conflict (another device saved in between) the route reloads the plan and re-applies the same operations once.
-5. Record operations are resolved by their module into dated facts and stored in `entries`. They never change the plan. The route turns the weekday of each fact into a date ([`lib/record-date.ts`](../apps/web/lib/record-date.ts)); a fact that could not be stored is reported like a rejected operation.
+5. Record operations are resolved by their module into dated facts and stored in `entries`. They never change the plan. The route turns the weekday of each fact into a date ([`lib/record-date.ts`](../apps/web/lib/record-date.ts)): the week on screen, except that tomorrow said on a Sunday and yesterday said on a Monday mean what they say. Each change carries its date, a fact that could not be stored is reported like a rejected operation, and when what is stored cannot be read nothing is resolved at all.
 
 Nothing the model writes reaches the database without passing its module's schema, the kernel and the Postgres check on the envelope.
 

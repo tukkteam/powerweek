@@ -62,6 +62,26 @@ export function deepFreeze<T>(value: T): T {
   return value;
 }
 
+/**
+ * Whether two JSON values hold the same thing. Keys may come in any order (a database is free
+ * to reorder them); lists are compared in order.
+ */
+export function sameJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b))
+    return a.length === b.length && a.every((item, index) => sameJson(item, b[index]));
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left).filter((key) => left[key] !== undefined);
+  const others = Object.keys(right).filter((key) => right[key] !== undefined);
+  return (
+    keys.length === others.length &&
+    keys.every((key) => Object.hasOwn(right, key) && sameJson(left[key], right[key]))
+  );
+}
+
 export function emptyDoc(layout: readonly ModuleId[] = []): Doc {
   return { schemaVersion: DOC_VERSION, layout: [...layout], modules: {} };
 }

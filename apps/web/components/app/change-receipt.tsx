@@ -13,7 +13,7 @@ const VISIBLE = 5;
 
 /** Proof of every edit: what changed, in which day, and one tap to undo it. */
 export function ChangeReceipt() {
-  const { receipt, dismissReceipt, undo } = useApp();
+  const { receipt, dismissReceipt, undo, dates } = useApp();
   const { lang, dict } = useLocale();
   const [hold, setHold] = useState(false);
 
@@ -69,7 +69,7 @@ export function ChangeReceipt() {
                 {OP_SYMBOL[change.kind]}
               </span>
               <span className="type-label truncate text-ink-muted">
-                {whereChanged(change, dict)}
+                {whereChanged(change, dict, lang, dates)}
               </span>
               <span className="type-body flex min-w-0 items-baseline gap-2">
                 <span

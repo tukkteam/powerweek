@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function Chrome({ children }: { children: ReactNode }) {
-  const { phase, reload } = useApp();
+  const { phase } = useApp();
   const { lang, dict } = useLocale();
   const pathname = usePathname();
   const base = `/${lang}/app`;
@@ -84,13 +84,18 @@ function Chrome({ children }: { children: ReactNode }) {
       </header>
 
       <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-48 sm:px-6 sm:pt-8">
-        {phase === "ready" ? (
+        {/* Settings stay within reach when the plan cannot be loaded: signing out and deleting
+            the account must never depend on it. */}
+        {phase === "ready" || (phase !== "loading" && isSettings) ? (
           children
-        ) : phase === "error" ? (
-          <div className="flex flex-col items-start gap-4 py-16">
-            <p className="type-heading">{dict.errors.generic}</p>
-            <Button variant="secondary" onClick={() => void reload().catch(() => undefined)}>
-              {dict.common.retry}
+        ) : phase !== "loading" ? (
+          <div className="flex max-w-xl flex-col items-start gap-4 py-16">
+            <p className="type-heading">
+              {phase === "outdated" ? dict.errors.outdated : dict.errors.generic}
+            </p>
+            {/* A full reload: it starts over, and brings the newer build when there is one. */}
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              {phase === "outdated" ? dict.common.reload : dict.common.retry}
             </Button>
           </div>
         ) : (

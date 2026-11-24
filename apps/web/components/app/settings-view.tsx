@@ -52,7 +52,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function SettingsView() {
-  const { user, profile, doc, updateProfile, linkEmail, signOut, deleteAccount, notify } = useApp();
+  const { phase, user, profile, doc, updateProfile, linkEmail, signOut, deleteAccount, notify } =
+    useApp();
   const { dict } = useLocale();
   const t = dict.settings;
   const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as Theme);
@@ -201,7 +202,7 @@ export function SettingsView() {
 
       <Section title={t.data}>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={exportPlan}>
+          <Button onClick={exportPlan} disabled={phase !== "ready"}>
             <Download size={18} strokeWidth={1.75} aria-hidden="true" />
             {t.export}
           </Button>

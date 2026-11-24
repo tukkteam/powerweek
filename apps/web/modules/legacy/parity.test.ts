@@ -1,4 +1,11 @@
-import { compact, sequentialIds, type Change, type Doc, type Json } from "@tukkteam/modules";
+import {
+  compact,
+  sameJson,
+  sequentialIds,
+  type Change,
+  type Doc,
+  type Json,
+} from "@tukkteam/modules";
 import { describe, expect, it } from "vitest";
 import { kernel } from "../index";
 import { open, read, week } from "../test-kit";
@@ -12,10 +19,15 @@ import { DAY_KEYS, MEAL_SLOTS, PlanDocSchema, emptyPlan, type PlanDoc } from "./
  * with the same data and the same receipt. This is what makes the move to modules safe for the
  * plans people already have.
  *
- * The oracle takes the operations of a request one at a time. Version 1 tidied a plan (sorted
- * its lists) once per request; with modules every operation applies whole and leaves tidy data
- * for the next one, as if each had come alone. The two only differ in which new id a copied
- * item gets when the same request added something to that day first, and ids mean nothing.
+ * Two things are different on purpose, and the oracle is read accordingly:
+ *
+ * - It takes the operations of a request one at a time. Version 1 tidied a plan (sorted its
+ *   lists) once per request; with modules every operation applies whole and leaves tidy data
+ *   for the next one, as if each had come alone. The two only differ in which new id a copied
+ *   item gets when the same request added something to that day first, and ids mean nothing.
+ * - An operation that leaves the plan exactly as it was is nothing to do. Version 1 reported an
+ *   update for one (and nothing at all for a copy that changed nothing); with modules it is
+ *   refused as a `noop`, so saving an untouched form is not a new version of the plan.
  */
 
 /** A small seeded generator, so a failure can be reproduced from its seed. */
@@ -190,7 +202,10 @@ const NAMES: Record<string, string> = {
   "day.note": "notes.set",
 };
 
-/** Version 1, one operation at a time, sharing one source of ids. */
+/**
+ * Version 1, one operation at a time, sharing one source of ids. An operation that left the
+ * plan as it was counts as a `noop`, whatever version 1 reported for it.
+ */
 function oneByOne(
   plan: PlanDoc,
   operations: readonly OperationV1[],
@@ -199,9 +214,14 @@ function oneByOne(
   const result: ReturnType<typeof applyOperations> = { plan, changes: [], rejected: [] };
   operations.forEach((operation, index) => {
     const step = applyOperations(result.plan, [operation], options);
-    result.plan = step.plan;
-    result.changes.push(...step.changes);
-    result.rejected.push(...step.rejected.map((rejection) => ({ ...rejection, index })));
+    if (step.rejected.length > 0) {
+      result.rejected.push(...step.rejected.map((rejection) => ({ ...rejection, index })));
+    } else if (sameJson(step.plan, result.plan)) {
+      result.rejected.push({ index, op: operation.op, reason: "noop" });
+    } else {
+      result.plan = step.plan;
+      result.changes.push(...step.changes);
+    }
   });
   return result;
 }
@@ -245,11 +265,7 @@ function compare(seed: number, rounds: number, perRound: number) {
     // Same lines in the receipt. Their order may differ in one place: version 1 listed a day's
     // meal options in the order they were stored, modules list them in the order of the day.
     expect(sorted(modules.changes), at).toEqual(sorted(oracle.changes.map(toChange)));
-    // The one intended difference: copying a day that changes nothing is now reported as such.
-    const rejected = modules.rejected.filter(
-      (rejection) => !(rejection.op === "day.copy" && rejection.reason === "noop"),
-    );
-    expect(rejected, at).toEqual(
+    expect(modules.rejected, at).toEqual(
       oracle.rejected.map((rejection) => ({
         ...rejection,
         op: NAMES[rejection.op] ?? rejection.op,
@@ -291,7 +307,7 @@ describe("parity with plan version 1", () => {
     }));
     const raw = [...many, ...snacks, ...exercises, { op: "agenda.update", id: "t1", day: "mon" }];
     const parsed = raw.map((op) => OperationSchema.parse(op));
-    const oracle = applyOperations(emptyPlan(), parsed, { newId: sequentialIds("t") });
+    const oracle = oneByOne(emptyPlan(), parsed, { newId: sequentialIds("t") });
     const modules = kernel.apply(week(), raw, { newId: sequentialIds("t"), lang: "en" });
     expect(read(modules.doc)).toEqual(read(open(oracle.plan)));
     expect(modules.rejected.map((r) => [r.index, r.reason])).toEqual(

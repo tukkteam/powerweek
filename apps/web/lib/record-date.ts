@@ -1,17 +1,24 @@
-import { addDays, DAY_KEYS, dayKeyOf, weekDates, type DayKey } from "@tukkteam/modules/week";
+import { addDays, dayKeyOf, weekDates, type DayKey } from "@tukkteam/modules/week";
 
 /**
  * The calendar date a dated fact means by a weekday.
  *
- * A fact about the week on screen ("I did Monday's run") belongs to that week. A fact that
- * looks ahead ("tomorrow I'll have the lentils") means the next time that day comes: on a
- * Sunday, "Monday" is tomorrow, not six days ago. Yesterday stays yesterday, so "last night I
- * had the pasta" said on a Monday is still about Sunday.
+ * It is the date of that day in the week on screen, the same one a tap on that day writes, so
+ * what is said and what is seen never disagree. A day name alone does not say which week is
+ * meant, and there are two sentences where the week on screen is plainly the wrong one:
+ *
+ * - "Tomorrow I'll have the lentils", said on a Sunday: a fact that looks ahead and names the
+ *   day after today is about the Monday that comes, not the one six days ago.
+ * - "Yesterday I meditated", said on a Monday: a fact that looks back and names the day before
+ *   today is about the Sunday just gone, not the one six days ahead.
+ *
+ * Anything further from today stays in the week on screen. Planning next week before it has
+ * started needs the app to show that week first.
  */
 export function recordDate(todayIso: string, day: DayKey, upcoming: boolean): string {
   const date = weekDates(todayIso)[day];
-  if (!upcoming) return date;
-  const ahead = DAY_KEYS.indexOf(day) - DAY_KEYS.indexOf(dayKeyOf(todayIso));
-  if (ahead === 6) return addDays(date, -7);
-  return ahead < -1 ? addDays(date, 7) : date;
+  const today = dayKeyOf(todayIso);
+  if (upcoming && today === "sun" && day === "mon") return addDays(date, 7);
+  if (!upcoming && today === "mon" && day === "sun") return addDays(date, -7);
+  return date;
 }

@@ -23,6 +23,7 @@ export const es = {
     ok: "Vale",
     loading: "Cargando…",
     retry: "Reintentar",
+    reload: "Recargar",
     language: "Idioma",
     skipToContent: "Saltar al contenido",
   },

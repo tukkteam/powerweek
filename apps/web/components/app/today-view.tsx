@@ -23,7 +23,8 @@ import { toneStyle } from "@/modules/look";
  * reorder them.
  */
 export function TodayView() {
-  const { doc, today, dates, selectedDay, selectDay, listening, recordsOf, edit } = useApp();
+  const { doc, today, dates, selectedDay, selectDay, listening, thinking, recordsOf, edit } =
+    useApp();
   const { lang, dict } = useLocale();
   const [focus, setFocus] = useState<{ module: string; id: string; nonce: number } | null>(null);
   const [arranging, setArranging] = useState(false);
@@ -36,8 +37,8 @@ export function TodayView() {
   const counts = summaries(shown, selectedDay);
 
   // The desk works on a copy of the screen. When the screen itself changes while it is open
-  // (by voice, or on another device), it starts over from the new one, so "Done" can never put
-  // back what that change took away.
+  // (by voice, or on another device), it starts over from the new one, and while a request is
+  // still on its way "Done" waits: it can never put back what that change took away.
   const layoutKey = doc.layout.join(" ");
 
   const arrange = (order: string[] | null) => {
@@ -46,7 +47,8 @@ export function TodayView() {
   };
 
   // Nothing on screen yet: the person chooses what they want to organise.
-  if (shown.length === 0) return <ModuleDesk key={layoutKey} doc={doc} welcome onDone={arrange} />;
+  if (shown.length === 0)
+    return <ModuleDesk key={layoutKey} doc={doc} welcome busy={thinking} onDone={arrange} />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -120,7 +122,7 @@ export function TodayView() {
       </div>
 
       {arranging ? (
-        <ModuleDesk key={layoutKey} doc={doc} onDone={arrange} />
+        <ModuleDesk key={layoutKey} doc={doc} busy={thinking} onDone={arrange} />
       ) : (
         <section aria-label={dict.modules.title} className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">

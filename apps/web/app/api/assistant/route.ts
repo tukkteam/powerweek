@@ -5,7 +5,7 @@ import {
   type Operation,
   type Rejection,
 } from "@tukkteam/modules";
-import { addDays, dayKeyOf, isDayKey, weekDates } from "@tukkteam/modules/week";
+import { dayKeyOf, isDayKey, weekDates } from "@tukkteam/modules/week";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { completeJson, ModelError } from "@/lib/assistant/model";
@@ -85,9 +85,9 @@ async function overLimit(db: Db, isAnonymous: boolean): Promise<boolean> {
 }
 
 /**
- * Store the dated facts the assistant noted for this week ("today I'll have the sushi"). Each
- * module resolves its own record operations; this only reads what is stored and writes the
- * result. Facts are not plan versions, so there is nothing to undo.
+ * Store the dated facts the assistant noted ("today I'll have the sushi"). Each module resolves
+ * its own record operations; this reads what is stored, turns each weekday into a date and
+ * writes the result. Facts are not plan versions, so there is nothing to undo.
  */
 async function storeRecords(
   db: Db,
@@ -98,9 +98,22 @@ async function storeRecords(
   lang: (typeof locales)[number],
 ): Promise<{ changes: Change[]; rejected: Rejection[]; failed: number }> {
   if (records.length === 0) return { changes: [], rejected: [], failed: 0 };
-  // A fact that looks ahead may belong to next week, and "yesterday" to the last one.
+  // Every date a weekday can mean here: the week on screen, the day before it and the day after.
   const week = weekDates(today);
-  const stored = (await fetchEntries(db, addDays(week.mon, -7), addDays(week.sun, 7))) ?? new Map();
+  const stored = await fetchEntries(
+    db,
+    recordDate(week.mon, "sun", false),
+    recordDate(week.sun, "mon", true),
+  );
+  if (!stored) {
+    // What is stored could not be read. Resolving against nothing would count "one more" from
+    // zero and write it over the real amount, so nothing is resolved at all.
+    return {
+      changes: [],
+      rejected: records.map((record, index) => ({ index, op: record.op, reason: "unavailable" })),
+      failed: records.length,
+    };
+  }
   const resolved = kernel.resolveRecords(doc, records, {
     lang,
     get: (module, day, key, upcoming) =>
@@ -112,17 +125,19 @@ async function storeRecords(
   const rejected = [...resolved.rejected];
   let failed = 0;
   for (const [position, write] of resolved.writes.entries()) {
+    const isoDate = isDayKey(write.day) ? recordDate(today, write.day, write.upcoming) : null;
     const saved =
-      isDayKey(write.day) &&
+      isoDate !== null &&
       (await writeEntry(db, {
         userId,
-        isoDate: recordDate(today, write.day, write.upcoming),
+        isoDate,
         module: write.module,
         key: write.key,
         value: write.value,
       }));
     const change = resolved.changes[position];
-    if (saved && change) changes.push(change);
+    // The receipt carries the date, so it can say which Monday when it is not the one on screen.
+    if (saved && change) changes.push({ ...change, date: isoDate });
     if (saved) continue;
     // Not stored: count it, or the receipt would take the assistant's word for it.
     failed += 1;
@@ -163,9 +178,9 @@ export async function POST(request: NextRequest) {
     current = await fetchPlan(db);
   } catch (error) {
     // A plan this build cannot read was written by a newer one: the page has to reload.
-    return error instanceof PlanError && error.isOutdated
-      ? fail("outdated", 409)
-      : fail("server_error", 500);
+    if (!(error instanceof PlanError && error.isOutdated)) return fail("server_error", 500);
+    await logRequest(db, user.id, "conflict", null, startedAt);
+    return fail("outdated", 409);
   }
 
   let modelName: string | null = null;

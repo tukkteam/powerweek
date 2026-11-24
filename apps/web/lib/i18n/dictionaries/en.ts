@@ -22,6 +22,7 @@ export const en: Dictionary = {
     ok: "OK",
     loading: "Loading…",
     retry: "Try again",
+    reload: "Reload",
     language: "Language",
     skipToContent: "Skip to content",
   },

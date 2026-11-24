@@ -32,9 +32,12 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 export function ModuleDesk({
   doc,
   welcome = false,
+  busy = false,
   onDone,
 }: {
   doc: Doc;
+  /** A request that may change the screen is on its way: "Done" waits for it. */
+  busy?: boolean;
   /** The first time: no modules yet, and the button says "Start". */
   welcome?: boolean;
   /** The order the person left, or null when they changed nothing. */
@@ -224,7 +227,7 @@ export function ModuleDesk({
             <h2 className="type-label text-ink-muted">{t.onScreen}</h2>
             <p className="type-caption max-w-xl text-ink-muted">{t.hint}</p>
           </div>
-          <Button variant="primary" onClick={finish}>
+          <Button variant="primary" onClick={finish} disabled={busy}>
             {t.done}
           </Button>
         </div>
@@ -364,7 +367,7 @@ export function ModuleDesk({
           variant="primary"
           size="lg"
           className="self-start"
-          disabled={order.length === 0}
+          disabled={order.length === 0 || busy}
           onClick={finish}
         >
           {t.start}

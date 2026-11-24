@@ -41,6 +41,11 @@ export interface Change {
   /** Where it happened. Hosts define the keys; in a weekly planner it is a weekday. */
   day?: string;
   toDay?: string;
+  /**
+   * The calendar date ("2026-11-30"), for a dated fact. The host fills it in, so a receipt can
+   * say which Monday when it is not the one on screen.
+   */
+  date?: string;
   /** "week" when the change is not tied to one day; "app" for the screen. */
   scope?: "week" | "app";
   /** What changed, as the person wrote it. */
@@ -144,10 +149,11 @@ export interface RecordSpec<State, Msg, Input> {
   input: z.ZodType<Input>;
   examples: readonly PromptExample[];
   /**
-   * How this record means its days. By default a day is one of the current period, which may
-   * already be behind ("I did it on Monday"). With `upcoming`, a day is the next time it comes,
-   * today included ("tomorrow I'll have the lentils"), so on a Sunday "Monday" is tomorrow and
-   * not six days ago.
+   * Which way this record looks. By default it is about what was done ("I meditated"); with
+   * `upcoming` it is about what will be ("tomorrow I'll have the lentils"). A day name alone
+   * does not say which week is meant, and the host uses this where it matters: looking ahead,
+   * the day after today is tomorrow even when the week on screen ends today; looking back, the
+   * day before today is yesterday even when that week has just begun.
    */
   upcoming?: boolean;
   /** Work out what to store. `state` is read-only here: a record never changes the plan. */

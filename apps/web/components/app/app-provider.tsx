@@ -71,7 +71,8 @@ export interface Notice {
   text: string;
 }
 
-type Phase = "loading" | "ready" | "error";
+/** "outdated": the stored plan was written by a newer build than this one; only a reload helps. */
+type Phase = "loading" | "ready" | "error" | "outdated";
 
 interface AppValue {
   phase: Phase;
@@ -87,8 +88,8 @@ interface AppValue {
   /** The dated facts of one module for the week on screen. */
   recordsOf: (module: string) => ModuleRecords;
   /**
-   * Apply operations made by hand. Resolves true once they are saved, and also when there was
-   * nothing to change; false when something could not be done or saved.
+   * Apply operations made by hand. Resolves true once what could be applied is saved, and also
+   * when there was nothing to change; false when nothing could be done or the save failed.
    */
   edit: (operations: Operation[]) => Promise<boolean>;
   ask: (input: string) => Promise<boolean>;
@@ -157,8 +158,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const versionRef = useRef(version);
   const receiptRef = useRef(receipt);
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
-  const recordWrites = useRef<Promise<unknown>>(Promise.resolve());
-  const recordsFailed = useRef(false);
+  // Dated facts are written one key at a time, in the order they were made. `recordsSeq` counts
+  // what was tapped, so a reload that was on its way while something was tapped is never shown
+  // over it; `recordsStale` asks for another look once the writes have settled.
+  const recordChains = useRef(new Map<string, Promise<void>>());
+  const recordsPending = useRef(0);
+  const recordsSeq = useRef(0);
+  const recordsStale = useRef(false);
   const counter = useRef(0);
 
   const updateReceipt = useCallback((next: Receipt | null) => {
@@ -221,8 +227,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setToday(now);
       setSelectedDay(now.dayKey);
       setPhase("ready");
-    })().catch(() => {
-      if (!cancelled) setPhase("error");
+    })().catch((error) => {
+      if (cancelled) return;
+      setPhase(error instanceof PlanError && error.isOutdated ? "outdated" : "error");
     });
     return () => {
       cancelled = true;
@@ -257,8 +264,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Dated facts (ticks, picks, counts) of every module for the visible week.
   const loadEntries = useCallback(async () => {
+    const seq = recordsSeq.current;
     const fresh = await fetchEntries(supabase, dates.mon, dates.sun);
-    if (fresh) setEntries(fresh);
+    if (!fresh) return;
+    // Something was tapped while this was on its way: what is on screen is newer.
+    if (seq !== recordsSeq.current || recordsPending.current > 0) {
+      recordsStale.current = true;
+      return;
+    }
+    recordsStale.current = false;
+    setEntries(fresh);
   }, [supabase, dates.mon, dates.sun]);
 
   useEffect(() => {
@@ -352,7 +367,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             changes: result.changes,
           });
           commit(result.doc, saved);
-          showReceipt("manual", result.changes, saved);
+          showReceipt(
+            "manual",
+            result.changes,
+            saved,
+            "",
+            unmet({ changes: result.changes.length, rejected: result.rejected, dropped: 0 }),
+          );
           return true;
         } catch (error) {
           commit(before, expected);
@@ -468,29 +489,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!user) return;
         const isoDate = dates[day];
         const id = entryKey(isoDate, module, key);
+        recordsSeq.current += 1;
+        recordsPending.current += 1;
         setEntries((previous) => {
           const copy = new Map(previous);
           if (value === null) copy.delete(id);
           else copy.set(id, value);
           return copy;
         });
-        // One write at a time, in the order they were made: two quick taps on a counter must
-        // not overtake each other on the way.
-        const run: Promise<void> = recordWrites.current
+        // Writes to the same fact go out one after another, so two quick taps on a counter
+        // cannot overtake each other; a slow one never holds back the facts next to it.
+        const chains = recordChains.current;
+        const run: Promise<void> = (chains.get(id) ?? Promise.resolve())
           .then(() => writeEntry(supabase, { userId: user.id, isoDate, module, key, value }))
           .catch(() => false)
-          .then(async (ok) => {
+          .then((ok) => {
+            recordsPending.current -= 1;
+            if (chains.get(id) === run) chains.delete(id);
             if (!ok) {
-              recordsFailed.current = true;
+              recordsStale.current = true;
               notify(dict.errors.generic);
             }
-            // Once nothing else is on its way, show what is really stored.
-            if (recordsFailed.current && recordWrites.current === run) {
-              recordsFailed.current = false;
-              await loadEntries();
-            }
+            // Once nothing is on its way, show what is really stored.
+            if (recordsStale.current && recordsPending.current === 0) void loadEntries();
           });
-        recordWrites.current = run;
+        chains.set(id, run);
       },
     }),
     [entries, dates, user, supabase, notify, dict.errors.generic, loadEntries],

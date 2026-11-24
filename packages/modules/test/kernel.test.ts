@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createKernel,
   docJsonSchema,
+  emptyDoc,
   manifestOf,
   parseOutput,
   sequentialIds,
@@ -18,8 +19,9 @@ const locales = ["es", "en"] as const;
 const kernel = createWeekKernel({ modules: [tasks, note], locales });
 const ids = () => ({ newId: sequentialIds("t") });
 
+/** A document built by hand, the way stored JSON arrives. */
 function docWith(build: (doc: Doc) => void): Doc {
-  const doc = kernel.empty(["tasks"]);
+  const doc = emptyDoc(["tasks"]);
   build(doc);
   return doc;
 }
@@ -54,16 +56,22 @@ describe("documents", () => {
     expect(next.layout).toEqual(["tasks", "gone"]);
   });
 
-  it("salvages what it can from a damaged envelope and falls back to the upgrade hook", () => {
-    const doc = read({
-      schemaVersion: 2,
-      layout: ["tasks", "Not An Id", "tasks"],
-      modules: { tasks: { v: 1, data: tasks.empty() }, broken: "nope" },
-      extra: true,
-    });
-    expect(doc.layout).toEqual(["tasks"]);
-    expect(Object.keys(doc.modules)).toEqual(["tasks"]);
+  it("does not guess at an envelope that does not validate", () => {
+    // A newer kernel may have written what this one does not know. Keeping "what can be kept"
+    // would show the rest as empty, and the next save would make that loss permanent.
+    const entry = { v: 1, data: tasks.empty() };
+    const strangers = [
+      { schemaVersion: 2 },
+      { schemaVersion: 2, layout: ["tasks"], modules: { tasks: entry }, extra: true },
+      { schemaVersion: 2, layout: ["tasks"], modules: { tasks: { ...entry, meta: {} } } },
+      { schemaVersion: 2, layout: ["tasks", "Not An Id"], modules: { tasks: entry } },
+      { schemaVersion: 2, layout: ["tasks"], modules: { tasks: entry, broken: "nope" } },
+      { schemaVersion: 2, layout: Array.from({ length: 25 }, (_, i) => `m${i}x`), modules: {} },
+    ];
+    for (const raw of strangers) expect(kernel.read(raw)).toBeNull();
+  });
 
+  it("uses the upgrade hook for documents from before the envelope", () => {
     const upgrading = createKernel({
       modules: [note],
       locales,
@@ -89,6 +97,7 @@ describe("documents", () => {
       [],
       {},
       { schemaVersion: 1, days: {} },
+      { schemaVersion: 2 },
       { schemaVersion: 3, layout: [], modules: {} },
     ];
     for (const raw of strangers) expect(kernel.read(raw)).toBeNull();
@@ -111,6 +120,7 @@ describe("documents", () => {
     expect(kernel.state(doc, tasks).days.mon).toEqual([]);
     // The data of a module nobody has used is frozen too: it is the same for everyone.
     expect(Object.isFrozen(kernel.state(kernel.empty(), tasks).days.mon)).toBe(true);
+    expect(() => kernel.empty(["tasks"]).layout.push("note")).toThrow();
   });
 
   it("never shares what empty() returns between two documents", () => {
@@ -218,6 +228,46 @@ describe("operations", () => {
     const result = kernel.apply(start, [{ op: "tasks.remove", id: "missing" }]);
     expect(result.doc).toBe(start);
     expect(result.rejected).toEqual([{ index: 0, op: "tasks.remove", reason: "not_found" }]);
+  });
+
+  it("refuses a line in the receipt for something saved exactly as it was", () => {
+    const start = kernel.apply(
+      kernel.empty(),
+      [{ op: "tasks.add", day: "mon", title: "Leer", time: "09:00" }],
+      ids(),
+    ).doc;
+    // The module reports an update whatever it is given; the kernel looks at the data.
+    const result = kernel.apply(start, [
+      { op: "tasks.update", id: "t1" },
+      { op: "tasks.update", id: "t1", title: "Leer", time: "9:00" },
+      { op: "tasks.update", id: "t1", time: "10:00" },
+    ]);
+    expect(result.rejected).toEqual([
+      { index: 0, op: "tasks.update", reason: "noop" },
+      { index: 1, op: "tasks.update", reason: "noop" },
+    ]);
+    expect(result.changes).toEqual([
+      { kind: "update", module: "tasks", day: "mon", label: "Leer" },
+    ]);
+    // Stored JSON comes back from a database with its keys in another order: still the same.
+    const reordered = read({
+      schemaVersion: 2,
+      layout: ["tasks"],
+      modules: {
+        tasks: {
+          data: {
+            days: { ...tasks.empty().days, mon: [{ time: "09:00", title: "Leer", id: "t1" }] },
+          },
+          v: 1,
+        },
+      },
+    });
+    const again = kernel.apply(reordered, [{ op: "tasks.update", id: "t1", title: "Leer" }]);
+    expect(again.rejected.map((r) => r.reason)).toEqual(["noop"]);
+    expect(again.doc).toBe(reordered);
+    // An operation of a module that is off screen and changes nothing does not put it on screen.
+    const hidden = kernel.apply(start, [{ op: "layout.remove", module: "tasks" }]).doc;
+    expect(kernel.apply(hidden, [{ op: "tasks.update", id: "t1" }]).doc).toBe(hidden);
   });
 
   it("skips what cannot apply and keeps the rest", () => {
@@ -498,6 +548,32 @@ describe("the screen", () => {
     expect(reordered.changes).toEqual([
       { kind: "move", module: "app", scope: "app", label: "", data: { order: ["tasks", "note"] } },
     ]);
+  });
+
+  it("keeps a receipt line as it was when later operations change the screen again", () => {
+    const result = kernel.apply(kernel.empty(["tasks", "note"]), [
+      { op: "layout.set", modules: ["note", "tasks"] },
+      { op: "layout.move", module: "tasks", position: 1 },
+    ]);
+    expect(result.doc.layout).toEqual(["tasks", "note"]);
+    expect(result.changes[0]?.data).toEqual({ order: ["note", "tasks"] });
+  });
+
+  it("leaves on screen the modules this build does not know when the screen is set", () => {
+    // Another device runs a newer build with a module called "habits".
+    const stored = read({
+      schemaVersion: 2,
+      layout: ["tasks", "habits", "note"],
+      modules: { habits: { v: 1, data: { items: [] } } },
+    });
+    const result = kernel.apply(stored, [{ op: "layout.set", modules: ["note", "tasks"] }]);
+    expect(result.doc.layout).toEqual(["note", "habits", "tasks"]);
+    expect(result.changes.map((c) => c.kind)).toEqual(["move"]);
+    const emptied = kernel.apply(stored, [{ op: "layout.set", modules: [] }]);
+    expect(emptied.doc.layout).toEqual(["habits"]);
+    expect(kernel.apply(emptied.doc, [{ op: "layout.set", modules: [] }]).rejected[0]?.reason).toBe(
+      "noop",
+    );
   });
 
   it("rejects what would change nothing or names nothing known", () => {

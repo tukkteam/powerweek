@@ -2,9 +2,9 @@ import type { z } from "zod";
 import {
   DocSchema,
   MAX_LAYOUT,
-  ModuleEntrySchema,
   deepFreeze,
   emptyDoc,
+  sameJson,
   type Doc,
   type ModuleEntry,
 } from "./doc";
@@ -137,13 +137,14 @@ export interface Kernel<M extends AnyModule> {
   targets(): readonly OperationTarget<M>[];
   /** A module's strings in a language, falling back to the first locale. */
   messages<T extends M>(module: T, lang?: string): T["messages"][string];
-  /** A document nobody has used yet. */
+  /** A document nobody has used yet. Frozen, like every document the kernel hands out. */
   empty(layout?: readonly ModuleId[]): Doc;
   /**
    * Read stored JSON: checks the envelope, upgrades old documents and migrates module data.
-   * Returns null when `raw` is not a document this kernel understands. A caller must treat
-   * that as an error and never as an empty document: saving an empty one over what is stored
-   * would lose it.
+   * Returns null when `raw` is not exactly a document this kernel understands, which includes
+   * one a newer kernel wrote with something this one does not know. A caller must treat that
+   * as an error and never as an empty document: saving an empty one over what is stored would
+   * lose it.
    */
   read(raw: unknown): Doc | null;
   /** Modules whose stored data this version cannot read. Their data is kept and never written. */
@@ -154,7 +155,10 @@ export interface Kernel<M extends AnyModule> {
   onScreen(doc: Doc): M[];
   /** Validate raw operations one by one, so a bad one never discards the good ones. */
   parse(raw: readonly unknown[]): ParsedOperations;
-  /** Apply operations. Pure: never changes `doc`. Documents it returns are frozen. */
+  /**
+   * Apply operations. Pure: never changes `doc`. A document it produces is frozen; when
+   * nothing changed it hands back the very one it was given.
+   */
   apply(doc: Doc, operations: readonly Operation[], options?: ApplyOptions): ApplyResult;
   /** Work out the dated facts a list of record operations asks to store. */
   resolveRecords(doc: Doc, records: readonly Operation[], options: RecordsOptions): RecordsResult;
@@ -168,26 +172,6 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 /** The entry of a module in a document, never something inherited from Object. */
 const entryOf = (doc: Doc, id: ModuleId): ModuleEntry | undefined =>
   Object.hasOwn(doc.modules, id) ? doc.modules[id] : undefined;
-
-/** Keep what can be kept of a document whose envelope is damaged. */
-function salvage(raw: unknown): Doc | null {
-  if (!isObject(raw) || raw.schemaVersion !== 2) return null;
-  const doc = emptyDoc();
-  if (isObject(raw.modules)) {
-    for (const [id, entry] of Object.entries(raw.modules)) {
-      const parsed = ModuleEntrySchema.safeParse(entry);
-      if (MODULE_ID_PATTERN.test(id) && parsed.success) doc.modules[id] = parsed.data;
-    }
-  }
-  if (Array.isArray(raw.layout)) {
-    for (const id of raw.layout) {
-      if (typeof id === "string" && MODULE_ID_PATTERN.test(id) && !doc.layout.includes(id))
-        doc.layout.push(id);
-    }
-  }
-  doc.layout = doc.layout.slice(0, MAX_LAYOUT);
-  return doc;
-}
 
 /**
  * The kernel binds a set of modules into one document: it reads and upgrades stored JSON, routes
@@ -285,10 +269,13 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
   const validated = new WeakSet<object>();
 
   const read = (raw: unknown): Doc | null => {
+    // No guessing at an envelope that does not validate. A newer kernel may have written it
+    // with something this one does not know, and whatever was dropped on the way in would be
+    // lost for good with the next save.
     const parsed = DocSchema.safeParse(raw);
     const found: Doc | null = parsed.success
       ? (parsed.data as Doc)
-      : (config.upgrade?.(raw) ?? salvage(raw));
+      : (config.upgrade?.(raw) ?? null);
     if (!found) return null;
     let doc: Doc;
     try {
@@ -415,6 +402,20 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
       return true;
     };
 
+    /** Whether an operation left the screen and every module it opened exactly as they were. */
+    const unchanged = (
+      opened: ReadonlyMap<ModuleId, ModuleEntry | undefined>,
+      layoutBefore: readonly ModuleId[],
+    ): boolean => {
+      if (!sameJson(layoutBefore, next.layout)) return false;
+      for (const [id, before] of opened) {
+        const module = byId.get(id);
+        const was = before ? before.data : module ? emptyOf(module) : undefined;
+        if (!sameJson(was, entryOf(next, id)?.data)) return false;
+      }
+      return true;
+    };
+
     // Each operation applies whole or not at all, and the ones after it see the result.
     operations.forEach((operation, index) => {
       const { name, target, input } = check(operation);
@@ -442,6 +443,9 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
         // Nothing changes without a line in the receipt.
         if (!reason && emitted.length === 0) reason = "noop";
         if (!reason && !settle(opened.keys())) reason = "invalid";
+        // And no line in the receipt without a change: saving something exactly as it was is
+        // not a new version of the plan, whatever the operation reported.
+        if (!reason && unchanged(opened, layoutBefore)) reason = "noop";
       } catch {
         reason = "invalid";
       }
@@ -540,7 +544,7 @@ export function createKernel<M extends AnyModule>(config: KernelConfig<M>): Kern
     find,
     targets: () => targetList,
     messages,
-    empty: (layout) => emptyDoc(layout),
+    empty: (layout) => deepFreeze(emptyDoc(layout)),
     read,
     unreadable,
     state,
