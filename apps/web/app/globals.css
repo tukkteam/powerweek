@@ -446,26 +446,29 @@ dialog[open]::backdrop {
 dialog[data-closing]::backdrop {
   animation: pw-fade var(--duration-base) var(--easing-exit) reverse both;
 }
+/* A dialog morphing out of another (handOff): the other's backdrop covers the page until it goes. */
+dialog[data-handoff]::backdrop {
+  visibility: hidden;
+}
+/* Children arrive one after another, a --duration-stagger apart. */
 .pw-stagger > * {
   animation: pw-rise var(--duration-slow) var(--easing-standard) backwards;
+  animation-delay: calc((var(--pw-i, 6) + 0.75) * var(--duration-stagger));
 }
 .pw-stagger > :nth-child(1) {
-  animation-delay: 70ms;
+  --pw-i: 1;
 }
 .pw-stagger > :nth-child(2) {
-  animation-delay: 110ms;
+  --pw-i: 2;
 }
 .pw-stagger > :nth-child(3) {
-  animation-delay: 150ms;
+  --pw-i: 3;
 }
 .pw-stagger > :nth-child(4) {
-  animation-delay: 190ms;
+  --pw-i: 4;
 }
 .pw-stagger > :nth-child(5) {
-  animation-delay: 230ms;
-}
-.pw-stagger > :nth-child(n + 6) {
-  animation-delay: 270ms;
+  --pw-i: 5;
 }
 
 /*

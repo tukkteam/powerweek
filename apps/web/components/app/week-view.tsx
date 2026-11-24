@@ -490,7 +490,7 @@ function PeekSheet({
 }) {
   const { dict } = useLocale();
   const ref = useRef<HTMLDialogElement>(null);
-  const close = useDialogMotion(ref);
+  const { close } = useDialogMotion(ref);
 
   useEffect(() => {
     const dialog = ref.current;

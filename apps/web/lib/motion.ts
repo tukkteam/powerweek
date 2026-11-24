@@ -1,21 +1,22 @@
 /**
  * Motion for the app: the motion tokens (`@powerweek/design-tokens/motion`, generated from
- * tokens.json), the helpers that play them from code, and the one place that asks whether the
- * person wants less motion. CSS reads the same tokens as variables (`--easing-*`,
- * `--duration-*`, `--spring-*`). docs/design-system.md, "Motion and accessibility", says which
- * to use for what.
+ * tokens.json, where `tempo` sets the pace of everything), the helpers that play them from code,
+ * and the one place that asks whether the person wants less motion. CSS reads the same tokens as
+ * variables (`--easing-*`, `--duration-*`, `--spring-*`). docs/motion.md lists the recipes built
+ * on them and says which to use for what.
  */
 import {
   bezier,
   durations,
   easings,
   springs,
+  tempo,
   type EasingName,
   type SpringName,
 } from "@powerweek/design-tokens/motion";
 import { useSyncExternalStore } from "react";
 
-export { bezier, durations, easings, springs, type EasingName, type SpringName };
+export { bezier, durations, easings, springs, tempo, type EasingName, type SpringName };
 
 /**
  * A spring's easing for the Web Animations API, which throws on an easing it cannot parse: the

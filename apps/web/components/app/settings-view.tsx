@@ -256,7 +256,7 @@ function ConfirmDelete({
 }) {
   const { dict } = useLocale();
   const [busy, setBusy] = useState(false);
-  const close = useDialogMotion(dialogRef);
+  const { close } = useDialogMotion(dialogRef);
   return (
     <dialog
       ref={dialogRef}

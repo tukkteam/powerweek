@@ -74,7 +74,7 @@ export function EditorDialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const close = useDialogMotion(ref);
+  const { close } = useDialogMotion(ref);
 
   useEffect(() => {
     const dialog = ref.current;

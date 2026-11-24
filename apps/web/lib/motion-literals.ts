@@ -25,8 +25,11 @@ const ARBITRARY = /\[(?:transition|animation)(?:-duration|-timing-function)?:([^
 /** The same in a React style object. */
 const STYLE_KEY =
   /\b(?:transition|animation|transitionDuration|transitionTimingFunction|animationTimingFunction)\s*:\s*(["'`])([^"'`]*)\1/g;
-/** Web Animations API and `motion` options: a number or a string typed in place of a token. */
-const ANIMATE_OPTION = /\b(duration|easing|ease)\s*:\s*(?:\d|["'`])/g;
+/**
+ * Web Animations API and `motion` options: a number or a string typed in place of a token. A
+ * duration of exactly 0 is a jump to a value, not motion, so it may stay.
+ */
+const ANIMATE_OPTION = /\b(duration|easing|ease)\s*:\s*(?:(?!0(?![\d.]))\d|["'`])/g;
 
 const TAILWIND: [RegExp, string][] = [
   [/(?<![\w-])duration-\d/, "a Tailwind duration; use duration-(--duration-…)"],

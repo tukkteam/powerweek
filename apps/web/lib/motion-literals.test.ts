@@ -56,8 +56,9 @@ describe("findMotionLiterals", () => {
       'const fallback = "cubic-bezier(0.2, 0.8, 0.2, 1)";',
       'animate(node, { opacity: 0 }, { duration: 0.2, ease: "easeIn" });',
       "animate(node, { opacity: 0 }, { duration: durations.base / 1000, ease: [...bezier.exit] });",
+      "animate(node, AT_REST, { duration: 0 }); animate(node, { x: 1 }, { duration: 0.3 });",
     ].join("\n");
-    expect(lines("x.tsx", tsx)).toEqual([1, 2, 4, 7, 8]);
+    expect(lines("x.tsx", tsx)).toEqual([1, 2, 4, 7, 8, 10]);
   });
 
   it("ignores comments in code, but not URLs in strings", () => {

@@ -63,6 +63,11 @@ if (light) {
 
 // ── Motion: easings, durations and springs ──────────────────────────────────────────────────
 const motion = tokens.motion ?? { easings: [], durations: [], springs: [] };
+// The pace dial: every duration and every spring's response scale by it.
+const tempo = motion.tempo?.value ?? 1;
+if (!(tempo >= 0.5 && tempo <= 2))
+  throw new Error(`motion.tempo must be between 0.5 and 2: ${tempo}`);
+const paced = (n, places = 0) => Number((n * tempo).toFixed(places));
 const named = (list, prefix) =>
   list.map((t) => {
     if (!NAME.test(t.name) || !t.name.startsWith(`${prefix}-`))
@@ -80,9 +85,13 @@ const easings = named(motion.easings, "easing").map((t) => {
 const durations = named(motion.durations, "duration").map((t) => {
   const m = /^(\d+)ms$/.exec(t.value);
   if (!m) throw new Error(`Durations are whole milliseconds, like "200ms": ${t.name}`);
-  return { ...t, ms: Number(m[1]) };
+  const ms = paced(Number(m[1]));
+  return { ...t, ms, value: `${ms}ms` };
 });
-const springs = named(motion.springs, "spring").map((t) => ({ ...t, ...sampleSpring(t) }));
+const springs = named(motion.springs, "spring").map((t) => {
+  const response = paced(t.response, 3);
+  return { ...t, response, ...sampleSpring({ ...t, response }) };
+});
 
 const scales = [
   ...(tokens.spacing?.tokens ?? []).map((t) => [t.name, t.value]),
@@ -111,6 +120,9 @@ const css = `${blocks.join("\n\n")}\n`;
 const entries = (list, value) =>
   list.map((t) => `  /** ${t.usage} */\n  ${JSON.stringify(t.key)}: ${value(t)},`).join("\n");
 const ts = `// ${tokens.name} motion tokens, generated from tokens.json by @powerweek/design-tokens. Do not edit by hand.
+
+/** The pace dial these values were built with (tokens.json, motion.tempo). */
+export const tempo = ${tempo};
 
 /** Easing curves as CSS values. Read \`bezier\` for the four control numbers. */
 export const easings = {

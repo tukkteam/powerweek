@@ -114,7 +114,7 @@ For people and agents alike. Each one exists because breaking it broke something
 2. **Modules never import each other**, and every module passes the conformance check (`checkModule`). (P, V)
 3. **Database changes are new migrations** in `supabase/migrations` (`supabase migration new <name>`), with pgTAP tests in `supabase/tests`. Never edit a migration that is on `main`. Every table has Row Level Security. (P, CI)
 4. **Every user-visible string exists in Spanish and English.** A module's strings go in its `messages.ts`; the app's in `apps/web/lib/i18n/dictionaries` (`es.ts` is the reference). (V)
-5. **Colour, radius, type and motion come from design tokens.** No hard-coded hex values in components; inside a module, colour is always `tone`, never a colour name. No hand-written easing or duration either: use the motion tokens ([docs/design-system.md](docs/design-system.md#motion-and-accessibility)). `tokens.css` and `motion.ts` are generated from `tokens.json` with `pnpm tokens`. (P, V)
+5. **Colour, radius, type and motion come from design tokens.** No hard-coded hex values in components; inside a module, colour is always `tone`, never a colour name. No hand-written easing or duration either: use the motion tokens and recipes ([docs/motion.md](docs/motion.md)). `tokens.css` and `motion.ts` are generated from `tokens.json` with `pnpm tokens`. (P, V)
 6. **Accessibility is part of done**: labels on icon buttons, 44 px touch targets, visible focus, keyboard support, live regions for async results.
 7. **Next.js 16 is not the Next.js you remember**: `proxy.ts` instead of middleware, Cache Components (no cookies, headers or `new Date()` during render), async `params`. Read `apps/web/node_modules/next/dist/docs/` before using an API you're unsure about.
 8. **No secrets in the repository.** `.env.local` stays local; production values live in Vercel and Supabase. (P, GitHub push protection)
@@ -156,6 +156,7 @@ This part is addressed to you, the agent. It is the protocol for working in this
 | The assistant, prompts, operations  | [docs/assistant.md](docs/assistant.md), `apps/web/app/api/assistant/route.ts`                                  |
 | Database, RLS, RPCs                 | [docs/data-model.md](docs/data-model.md), the latest file in `supabase/migrations`, `supabase/tests`           |
 | UI, styling, components             | [docs/design-system.md](docs/design-system.md), `apps/web/node_modules/next/dist/docs/` for any Next.js API    |
+| Anything that moves                 | [docs/motion.md](docs/motion.md): the tokens, the recipes, the checklist                                       |
 | How the pieces fit, why they are so | [docs/architecture.md](docs/architecture.md), [docs/adr/](docs/adr/)                                           |
 | Running the project                 | [docs/development.md](docs/development.md)                                                                     |
 

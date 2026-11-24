@@ -212,7 +212,7 @@ if (motion.length)
   add(
     "design.motion",
     "warn",
-    "Hand-written easing or duration added. Use the motion tokens (docs/design-system.md#motion-and-accessibility).",
+    "Hand-written easing or duration added. Use the motion tokens and recipes (docs/motion.md).",
     motion,
   );
 

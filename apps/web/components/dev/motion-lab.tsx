@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useDialogMotion } from "@/components/app/use-dialog-motion";
 import { Button } from "@/components/ui/button";
 import {
   durations,
   easings,
   springs,
+  tempo,
   useReducedMotion,
   type EasingName,
   type SpringName,
@@ -91,8 +93,9 @@ export function MotionLab() {
         <div>
           <h1 className="type-display">Motion tokens</h1>
           <p className="type-body text-ink-muted">
-            From packages/design-tokens/tokens.json. Press a track to send its dot the other way
-            mid-flight.
+            From packages/design-tokens/tokens.json, at tempo {tempo} (motion.tempo: the one dial
+            for the whole app&apos;s pace; see docs/motion.md). Press a track to send its dot the
+            other way mid-flight.
             {reduced ? " Reduced motion is on: the app replaces these with fades or nothing." : ""}
           </p>
         </div>
@@ -100,6 +103,8 @@ export function MotionLab() {
           Play all
         </Button>
       </header>
+
+      <Recipes />
 
       <section
         className="flex flex-col gap-3"
@@ -192,5 +197,82 @@ export function MotionLab() {
         </ul>
       </section>
     </main>
+  );
+}
+
+/** The shared recipes from docs/motion.md, live, so a change to the tokens can be felt on them. */
+function Recipes() {
+  const detail = useRef<HTMLDialogElement>(null);
+  const editor = useRef<HTMLDialogElement>(null);
+  const detailMotion = useDialogMotion(detail);
+  const editorMotion = useDialogMotion(editor);
+  const [cascade, setCascade] = useState(0);
+
+  return (
+    <section
+      className="flex flex-col gap-3"
+      style={{ "--tone": "var(--tone-violet)" } as CSSProperties}
+    >
+      <h2 className="type-title">Recipes</h2>
+      <p className="type-body text-ink-muted">
+        What features build on. A dialog grows out of the button that opened it and shrinks back;
+        &ldquo;Edit&rdquo; hands it over to a second dialog, which morphs out of the first; a
+        cascade brings rows in one after another.
+      </p>
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={() => detail.current?.showModal()}>Open a dialog</Button>
+        <Button onClick={() => setCascade((n) => n + 1)}>Replay the cascade</Button>
+      </div>
+      <ul key={cascade} className="pw-stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {["One", "Two", "Three", "Four"].map((label) => (
+          <li key={label} className="rounded-[14px] border border-line bg-surface p-4 type-heading">
+            {label}
+          </li>
+        ))}
+      </ul>
+
+      <dialog
+        ref={detail}
+        className="m-auto w-[min(92vw,520px)] rounded-3xl border border-line bg-surface-raised p-0 text-ink shadow-float"
+      >
+        <div className="pw-stagger flex flex-col gap-4 p-6">
+          <h3 className="type-title">A detail</h3>
+          <p className="type-body text-ink-muted">
+            Opened with showModal(); useDialogMotion grew it out of the button. Press Escape halfway
+            through opening to see it turn round.
+          </p>
+          <div className="h-40 rounded-[14px] bg-tone/15" />
+          <div className="flex justify-between gap-2">
+            <Button variant="ghost" onClick={detailMotion.close}>
+              Close
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                detailMotion.handOff();
+                editor.current?.showModal();
+              }}
+            >
+              Edit (hand over)
+            </Button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog
+        ref={editor}
+        className="m-auto w-[min(92vw,380px)] rounded-3xl border border-line bg-surface-raised p-0 text-ink shadow-float"
+      >
+        <div className="pw-stagger flex flex-col gap-4 p-6">
+          <h3 className="type-title">An editor</h3>
+          <p className="type-body text-ink-muted">
+            Morphed out of the detail. Closing it goes home to the button that opened the detail.
+          </p>
+          <Button variant="primary" onClick={editorMotion.close}>
+            Done
+          </Button>
+        </div>
+      </dialog>
+    </section>
   );
 }

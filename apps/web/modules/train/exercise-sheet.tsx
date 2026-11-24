@@ -30,7 +30,7 @@ export function ExerciseSheet({
   onEdit: (exercise: Exercise) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const close = useDialogMotion(ref);
+  const { close, handOff } = useDialogMotion(ref);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -52,7 +52,8 @@ export function ExerciseSheet({
           t={t}
           close={close}
           edit={() => {
-            close();
+            // The sheet turns into the editor instead of leaving and coming back.
+            handOff();
             onEdit(exercise);
           }}
         />

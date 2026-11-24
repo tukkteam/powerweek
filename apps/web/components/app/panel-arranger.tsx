@@ -28,7 +28,7 @@ import {
   type Held,
   type Moved,
 } from "@/lib/arrange";
-import { reducedMotion, springEasing, springs, trembleAngle } from "@/lib/motion";
+import { durations, reducedMotion, springEasing, springs, trembleAngle } from "@/lib/motion";
 import { kernel } from "@/modules";
 import type { Shown } from "@/modules/board";
 import { ModuleIcon, toneStyle } from "@/modules/look";
@@ -43,8 +43,6 @@ const EDGE = 88;
 const SPEED = 18;
 /** The Voice Dock covers the bottom of the window. */
 const DOCK = 104;
-/** Entering edit mode, each card's controls pop in this much after the one before. */
-const STAGGER = 45;
 /** How long a card counts as new, so its entrance runs once and not again when it moves. */
 const ENTERING = 900;
 
@@ -509,7 +507,9 @@ export function PanelArranger({
             const lifted = dragging === id || held?.id === id;
             const fresh = entering.has(id);
             // Staggered entrance, and each card trembles at its own pace, never in step.
-            const pop = fresh ? { animationDelay: `${index * STAGGER + 80}ms` } : undefined;
+            const pop = fresh
+              ? { animationDelay: `${(index + 2) * durations.stagger}ms` }
+              : undefined;
             return (
               <li
                 key={id}

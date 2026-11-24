@@ -63,11 +63,43 @@ function towards(dialog: HTMLDialogElement, from: Element | null) {
 }
 
 /**
- * Gives a native `<dialog>` its motion. Opening needs nothing: `showModal()` is noticed and the
- * dialog grows out of what was tapped. Closing goes through the returned `close`, which plays
- * the way back first; Escape does too. `onClose` still fires once the dialog has closed.
+ * A dialog handing over to the next one (`handOff`): it stays on screen, waiting for the next
+ * dialog to open, and then the two morph into each other: the old box moves and resizes onto
+ * the new one while fading out, the new one starts at the old box and settles into its own.
  */
-export function useDialogMotion(ref: RefObject<HTMLDialogElement | null>): () => void {
+interface Handing {
+  dialog: HTMLDialogElement;
+  box: DOMRect;
+  origin: Element | null;
+  at: number;
+  morph: (into: DOMRect, done: () => void) => void;
+}
+let handing: Handing | null = null;
+/** Every value these animations touch, at rest. */
+const AT_REST = { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, opacity: 1 };
+
+/** How long a hand-over waits for the next dialog before it closes the ordinary way. */
+const HAND_OVER_WAIT = 400;
+
+export interface DialogMotion {
+  /** Close with the way back: the dialog shrinks into what opened it. Use instead of `close()`. */
+  close: () => void;
+  /**
+   * Close by turning into the next dialog: call it, then open the other one (in the same event).
+   * For "Edit" in a detail that opens an editor: one window that changes, not one that leaves
+   * and another that arrives. The next dialog also inherits the way home: closing it shrinks
+   * into what opened the first.
+   */
+  handOff: () => void;
+}
+
+/**
+ * Gives a native `<dialog>` its motion. Opening needs nothing: `showModal()` is noticed and the
+ * dialog grows out of what was tapped (or morphs out of a dialog that handed over to it).
+ * Closing goes through `close` or `handOff`; Escape uses `close`. `onClose` still fires once the
+ * dialog has closed.
+ */
+export function useDialogMotion(ref: RefObject<HTMLDialogElement | null>): DialogMotion {
   const state = useRef({
     from: null as Element | null,
     shown: false,
@@ -107,6 +139,57 @@ export function useDialogMotion(ref: RefObject<HTMLDialogElement | null>): () =>
     void fade.then(finish);
   }, [ref]);
 
+  const handOff = useCallback(() => {
+    const dialog = ref.current;
+    const s = state.current;
+    if (!dialog?.open || s.closing) return;
+    if (reducedMotion()) return close();
+    s.closing = true;
+    s.stop();
+    const box = dialog.getBoundingClientRect();
+    let wait = 0;
+    const entry: Handing = {
+      dialog,
+      box,
+      origin: s.from,
+      at: performance.now(),
+      morph: (into, done) => {
+        window.clearTimeout(wait);
+        const move = animate(
+          dialog,
+          {
+            x: centre(into).x - centre(box).x,
+            y: centre(into).y - centre(box).y,
+            scaleX: into.width / box.width,
+            scaleY: into.height / box.height,
+          },
+          physics("smooth"),
+        );
+        const fade = animate(
+          dialog,
+          { opacity: 0 },
+          { duration: durations.quick / 1000, ease: [...bezier.exit] },
+        );
+        s.stop = () => {
+          move.stop();
+          fade.stop();
+        };
+        void fade.then(() => {
+          if (s.closing) dialog.close();
+          done();
+        });
+      },
+    };
+    handing = entry;
+    // Nothing opened after all: close the ordinary way.
+    wait = window.setTimeout(() => {
+      if (handing !== entry) return;
+      handing = null;
+      s.closing = false;
+      close();
+    }, HAND_OVER_WAIT);
+  }, [ref, close]);
+
   useEffect(() => {
     listen();
     const dialog = ref.current;
@@ -117,12 +200,40 @@ export function useDialogMotion(ref: RefObject<HTMLDialogElement | null>): () =>
       if (dialog.open && !s.shown) {
         s.shown = true;
         s.closing = false;
-        s.from = origin();
         dialog.removeAttribute("data-closing");
         s.stop();
+        const before =
+          handing && handing.dialog !== dialog && performance.now() - handing.at < HAND_OVER_WAIT
+            ? handing
+            : null;
+        handing = null;
+        s.from = before ? before.origin : origin();
         if (reducedMotion()) {
           const fade = animate(dialog, { opacity: [0, 1] }, { duration: durations.instant / 1000 });
           s.stop = () => fade.stop();
+          return;
+        }
+        if (before) {
+          // Morph out of the dialog that handed over. Its backdrop stays until it has gone, so
+          // the page behind never flickers; ours shows when it does.
+          const into = dialog.getBoundingClientRect();
+          dialog.setAttribute("data-handoff", "");
+          before.morph(into, () => dialog.removeAttribute("data-handoff"));
+          const settle = animate(
+            dialog,
+            {
+              x: [centre(before.box).x - centre(into).x, 0],
+              y: [centre(before.box).y - centre(into).y, 0],
+              scaleX: [before.box.width / into.width, 1],
+              scaleY: [before.box.height / into.height, 1],
+              opacity: [0, 1],
+            },
+            {
+              ...physics("smooth"),
+              opacity: { duration: durations.quick / 1000, ease: [...bezier.standard] },
+            },
+          );
+          s.stop = () => settle.stop();
           return;
         }
         const from = towards(dialog, s.from);
@@ -142,6 +253,10 @@ export function useDialogMotion(ref: RefObject<HTMLDialogElement | null>): () =>
         s.stop();
         s.stop = () => {};
         dialog.removeAttribute("data-closing");
+        dialog.removeAttribute("data-handoff");
+        // `motion` remembers each value it animated; put them all back at rest, or the next
+        // opening would start from the last closing's scale.
+        void animate(dialog, AT_REST, { duration: 0 });
         dialog.style.transform = "";
         dialog.style.opacity = "";
       }
@@ -162,5 +277,5 @@ export function useDialogMotion(ref: RefObject<HTMLDialogElement | null>): () =>
     };
   }, [ref, close]);
 
-  return close;
+  return { close, handOff };
 }

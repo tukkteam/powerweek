@@ -1,5 +1,8 @@
 // PowerWeek motion tokens, generated from tokens.json by @powerweek/design-tokens. Do not edit by hand.
 
+/** The pace dial these values were built with (tokens.json, motion.tempo). */
+export const tempo = 1;
+
 /** Easing curves as CSS values. Read `bezier` for the four control numbers. */
 export const easings = {
   /** The default. Anything arriving or moving to a new place: entrances, glides, fills, fades and colour. Starts fast, lands softly. */
@@ -36,6 +39,8 @@ export const durations = {
   "slow": 440,
   /** Progress: fills and numbers moving to a new value slowly enough to follow. */
   "glide": 700,
+  /** The step between things arriving one after another: the rows of a dialog, the controls of a card in edit mode. */
+  "stagger": 40,
 } as const;
 
 /**
