@@ -47,7 +47,7 @@ A module is one folder: what it stores, which changes it accepts and how it draw
 
 Every change arrives with a **Change Receipt** (what was added, changed, moved or removed) and one-tap **Undo**. The **Week Pulse**, seven bars as tall as each day is busy, keeps the whole week in view, and the **Day Bar** shows the day itself filling up from morning to midnight.
 
-![Today: the Day Bar, agenda bars, the fuel gauge and an illustrated workout](docs/images/today.png)
+![Today with five modules: habits as bars that fill, the agenda, an illustrated workout and the fuel gauge, under the Day Bar](docs/images/today.png)
 
 | Today (mobile)                                    | Exercise detail                                                      | Week board                          |
 | ------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------- |

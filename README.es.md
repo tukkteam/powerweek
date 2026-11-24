@@ -40,7 +40,7 @@ Un módulo es una carpeta: qué guarda, qué cambios admite y cómo se dibuja. C
 
 Cada cambio llega con un **recibo** (qué se añade, cambia, mueve o quita) y un botón de **deshacer**. El **pulso de la semana** (siete barras tan altas como cargado está cada día) te enseña la semana entera de un vistazo, y la **barra del día** se va llenando de la mañana a la medianoche.
 
-![Hoy: la barra del día, la agenda en barras, las comidas y un entreno ilustrado](docs/images/today.png)
+![Hoy con cinco módulos: los hábitos en barras que se llenan, la agenda, un entreno ilustrado y las comidas, bajo la barra del día](docs/images/today.png)
 
 | Hoy (móvil)                                      | Detalle de un ejercicio                                            | Tablero semanal                          |
 | ------------------------------------------------ | ------------------------------------------------------------------ | ---------------------------------------- |
