@@ -4,28 +4,26 @@
  * Workout Guide by Bryl Lim (https://github.com/bryllim/workout-guide), whose pose artwork builds
  * on Everkinetic (https://github.com/everkinetic/data). Artwork license: CC BY-SA 4.0.
  *
- * - Optimises every frame with SVGO (whole-unit coordinates, no fill colour) into
- *   apps/web/public/moves/<slug>/<frame>.svg. The app tints them with CSS masks.
+ * - Redraws every frame with one pen and lines up the frames of each exercise (scripts/moves/
+ *   art.mjs says how and why) into apps/web/public/moves/<slug>/<frame>.svg. The app tints them
+ *   with CSS masks.
  * - Writes the catalogue (name, equipment, muscles, type) to
  *   apps/web/modules/train/moves-data.ts.
  *
- * Usage: pnpm moves              downloads the pinned commit from GitHub
- *        pnpm moves --from DIR   uses a local checkout of bryllim/workout-guide instead
+ * Usage: pnpm moves                 downloads the pinned commit from GitHub
+ *        pnpm moves --from DIR      uses a local checkout of bryllim/workout-guide instead
+ *        pnpm moves --only a,b      redraws only those moves (the catalogue is left alone)
+ *        pnpm moves --report FILE   also writes what was done to each move, as JSON
+ *
+ * Drawing takes a few minutes; it runs on every core.
  */
 import { execFileSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { optimize } from "svgo";
+import { Worker } from "node:worker_threads";
+import { PEN } from "./moves/art.mjs";
 
 const REPO = "bryllim/workout-guide";
 const COMMIT = "aac599224bb9780305239607ef98540b7e0ce389";
@@ -88,19 +86,6 @@ const TYPES = {
   distance_duration: "distance",
 };
 
-const SVGO = {
-  multipass: true,
-  floatPrecision: 0,
-  plugins: [
-    {
-      name: "preset-default",
-      params: { overrides: { convertPathData: { floatPrecision: 0, transformPrecision: 2 } } },
-    },
-    "removeDimensions",
-    { name: "removeAttrs", params: { attrs: "fill" } },
-  ],
-};
-
 function arg(name) {
   const index = process.argv.indexOf(name);
   return index > 0 ? process.argv[index + 1] : undefined;
@@ -136,9 +121,11 @@ if (!Array.isArray(manifest) || manifest.length < 300) {
   throw new Error(`Unexpected manifest: ${manifest.length} entries`);
 }
 
-rmSync(publicDir, { recursive: true, force: true });
-let bytesIn = 0;
-let bytesOut = 0;
+const only = arg("--only")?.split(",");
+if (only) {
+  const unknown = only.filter((slug) => !manifest.some((entry) => entry.slug === slug));
+  if (unknown.length) throw new Error(`Unknown moves: ${unknown.join(", ")}`);
+} else rmSync(publicDir, { recursive: true, force: true });
 const rows = [];
 
 for (const entry of manifest) {
@@ -162,20 +149,44 @@ for (const entry of manifest) {
     type,
     ...(entry.isStretch ? [1] : []),
   ]);
+}
 
-  mkdirSync(join(publicDir, slug), { recursive: true });
-  for (const frame of FRAMES) {
-    const input = join(source, "assets", slug, `frame-${frame}.svg`);
-    if (!existsSync(input)) throw new Error(`Missing ${input}`);
-    const svg = readFileSync(input, "utf8");
-    const { data } = optimize(svg, SVGO);
-    if (!data.includes('viewBox="0 0 512 512"') || !data.includes("<path")) {
-      throw new Error(`${slug} frame ${frame}: unexpected SVG after optimisation`);
-    }
-    writeFileSync(join(publicDir, slug, `${frame}.svg`), `${data}\n`);
-    bytesIn += statSync(input).size;
-    bytesOut += data.length + 1;
-  }
+// Draw, on every core: each worker takes every nth move.
+const todo = manifest
+  .filter((entry) => !only || only.includes(entry.slug))
+  .map(({ slug, equipment }) => ({ slug, equipment }));
+const threads = Math.max(1, Math.min(availableParallelism() - 1, 8, todo.length));
+console.log(`Drawing ${todo.length} moves on ${threads} threads…`);
+const done = [];
+await Promise.all(
+  Array.from({ length: threads }, (_, n) => {
+    const entries = todo.filter((_, i) => i % threads === n);
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(new URL("./moves/worker.mjs", import.meta.url), {
+        workerData: { source, publicDir, frames: FRAMES, entries },
+      });
+      worker.on("message", (result) => {
+        done.push(result);
+        if (done.length % 50 === 0) console.log(`  ${done.length} of ${todo.length}`);
+      });
+      worker.on("error", reject);
+      worker.on("exit", (code) =>
+        code ? reject(new Error(`A worker stopped (${code})`)) : resolve(),
+      );
+    });
+  }),
+);
+done.sort((a, b) => a.slug.localeCompare(b.slug));
+const bytesIn = done.reduce((sum, d) => sum + d.bytesIn, 0);
+const bytesOut = done.reduce((sum, d) => sum + d.bytesOut, 0);
+const report = arg("--report");
+if (report) writeFileSync(report, `${JSON.stringify({ pen: PEN, moves: done }, null, 1)}\n`);
+
+const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;
+const summary = `${done.length} moves, ${done.length * FRAMES.length} frames: ${mb(bytesIn)} → ${mb(bytesOut)}`;
+if (only) {
+  console.log(summary);
+  process.exit(0);
 }
 
 writeFileSync(
@@ -188,8 +199,12 @@ The exercise illustrations in this folder come from **Workout Guide** by Bryl Li
 
 - License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0),
   https://creativecommons.org/licenses/by-sa/4.0/
-- Changes: optimised with SVGO (coordinates rounded to whole units, fill colour removed).
-  PowerWeek tints them at render time with CSS masks.
+- Changes: every frame is redrawn. Upstream's traced outlines are reduced to the line down the
+  middle of each stroke and drawn again with a single pen (stroke width ${PEN.weight} on the 512
+  canvas), so every frame of every exercise has the same line weight; the three frames of each
+  exercise are moved and scaled so that what stays still (the floor, a bench, a bar) lies in
+  the same place; and each exercise is fitted to the canvas with the same margin. Poses are
+  not altered. PowerWeek tints the drawings at render time with CSS masks.
 - These adapted files are shared under the same license. The rest of PowerWeek is MIT.
 - Per-frame credits, including the Everkinetic source of each adapted pose, are listed in the
   upstream manifest: https://github.com/${REPO}/blob/${COMMIT}/packages/workout-guide/manifest.json
@@ -223,7 +238,4 @@ ${body}
 `,
 );
 
-const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;
-console.log(
-  `${rows.length} moves, ${rows.length * FRAMES.length} frames: ${mb(bytesIn)} → ${mb(bytesOut)}`,
-);
+console.log(summary);

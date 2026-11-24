@@ -54,20 +54,20 @@ supabase test db             # run the pgTAP tests
 
 ## Everyday commands
 
-| Command                              | Purpose                                                                      |
-| ------------------------------------ | ---------------------------------------------------------------------------- |
-| `pnpm dev`                           | Next.js dev server on http://localhost:3000                                  |
-| `pnpm checkup`                       | Checks your machine and says what you can run                                |
-| `pnpm issue <n>`                     | Reads issue `n` and creates a branch for it from the latest `main`           |
-| `pnpm preflight`                     | House rules on your diff, then formatting and `pnpm verify`                  |
-| `pnpm pr`                            | Drafts the pull request; `--create` pushes and opens it                      |
-| `pnpm verify`                        | What CI runs: tokens check, lint, typecheck, unit tests and production build |
-| `pnpm test`                          | Unit tests (the kernel, every module, parity with old plans, prompt, i18n)   |
-| `pnpm --filter @powerweek/web e2e`   | Playwright tests of the public pages (build first with `pnpm build`)         |
-| `pnpm tokens`                        | Regenerate `tokens.css` and `motion.ts` from `tokens.json`                   |
-| `pnpm moves`                         | Re-import the exercise illustrations and catalogue (needs network)           |
-| `pnpm --filter @powerweek/web icons` | Regenerate app icons from the mark                                           |
-| `pnpm db:types`                      | Regenerate `database.types.ts` from the linked project                       |
+| Command                              | Purpose                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `pnpm dev`                           | Next.js dev server on http://localhost:3000                                   |
+| `pnpm checkup`                       | Checks your machine and says what you can run                                 |
+| `pnpm issue <n>`                     | Reads issue `n` and creates a branch for it from the latest `main`            |
+| `pnpm preflight`                     | House rules on your diff, then formatting and `pnpm verify`                   |
+| `pnpm pr`                            | Drafts the pull request; `--create` pushes and opens it                       |
+| `pnpm verify`                        | What CI runs: tokens check, lint, typecheck, unit tests and production build  |
+| `pnpm test`                          | Unit tests (the kernel, every module, parity with old plans, prompt, i18n)    |
+| `pnpm --filter @powerweek/web e2e`   | Playwright tests of the public pages (build first with `pnpm build`)          |
+| `pnpm tokens`                        | Regenerate `tokens.css` and `motion.ts` from `tokens.json`                    |
+| `pnpm moves`                         | Re-import and redraw the exercise illustrations and catalogue (needs network) |
+| `pnpm --filter @powerweek/web icons` | Regenerate app icons from the mark                                            |
+| `pnpm db:types`                      | Regenerate `database.types.ts` from the linked project                        |
 
 ## End-to-end tests of the app
 

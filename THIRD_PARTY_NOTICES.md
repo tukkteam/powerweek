@@ -9,8 +9,13 @@ each under its own license.
 - Source: [Workout Guide](https://github.com/bryllim/workout-guide) by Bryl Lim, commit
   `aac5992`, whose pose artwork builds on [Everkinetic](https://github.com/everkinetic/data).
 - License: [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/).
-- Changes: optimised with SVGO (coordinates rounded to whole units, fill colour removed); the app
-  tints them at render time with CSS masks. The adapted files keep the CC BY-SA 4.0 license.
+- Changes: every frame is redrawn. Upstream's traced outlines are reduced to the line down the
+  middle of each stroke and drawn again with a single pen, so every frame of every exercise has
+  the same line weight; the three frames of each exercise are moved and scaled so that what stays
+  still (the floor, a bench, a bar) lies in the same place; each exercise is fitted to the canvas
+  with the same margin; and one frame that is all but empty upstream (`pallof-press`, frame 2)
+  is replaced by the pose before it. Poses are not altered. The app tints the drawings at render
+  time with CSS masks. The adapted files keep the CC BY-SA 4.0 license.
 - Per-frame credits, including the Everkinetic source of each adapted pose, are in the upstream
   [manifest](https://github.com/bryllim/workout-guide/blob/aac599224bb9780305239607ef98540b7e0ce389/packages/workout-guide/manifest.json).
 - Regenerate with `pnpm moves` ([scripts/moves.mjs](scripts/moves.mjs)).

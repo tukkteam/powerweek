@@ -88,6 +88,15 @@ At the gym nobody wants to tick boxes between sets. Exercises are tiles you glan
 
 Drawings come from the move library (see [ADR 0008](adr/0008-move-library.md)): 302 exercises with three frames each, served from `apps/web/public/moves/<slug>/<frame>.svg`. They are masks, never `<img>`, so the brand colour drives them; frame 1 is the still image, and animation only runs on hover, focus or in the exercise sheet (and never with reduced motion). Credits: Workout Guide by Bryl Lim, based on Everkinetic, CC BY-SA 4.0.
 
+Upstream, the three frames of an exercise are three separate drawings: hair-thin lines in one, marker-thick in the next, at slightly different sizes and places, so played in a row they flickered and jumped. `pnpm moves` therefore redraws the whole library with one pen (`scripts/moves/art.mjs`):
+
+- **One line weight.** Each frame is reduced to the line down the middle of every stroke and drawn again as a stroked path. Every frame of every exercise has the same `stroke-width` (`PEN.weight`, in units of the 512 canvas), round ends and round joins. To make the whole library bolder or finer, change that one number and run `pnpm moves`.
+- **Frames that sit on each other.** The frames of an exercise are moved and scaled (never bent) until what stays still lies in the same place: the floor for nearly everything, the bar where the body hangs from one (`anchorOf`). Where nothing stays still (jumps, dips) upstream's placement is kept.
+- **The same fit.** Every exercise fills the canvas up to the same margin, so cards look alike.
+- **A rhythm like a repetition.** The loop rests on the first and last pose and passes through the middle one; each change is a short overlap, so the drawing never dims (`pw-frame-*` in `app/globals.css`).
+
+The poses themselves are upstream's: three key poses per exercise, not in-between frames. `modules/train/move-art.test.ts` checks the committed files (one weight, inside the canvas, no empty frame), and `scripts/moves/moves.test.mjs` the pipeline. `pnpm moves --report FILE` writes what was done to each move.
+
 ## Voice and copy
 
 Spanish first (tú), English second, same tone: imperative, short and warm. "Dile a tu semana qué hacer." / "Talk your week into shape." Sentence case except display styles and labels. Times in 24 h, `4 × 8` with the multiplication sign, `80 kg` with a space. Empty states quote a real command. No emoji in the interface.
