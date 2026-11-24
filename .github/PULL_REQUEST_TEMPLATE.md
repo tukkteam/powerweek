@@ -21,7 +21,3 @@ Closes #
 - [ ] Strings in both languages (`es` and `en`)
 - [ ] Database changes are new migrations, with pgTAP tests
 - [ ] Docs updated where behaviour changed
-
-## AI assistance
-
-<!-- Did an AI agent write part of this? Which one, and what did you check yourself? "None" is a fine answer. -->
