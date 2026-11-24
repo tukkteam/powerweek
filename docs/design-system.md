@@ -95,7 +95,7 @@ Upstream, the three frames of an exercise are three separate drawings: hair-thin
 - **The same fit.** Every exercise fills the canvas up to the same margin, so cards look alike.
 - **A rhythm like a repetition.** The loop rests on the first and last pose and passes through the middle one; each change is a short overlap, so the drawing never dims (`pw-frame-*` in `app/globals.css`).
 
-The poses themselves are upstream's: three key poses per exercise, not in-between frames. `modules/train/move-art.test.ts` checks the committed files (one weight, inside the canvas, no empty frame), and `scripts/moves/moves.test.mjs` the pipeline. `pnpm moves --report FILE` writes what was done to each move.
+The poses themselves are upstream's: three key poses per exercise, not in-between frames. `modules/train/move-art.test.ts` checks the committed files (one weight, inside the canvas, no empty frame), and `scripts/moves/moves.test.mjs` the pipeline. `pnpm moves --report FILE` writes what was done to each move. To look at the whole library playing at once, run `pnpm dev` and open `/es/dev/moves` (development only).
 
 ## Voice and copy
 
