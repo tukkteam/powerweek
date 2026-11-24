@@ -28,6 +28,7 @@ import {
   type Held,
   type Moved,
 } from "@/lib/arrange";
+import { reducedMotion, SPRING, SPRING_MS, springEasing, trembleAngle } from "@/lib/motion";
 import { kernel } from "@/modules";
 import type { Shown } from "@/modules/board";
 import { ModuleIcon, toneStyle } from "@/modules/look";
@@ -37,14 +38,15 @@ import { viewsOf } from "@/modules/views";
 const DRAG_SLOP = 6;
 /** How long a finger rests on a card before it lifts; moving sooner scrolls the page. */
 const LONG_PRESS = 400;
-const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 /** Near the top or bottom of the window, a dragged card scrolls the page, faster the closer. */
 const EDGE = 88;
 const SPEED = 18;
 /** The Voice Dock covers the bottom of the window. */
 const DOCK = 104;
-
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** Entering edit mode, each card's controls pop in this much after the one before. */
+const STAGGER = 45;
+/** How long a card counts as new, so its entrance runs once and not again when it moves. */
+const ENTERING = 900;
 
 interface Drag {
   id: string;
@@ -101,6 +103,9 @@ export function PanelArranger({
   const [held, setHeld] = useState<Held | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [said, setSaid] = useState("");
+  // Cards whose entrance is still playing. The browser restarts an element's CSS animations
+  // when React moves it in the list, so the entrance classes come off once it has played.
+  const [entering, setEntering] = useState<ReadonlySet<string>>(() => new Set(initial));
 
   const orderRef = useRef(order);
   const heldRef = useRef(held);
@@ -114,6 +119,7 @@ export function PanelArranger({
   const handles = useRef(new Map<string, HTMLButtonElement>());
   const before = useRef(new Map<string, DOMRect>());
   /** What gets the focus after the next change: a module's handle or step button, or Done. */
+  const shakers = useRef<ResizeObserver | null>(null);
   const focusNext = useRef<{ id: string; step?: -1 | 1 } | "done" | null>(null);
 
   // Every module this build knows, with its data, even those off screen: one added while
@@ -175,7 +181,9 @@ export function PanelArranger({
     if (!current || !node || !frame) return;
     const x = current.x - current.grabX - (frame.left + node.offsetLeft);
     const y = current.y - current.grabY - (frame.top + node.offsetTop);
-    node.style.transform = `translate(${x}px, ${y}px)${reducedMotion() ? "" : " scale(1.02)"}`;
+    // Only the position here, every move, so the card stays exactly under the pointer. The lift
+    // (a little larger, a deeper shadow) is a spring on the card inside.
+    node.style.transform = `translate(${x}px, ${y}px)`;
   }, []);
 
   /** Trade places with the card under the pointer, if any. */
@@ -250,7 +258,10 @@ export function PanelArranger({
       const from = node.style.transform;
       node.style.transform = "";
       if (!reducedMotion())
-        node.animate([{ transform: from }, { transform: "none" }], { duration: 200, easing: EASE });
+        node.animate([{ transform: from }, { transform: "none" }], {
+          duration: SPRING_MS,
+          easing: springEasing(),
+        });
     }
     if (put === "back") change(current.origin);
     setDragging(null);
@@ -333,8 +344,8 @@ export function PanelArranger({
       const dy = from.top - to.top;
       if (still || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) continue;
       node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
-        duration: 260,
-        easing: EASE,
+        duration: SPRING_MS,
+        easing: springEasing(),
       });
     }
     before.current = new Map();
@@ -356,6 +367,29 @@ export function PanelArranger({
       }
     }
   }, [order, follow]);
+
+  useEffect(() => {
+    if (entering.size === 0) return;
+    const played = window.setTimeout(() => setEntering(new Set()), ENTERING);
+    return () => window.clearTimeout(played);
+  }, [entering]);
+
+  // Every card trembles so its edges move the same distance, whatever its width. The observer
+  // is made on first use: cards attach (ref callbacks) before effects run.
+  const shaker = () =>
+    (shakers.current ??= new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const node = entry.target as HTMLElement;
+        node.style.setProperty("--pw-tremble", `${trembleAngle(node.offsetWidth).toFixed(3)}deg`);
+      }
+    }));
+  useEffect(
+    () => () => {
+      shakers.current?.disconnect();
+      shakers.current = null;
+    },
+    [],
+  );
 
   // Entering: the focus goes where the person meant to go.
   useEffect(() => {
@@ -415,6 +449,7 @@ export function PanelArranger({
 
   const add = (id: string) => {
     const next = [...orderRef.current, id];
+    setEntering((previous) => new Set(previous).add(id));
     focusNext.current = { id };
     change(next);
     setSaid(t.announce.added(nameOf(id), next.length, next.length));
@@ -441,7 +476,7 @@ export function PanelArranger({
     <section aria-label={t.title} className="flex flex-col gap-4">
       <div
         ref={toolbar}
-        className="sticky top-16 z-20 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-bg/90 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6"
+        className="pw-rise sticky top-16 z-20 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-bg/90 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6"
       >
         <h2 className="type-label min-w-0 text-ink-muted">{t.arranging}</h2>
         <div className="flex shrink-0 gap-1 sm:gap-2">
@@ -472,6 +507,9 @@ export function PanelArranger({
             if (!entry) return null;
             const name = entry.t.name;
             const lifted = dragging === id || held?.id === id;
+            const fresh = entering.has(id);
+            // Staggered entrance, and each card trembles at its own pace, never in step.
+            const pop = fresh ? { animationDelay: `${index * STAGGER + 80}ms` } : undefined;
             return (
               <li
                 key={id}
@@ -483,14 +521,26 @@ export function PanelArranger({
                 className={`relative min-w-0 ${viewsOf(id)?.span === 2 ? "lg:col-span-2" : ""}`}
               >
                 <div
-                  className={`relative h-full rounded-[14px] transition-shadow duration-200 ${
-                    lifted ? "shadow-float" : ""
+                  className={`relative h-full rounded-[14px] ${
+                    lifted ? "shadow-float motion-safe:scale-[1.03]" : ""
                   }`}
+                  style={{
+                    transition: `scale ${SPRING_MS}ms ${SPRING}, box-shadow 220ms ease-out`,
+                  }}
                 >
                   {/* The card trembles; its controls hold still, so they are easy to hit. */}
                   <div
-                    className={`h-full ${lifted ? "" : "pw-jiggle-soft"}`}
-                    style={{ animationDelay: `${(index % 3) * -160}ms` }}
+                    ref={(node) => {
+                      if (!node) return;
+                      const observer = shaker();
+                      observer.observe(node);
+                      return () => observer.unobserve(node);
+                    }}
+                    className={`h-full ${lifted ? "" : "pw-tremble"}`}
+                    style={{
+                      animationDuration: `${260 + ((index * 37) % 70)}ms`,
+                      animationDelay: `${-((index * 113) % 300)}ms`,
+                    }}
                   >
                     {/* The card as it is, but asleep: nothing inside can be pressed or focused. */}
                     <div inert className="h-full [&>*]:h-full">
@@ -506,20 +556,42 @@ export function PanelArranger({
                       aria-hidden="true"
                       onPointerDown={startDrag(id, "card")}
                       onContextMenu={(event) => event.preventDefault()}
-                      className={`absolute inset-0 touch-manipulation rounded-[14px] border-2 border-dashed select-none [-webkit-touch-callout:none] ${
-                        lifted ? "cursor-grabbing border-tone" : "cursor-grab border-tone/50"
+                      className={`absolute inset-0 touch-manipulation select-none [-webkit-touch-callout:none] ${
+                        lifted ? "cursor-grabbing" : "cursor-grab"
                       }`}
-                    />
+                    >
+                      {/* A dashed edge in the module's tone whose dashes march slowly round the
+                          card; solid, and glowing, while the card is in hand. */}
+                      <svg
+                        data-lifted={lifted || undefined}
+                        className={`pw-outline absolute inset-0 size-full overflow-visible ${
+                          fresh ? "pw-fade" : ""
+                        } ${lifted ? "text-tone" : "text-tone/60"}`}
+                      >
+                        <rect
+                          width="100%"
+                          height="100%"
+                          rx="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => remove(id)}
                     aria-label={t.removeOne(name)}
-                    className="absolute -top-3 -left-3 flex size-11 items-center justify-center rounded-full border border-line-strong bg-surface-raised text-ink shadow-float hover:text-danger"
+                    style={pop}
+                    className={`${fresh ? "pw-pop" : ""} absolute -top-3 -left-3 flex size-11 items-center justify-center rounded-full border border-line-strong bg-surface-raised text-ink shadow-float hover:text-danger`}
                   >
                     <Minus size={18} strokeWidth={2.5} aria-hidden="true" />
                   </button>
-                  <div className="absolute top-2 right-2 flex items-center rounded-full border border-line-strong bg-surface-raised p-0.5 shadow-float">
+                  <div
+                    style={pop}
+                    className={`${fresh ? "pw-pop" : ""} absolute top-2 right-2 flex items-center rounded-full border border-line-strong bg-surface-raised p-0.5 shadow-float`}
+                  >
                     <StepButton
                       step={-1}
                       label={t.moveEarlier(name)}

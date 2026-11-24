@@ -429,22 +429,41 @@
 .pw-jiggle {
   animation: pw-jiggle 380ms ease-in-out infinite;
 }
-/* Arranging the panel: real cards are larger, so they tremble less. */
-@keyframes pw-jiggle-soft {
+/* Arranging the panel: each card turns by --pw-tremble, set from its width so wide and narrow
+   cards move their edges the same; the duration and phase differ per card. */
+@keyframes pw-tremble {
   0%,
   100% {
-    rotate: -0.2deg;
+    rotate: calc(var(--pw-tremble, 0.3deg) * -1);
   }
   50% {
-    rotate: 0.2deg;
+    rotate: var(--pw-tremble, 0.3deg);
   }
 }
-.pw-jiggle-soft {
-  animation: pw-jiggle-soft 520ms ease-in-out infinite;
+.pw-tremble {
+  animation: pw-tremble 300ms ease-in-out infinite;
+}
+/* The dashed edge of a card being arranged: dashes march slowly round it. */
+@keyframes pw-march {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+.pw-outline rect {
+  stroke-dasharray: 8 6;
+  animation: pw-march 1.4s linear infinite;
+}
+.pw-outline[data-lifted] rect {
+  stroke-dasharray: none;
+  animation: none;
+}
+.pw-outline[data-lifted] {
+  filter: drop-shadow(0 0 6px color-mix(in oklab, currentColor 55%, transparent));
 }
 @media (prefers-reduced-motion: reduce) {
   .pw-jiggle,
-  .pw-jiggle-soft {
+  .pw-tremble,
+  .pw-outline rect {
     animation: none;
   }
 }
