@@ -21,6 +21,11 @@ export const unit = (a: Vec): Vec => {
   return n ? times(a, 1 / n) : [0, 1, 0];
 };
 export const mix = (a: Vec, b: Vec, t: number): Vec => add(times(a, 1 - t), times(b, t));
+export const cross = (a: Vec, b: Vec): Vec => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
 
 const rad = (degrees: number) => (degrees * Math.PI) / 180;
 /** Turns about x: a positive angle tips "up" (y) towards "forward" (z). */
@@ -60,20 +65,38 @@ const mul = (a: Mat, b: Mat): Mat => {
 const turn = (m: Mat, v: Vec): Vec => [dot(m[0], v), dot(m[1], v), dot(m[2], v)];
 const chain = (...ms: Mat[]): Mat => ms.reduce(mul);
 
-/** The figure's measurements. It stands 100 tall. */
+/**
+ * The figure's measurements. They are those of the standard pictorial figure of safety signs
+ * (the unit system of ISO 3864-3, Annex A, as set out in the AEM pictorial guidelines): 12 units
+ * tall, a trunk 2 units wide, a round head 1.75 units across that does not touch the body, and
+ * limbs 1 unit wide that end in half circles, with pivots at shoulder, elbow, hand, hip, knee
+ * and foot. Two legs side by side are as wide as the trunk, so one carries on into the other.
+ * Here a unit is 100 / 12, so the figure stands 100 tall.
+ */
+export const UNIT = 100 / 12;
 export const BODY = {
-  spine: 29,
-  neck: 5,
-  head: 7.2,
-  shoulder: 10.5,
-  hip: 5.6,
-  upperArm: 16,
-  forearm: 14.5,
-  hand: 4,
-  thigh: 24.5,
-  shin: 23,
-  ankle: 3.6,
-  foot: 9,
+  /** Hip pivots up to shoulder pivots. The trunk reaches half a unit past each. */
+  spine: 3.5 * UNIT,
+  /** Half the head's width, and the gap between the head and the trunk. */
+  head: (1.75 * UNIT) / 2,
+  headGap: 0.25 * UNIT,
+  /** Half the trunk's width; from front to back it is as thick as a limb. */
+  trunk: UNIT,
+  /** How far past its pivots the trunk reaches, top and bottom. */
+  trunkEnd: 0.5 * UNIT,
+  /** Shoulder pivots sit outside the trunk: the arms are bars beside it, not part of it. */
+  shoulder: 1.56 * UNIT,
+  /** Hip pivots: the legs side by side fill the trunk's width. */
+  hip: 0.51 * UNIT,
+  upperArm: 2 * UNIT,
+  forearm: 2 * UNIT,
+  thigh: 2.75 * UNIT,
+  shin: 2.75 * UNIT,
+  /** Half the width of an arm and of a leg. A foot pivot stands this far off the floor. */
+  arm: 0.44 * UNIT,
+  leg: 0.48 * UNIT,
+  /** For a pointed foot's toes, which a pose may pin; the figure has no feet to draw. */
+  foot: UNIT,
 } as const;
 
 /** An arm: by its angles, or told what to hold (`reach`, a point in space). */
@@ -201,14 +224,14 @@ export function skeleton(pose: Pose): Skeleton {
   const origin: Vec = [0, 0, 0];
   const chest = turn(torso, [0, BODY.spine, 0]);
   const skull = chain(torso, rotX(pose.nod ?? 0));
-  const head = add(chest, turn(skull, [0, BODY.neck + BODY.head, 0]));
+  const head = add(chest, turn(skull, [0, BODY.trunkEnd + BODY.headGap + BODY.head, 0]));
   const joints: Partial<Record<Joint, Vec>> = { pelvis: origin, chest, head };
 
   // Legs by their angles (planted legs are solved once the body is in place). A flat foot points
   // the way the body faces, its toes a little lower than the ankle, on the floor.
   const flatFoot: Vec = add(times(turn(rotY(pose.face ?? 0), [0, 0, 1]), BODY.foot), [
     0,
-    -(BODY.ankle - SOLE),
+    -(BODY.leg - SOLE),
     0,
   ]);
   const footOf = (leg: Leg, shinWay: Vec, pointed: Vec): Vec =>
@@ -230,7 +253,7 @@ export function skeleton(pose: Pose): Skeleton {
     joints[`toe${side}`] = add(ankle, foot);
 
     const arm = armOf(side);
-    const shoulder = add(chest, turn(torso, [sign * BODY.shoulder, -1.5, 0]));
+    const shoulder = add(chest, turn(torso, [sign * BODY.shoulder, 0, 0]));
     const upper = chain(
       torso,
       rotZ(sign * (arm.abduct ?? 0)),
@@ -243,7 +266,8 @@ export function skeleton(pose: Pose): Skeleton {
     joints[`shoulder${side}`] = shoulder;
     joints[`elbow${side}`] = elbow;
     joints[`wrist${side}`] = wrist;
-    joints[`hand${side}`] = add(wrist, turn(lower, times(DOWN, BODY.hand)));
+    // The hand is the end of the arm: there is nothing past the wrist to draw.
+    joints[`hand${side}`] = wrist;
   }
 
   // Put the body where it belongs: at a point, pinned by a pair of joints, or standing.
@@ -257,8 +281,8 @@ export function skeleton(pose: Pose): Skeleton {
     // Standing: the lower foot on the floor, the ankles either side of the origin.
     const between = middleOf(s.ankleL, s.ankleR);
     const lowest = Math.min(
-      s.ankleL[1] - BODY.ankle,
-      s.ankleR[1] - BODY.ankle,
+      s.ankleL[1] - BODY.leg,
+      s.ankleR[1] - BODY.leg,
       s.toeL[1] - SOLE,
       s.toeR[1] - SOLE,
     );
@@ -276,16 +300,15 @@ export function skeleton(pose: Pose): Skeleton {
     if (target) {
       const pole = arm.elbow ?? [0.35, -0.6, -0.75];
       const towards = turn(torso, [sign * pole[0], pole[1], pole[2]]);
-      // The hand ends on the target; the wrist is a hand's length back along the forearm.
       const { middle, end } = bendTo(
         s[`shoulder${side}`],
         target,
         BODY.upperArm,
-        BODY.forearm + BODY.hand,
+        BODY.forearm,
         towards,
       );
       s[`elbow${side}`] = middle;
-      s[`wrist${side}`] = add(middle, times(unit(sub(end, middle)), BODY.forearm));
+      s[`wrist${side}`] = end;
       s[`hand${side}`] = end;
     }
     const leg = legOf(side);

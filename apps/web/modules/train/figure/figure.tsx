@@ -189,22 +189,25 @@ export function Figure({
         opacity={0.22}
         {...round}
       />
-      <g mask={`url(#${id}g)`} opacity={GEAR}>
-        <path
-          data-layer="gearSolids"
-          d={still.gearSolids}
-          stroke="currentColor"
-          strokeWidth={still.lineWidth * 1.6}
-          {...round}
-        />
-        <path
-          data-layer="gearLines"
-          d={still.gearLines}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={still.lineWidth}
-          {...round}
-        />
+      {/* Gear behind stops short of the figure, and of gear in front of it. */}
+      <g mask={`url(#${id}f)`}>
+        <g mask={`url(#${id}g)`} opacity={GEAR}>
+          <path
+            data-layer="gearSolids"
+            d={still.gearSolids}
+            stroke="currentColor"
+            strokeWidth={still.lineWidth * 1.6}
+            {...round}
+          />
+          <path
+            data-layer="gearLines"
+            d={still.gearLines}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={still.lineWidth}
+            {...round}
+          />
+        </g>
       </g>
       <g mask={`url(#${id}f)`}>
         <g mask={`url(#${id}b)`}>

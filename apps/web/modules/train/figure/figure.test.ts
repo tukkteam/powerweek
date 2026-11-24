@@ -12,8 +12,8 @@ describe("the skeleton", () => {
   it("stands 100 tall, on the floor, the same on both sides", () => {
     const s = skeleton({});
     expect(s.head[1] + BODY.head).toBeCloseTo(100, 0);
-    expect(s.ankleL[1]).toBeCloseTo(BODY.ankle, 5);
-    expect(s.ankleR[1]).toBeCloseTo(BODY.ankle, 5);
+    expect(s.ankleL[1]).toBeCloseTo(BODY.leg, 5);
+    expect(s.ankleR[1]).toBeCloseTo(BODY.leg, 5);
     expect(s.shoulderL[0]).toBeCloseTo(-s.shoulderR[0], 5);
     expect(s.wristL[1]).toBeCloseTo(s.wristR[1], 5);
     // Ankles either side of the origin.

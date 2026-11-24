@@ -10,6 +10,7 @@
 import {
   BODY,
   add,
+  cross,
   dot,
   mix,
   size,
@@ -278,21 +279,63 @@ function drawGear(gear: readonly Gear[], s: Skeleton, view: View): GearPaths {
 
 // ── The figure ──────────────────────────────────────────────────────────────────────────────
 
-/** How thick each part of the figure is, at either end. */
-const THICK = {
-  upperArm: [4.5, 3.6],
-  forearm: [3.5, 2.7],
-  hand: [2.8, 2.9],
-  thigh: [6.6, 4.9],
-  shin: [4.7, 3.2],
-  foot: [3.1, 2.3],
-  neck: 3.2,
-  /** The torso is its four corners with an edge this thick drawn round them. */
-  torso: 9.5,
-} as const;
+/** The trunk's corners are rounded by an edge this thick drawn round it. */
+const CORNER = 2.2;
 
-/** How much further away than the middle of the body a shoulder or hip must be to count as far. */
-const FAR = 4;
+/** The outline round a set of points on the canvas (their convex hull), as a closed path. */
+function hull(points: readonly Point[]): string {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const turn = (o: Point, a: Point, b: Point) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (list: readonly Point[]) => {
+    const out: Point[] = [];
+    for (const p of list) {
+      while (out.length >= 2 && turn(out[out.length - 2]!, out[out.length - 1]!, p) <= 0) out.pop();
+      out.push(p);
+    }
+    out.pop();
+    return out;
+  };
+  return outline([...half(sorted), ...half([...sorted].reverse())]);
+}
+
+/**
+ * The trunk: a slab as wide as two legs and as thick as one, from the hips to half a unit above
+ * the shoulders, seen from wherever the view is. Its top is square and follows the shoulders.
+ * At the hips it is wrapped round the round tops of the two legs: standing, the legs carry
+ * straight on from it; bent over, the hip is a curve and not a corner.
+ */
+function trunk(s: Skeleton, P: (p: Vec) => Point, zoom: number): string {
+  const up = unit(sub(s.chest, s.pelvis));
+  const inset = CORNER / 2;
+  const across = unit(sub(s.shoulderR, s.shoulderL));
+  const ahead = cross(across, up);
+  const top = add(s.chest, times(up, BODY.trunkEnd - inset));
+  const points: Point[] = [];
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1])
+      points.push(
+        P(
+          add(
+            add(top, times(across, sx * (BODY.trunk - inset))),
+            times(ahead, sz * (BODY.leg - inset)),
+          ),
+        ),
+      );
+  const round = (BODY.leg - inset) * zoom;
+  for (const hip of [P(s.hipL), P(s.hipR)])
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * 2 * Math.PI;
+      points.push([hip[0] + Math.cos(a) * round, hip[1] + Math.sin(a) * round, 0]);
+    }
+  return hull(points);
+}
+
+/**
+ * How much further away than the middle of the body a shoulder or a hip must be for its limb to
+ * count as on the far side. Seen nearly face on, neither arm and neither leg is.
+ */
+const FAR = { arm: 6.5, leg: 2.6 } as const;
 
 /** The gap that sets a limb off from the body it passes in front of. */
 export const GAP = 1.3;
@@ -331,49 +374,39 @@ export function draw(pose: Pose, gear: readonly Gear[], view: View): Drawing {
   let front = "";
   let cut = "";
   for (const side of ["L", "R"] as const) {
-    const arm = [
-      at(`shoulder${side}`),
-      at(`elbow${side}`),
-      at(`wrist${side}`),
-      at(`hand${side}`),
-    ] as const;
-    const leg = [
-      at(`hip${side}`),
-      at(`knee${side}`),
-      at(`ankle${side}`),
-      at(`toe${side}`),
-    ] as const;
-    const parts: [readonly Point[], readonly (readonly [number, number])[]][] = [
-      [arm, [THICK.upperArm, THICK.forearm, THICK.hand]],
-      [leg, [THICK.thigh, THICK.shin, THICK.foot]],
-    ];
-    for (const [joints, thick] of parts) {
-      let shape = "";
-      for (let i = 0; i < 3; i++)
-        shape += limb(joints[i]!, joints[i + 1]!, thick[i]![0] * zoom, thick[i]![1] * zoom);
+    const arm = [at(`shoulder${side}`), at(`elbow${side}`), at(`wrist${side}`)] as const;
+    const leg = [at(`hip${side}`), at(`knee${side}`), at(`ankle${side}`)] as const;
+    for (const [joints, wide] of [
+      [arm, BODY.arm * zoom],
+      [leg, BODY.leg * zoom],
+    ] as const) {
+      // A limb is two bars of one width with round ends: no hand, no foot.
+      const shape = limb(joints[0], joints[1], wide, wide) + limb(joints[1], joints[2], wide, wide);
       // A limb is on the far side when the joint it hangs from is well behind the middle of
       // the body (the chest for an arm, the hips for a leg), wherever the limb itself reaches.
-      const middle = joints === arm ? at("chest")[2] : at("pelvis")[2];
-      if (joints[0]![2] < middle - FAR) back += shape;
-      else {
+      const far =
+        joints === arm
+          ? joints[0][2] < at("chest")[2] - FAR.arm
+          : joints[0][2] < at("pelvis")[2] - FAR.leg;
+      if (far) back += shape;
+      else if (joints === arm) {
+        // An arm is a bar beside the trunk: where it crosses the body, all of it is set off.
         front += shape;
-        // Set off from the body from a little way down the limb, so it still joins at the root.
+        cut += shape;
+      } else {
+        front += shape;
+        // A leg carries on from the trunk, so it is set off only from a little way down.
         const from: Point = [
-          joints[0]![0] + (joints[1]![0] - joints[0]![0]) * 0.42,
-          joints[0]![1] + (joints[1]![1] - joints[0]![1]) * 0.42,
+          joints[0][0] + (joints[1][0] - joints[0][0]) * 0.45,
+          joints[0][1] + (joints[1][1] - joints[0][1]) * 0.45,
           0,
         ];
-        const mid = (thick[0]![0] + thick[0]![1]) / 2;
-        cut += limb(from, joints[1]!, mid * zoom, thick[0]![1] * zoom);
-        for (let i = 1; i < 3; i++)
-          cut += limb(joints[i]!, joints[i + 1]!, thick[i]![0] * zoom, thick[i]![1] * zoom);
+        cut += limb(from, joints[1], wide, wide) + limb(joints[1], joints[2], wide, wide);
       }
     }
   }
-  const torso = outline([at("shoulderL"), at("shoulderR"), at("hipR"), at("hipL")]);
-  const head =
-    disc(at("head"), BODY.head * zoom) +
-    limb(at("chest"), at("head"), THICK.neck * zoom, THICK.neck * zoom);
+  const torso = trunk(s, P, zoom);
+  const head = disc(at("head"), BODY.head * zoom);
   const g = drawGear(gear, s, view);
   const left = project([0, 0, 0], view);
   return {
@@ -381,7 +414,7 @@ export function draw(pose: Pose, gear: readonly Gear[], view: View): Drawing {
     gearSolids: g.solids,
     back,
     torso,
-    torsoEdge: THICK.torso * zoom,
+    torsoEdge: CORNER * zoom,
     head,
     front,
     cut,
@@ -453,7 +486,8 @@ export function frame(poses: readonly Pose[], gear: readonly Gear[], view: View,
   };
   for (const pose of poses) {
     const s = skeleton(pose);
-    for (const joint of Object.values(s)) see(joint, 5);
+    for (const joint of Object.values(s)) see(joint, BODY.leg + 1);
+    for (const p of [s.chest, s.pelvis]) see(p, BODY.trunk + 1);
     see(s.head, BODY.head + 1);
     for (const item of gear) for (const p of reachOf(item, s)) see(p, 1.5);
   }
