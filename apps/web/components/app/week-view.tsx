@@ -119,7 +119,6 @@ export function WeekView() {
       <ModuleDesk
         key={doc.layout.join(" ")}
         doc={doc}
-        welcome
         busy={thinking}
         onDone={(order) => {
           if (order) void edit([{ op: "layout.set", modules: order }]);

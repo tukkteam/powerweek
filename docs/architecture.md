@@ -37,7 +37,7 @@ PowerWeek is a **web-first** product. The web app is the only implementation of 
         ▼
  packages/modules           the kernel: read · apply · receipts · prompt · parse
         │
-        ├── components/app   screens that host modules: Today, the week board, the Day Bar, the desk
+        ├── components/app   screens that host modules: Today, the week board, the Day Bar, the panel arranger, the desk
         ├── api/assistant    sentence → operations → kernel → save
         └── lib/plan-api     my_plan · save_plan · undo_plan · entries
 ```
@@ -62,7 +62,7 @@ a module's editor → Operation → kernel.apply (optimistic UI) → rpc save_pl
                                                              ↳ PW001 client_outdated → "reload the page"
 ```
 
-Edits are queued on the client so two saves never race each other's version. Rearranging the screen is the same flow: the desk sends one `layout.set`.
+Edits are queued on the client so two saves never race each other's version. Rearranging the screen is the same flow: the panel arranger sends one `layout.set` when the person taps Done.
 
 ### An assistant command
 

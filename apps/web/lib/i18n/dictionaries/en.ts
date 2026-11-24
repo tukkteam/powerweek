@@ -189,7 +189,23 @@ export const en: Dictionary = {
     removeOne: (name: string) => `Remove ${name}`,
     moveEarlier: (name: string) => `Move ${name} earlier`,
     moveLater: (name: string) => `Move ${name} later`,
-    hint: "Drag to reorder. What you remove is not deleted: it comes back as it was if you add it again.",
+    arranging: "Arranging your screen",
+    hint: "Drag a card by its handle, or press and hold it. What you remove is not deleted: it comes back as it was if you add it again.",
+    keysHint:
+      "On a handle: Space or Enter to pick the card up, the arrow keys to move it, Space or Enter to drop it, Escape to cancel.",
+    grab: (name: string) => `Move ${name}`,
+    announce: {
+      picked: (name: string, place: number, total: number) =>
+        `Picked up ${name}. Place ${place} of ${total}.`,
+      moved: (name: string, place: number, total: number) => `${name}, place ${place} of ${total}.`,
+      dropped: (name: string, place: number, total: number) =>
+        `Dropped ${name} at place ${place} of ${total}.`,
+      cancelled: (name: string, place: number, total: number) =>
+        `Cancelled. ${name} is back at place ${place} of ${total}.`,
+      added: (name: string, place: number, total: number) =>
+        `${name} added at place ${place} of ${total}.`,
+      removed: (name: string) => `${name} taken off your screen.`,
+    },
     by: (author: string) => `By ${author}`,
     say: (text: string) => `Say: “${text}”`,
     quote: (text: string) => `“${text}”`,
