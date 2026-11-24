@@ -1,3 +1,5 @@
+import { Figure } from "./figure/figure";
+import { hasFigure } from "./figure/library";
 import { MOVE_BETWEENS } from "./moves-data";
 import { Dumbbell } from "lucide-react";
 import type { CSSProperties } from "react";
@@ -46,6 +48,18 @@ export function MoveArt({ slug, play = "none", frame = 1, label, className = "" 
       <span {...a11y} className={`flex items-center justify-center opacity-60 ${className}`}>
         <Dumbbell className="size-1/3 max-h-10 max-w-10" strokeWidth={1.5} aria-hidden="true" />
       </span>
+    );
+  }
+  // The mannequin performs the moves it knows; the rest still use the drawn frames.
+  if (hasFigure(slug)) {
+    return (
+      <Figure
+        slug={slug}
+        play={play}
+        label={label}
+        className={`block ${className}`}
+        phase={(frame - 1) / 4}
+      />
     );
   }
   if (play === "none") {

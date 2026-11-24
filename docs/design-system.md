@@ -99,6 +99,16 @@ Upstream, the three frames of an exercise are three separate drawings: hair-thin
 
 The key poses are upstream's. An in-between is an interpolation, not a drawing of the real movement: it is right for the eye at a fifth of a second, and it is why a move whose keys are too different to interpolate has none. `modules/train/move-art.test.ts` checks the committed files (one weight, inside the canvas, no empty frame), and `scripts/moves/moves.test.mjs` the pipeline. `pnpm moves --report FILE` writes what was done to each move. To look at the whole library playing at once, run `pnpm dev` and open `/es/dev/moves` (development only).
 
+### The mannequin
+
+A proposal, built far enough to judge ([ADR 0013](adr/0013-mannequin.md)): instead of drawings, a jointed figure performs the exercise. Twelve exercises exist; `MoveArt` uses the mannequin for those and the drawn frames for the rest. See them at `/es/dev/figure` (`pnpm dev`).
+
+- **The figure** is a silhouette in the current colour: a head, a torso and tapering limbs, nothing drawn on them. Limbs on the far side are dimmer, a limb in front of the body is set off by a thin gap, and gear is dimmer than the figure, so the eye finds the person first.
+- **A pose** is joint angles in a trainer's words (`modules/train/figure/rig.ts`): `{ lean: 40, legs: { flex: 100, bend: 112 } }` is the bottom of a squat. A limb can instead be told what to hold: `reach` (a point in space), `grip` (a point on the body, such as a bar across the shoulders) or `plant` (where a foot stands). The figure stands 100 units tall; x is to its right, y up from the floor, z the way it faces.
+- **Gear** is a set of parts drawn in space (`Gear` in `scene.ts`): `barbell`, `dumbbells`, `kettlebell`, `bench`, `bar`, `box`, `cable`, `handle`, `rail`. A machine is a few of them: the lat pulldown is a bench, a rail, a cable and a handle. A new part is one more case in `drawGear` and `reachOf`.
+- **An exercise** is a layout (`library.ts`): a view (`yaw`: 0 face on, 90 from the side), its gear and two or three key poses. Zoom and position are worked out so everything fits. To add one, copy the exercise most like it, change the angles and look at `/es/dev/figure`.
+- **Movement** is computed as it plays: poses are blended by angle, so limbs swing round their joints, and the loop rests at either end. Nothing is stored per frame. `figure.test.ts` checks every exercise all the way round its loop: bones keep their length, nothing goes through the floor or off the canvas.
+
 ## Voice and copy
 
 Spanish first (tú), English second, same tone: imperative, short and warm. "Dile a tu semana qué hacer." / "Talk your week into shape." Sentence case except display styles and labels. Times in 24 h, `4 × 8` with the multiplication sign, `80 kg` with a space. Empty states quote a real command. No emoji in the interface.
