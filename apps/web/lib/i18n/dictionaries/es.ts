@@ -206,7 +206,24 @@ export const es = {
     removeOne: (name: string) => `Quitar ${name}`,
     moveEarlier: (name: string) => `Mover ${name} antes`,
     moveLater: (name: string) => `Mover ${name} después`,
-    hint: "Arrastra para ordenar. Lo que quites no se borra: vuelve tal cual si lo añades otra vez.",
+    arranging: "Organizando tu pantalla",
+    hint: "Arrastra una tarjeta por su asa, o mantenla pulsada. Lo que quites no se borra: vuelve tal cual si lo añades otra vez.",
+    keysHint:
+      "En el asa: Espacio o Intro para coger la tarjeta, las flechas para moverla, Espacio o Intro para dejarla, Escape para cancelar.",
+    grab: (name: string) => `Mover ${name}`,
+    announce: {
+      picked: (name: string, place: number, total: number) =>
+        `Has cogido ${name}. Puesto ${place} de ${total}.`,
+      moved: (name: string, place: number, total: number) =>
+        `${name}, puesto ${place} de ${total}.`,
+      dropped: (name: string, place: number, total: number) =>
+        `Has dejado ${name} en el puesto ${place} de ${total}.`,
+      cancelled: (name: string, place: number, total: number) =>
+        `Cancelado: ${name} vuelve al puesto ${place} de ${total}.`,
+      added: (name: string, place: number, total: number) =>
+        `${name} entra en el puesto ${place} de ${total}.`,
+      removed: (name: string) => `${name} sale de tu pantalla.`,
+    },
     by: (author: string) => `De ${author}`,
     say: (text: string) => `Di: «${text}»`,
     quote: (text: string) => `«${text}»`,

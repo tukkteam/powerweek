@@ -4,7 +4,6 @@ import type { Doc } from "@tukkteam/modules";
 import { ChevronLeft, ChevronRight, GripVertical, Minus, Plus } from "lucide-react";
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -24,22 +23,19 @@ const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * The screen laid out like a desk of tiles, to arrange it by hand: drag a tile to move it, tap
- * its minus to take it off the screen, tap a module below to bring it on. Nothing is saved
- * until "Done", which sends one operation, so the whole rearrangement is one line in the
- * receipt and one undo. The same desk welcomes someone whose screen is still empty.
+ * The welcome for a screen that is still empty: the modules laid out like a desk of tiles. Tap
+ * a module to bring it on, drag a tile to move it, tap its minus to take it off. Nothing is
+ * saved until "Start", which sends one operation: one line in the receipt and one undo. Once
+ * there are cards, they are arranged in place instead (`PanelArranger`).
  */
 export function ModuleDesk({
   doc,
-  welcome = false,
   busy = false,
   onDone,
 }: {
   doc: Doc;
-  /** A request that may change the screen is on its way: "Done" waits for it. */
+  /** A request that may change the screen is on its way: "Start" waits for it. */
   busy?: boolean;
-  /** The first time: no modules yet, and the button says "Start". */
-  welcome?: boolean;
   /** The order the person left, or null when they changed nothing. */
   onDone: (order: string[] | null) => void;
 }) {
@@ -204,34 +200,12 @@ export function ModuleDesk({
     onDone(same ? null : order);
   }, [order, initial, onDone]);
 
-  // Escape leaves without saving, like closing a sheet.
-  useEffect(() => {
-    if (welcome) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onDone(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [welcome, onDone]);
-
   return (
     <section aria-label={t.title} className="flex flex-col gap-6">
-      {welcome ? (
-        <div className="flex max-w-2xl flex-col gap-3">
-          <h1 className="type-display">{t.welcomeTitle}</h1>
-          <p className="text-[1.0625rem] leading-relaxed text-ink-muted">{t.welcomeLead}</p>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <h2 className="type-label text-ink-muted">{t.onScreen}</h2>
-            <p className="type-caption max-w-xl text-ink-muted">{t.hint}</p>
-          </div>
-          <Button variant="primary" onClick={finish} disabled={busy}>
-            {t.done}
-          </Button>
-        </div>
-      )}
+      <div className="flex max-w-2xl flex-col gap-3">
+        <h1 className="type-display">{t.welcomeTitle}</h1>
+        <p className="text-[1.0625rem] leading-relaxed text-ink-muted">{t.welcomeLead}</p>
+      </div>
 
       {order.length > 0 ? (
         <ul
@@ -314,16 +288,10 @@ export function ModuleDesk({
             );
           })}
         </ul>
-      ) : welcome ? null : (
-        <p className="type-body rounded-[14px] border border-dashed border-line px-4 py-6 text-ink-muted">
-          {t.noneOnScreen}
-        </p>
-      )}
+      ) : null}
 
       <div className="flex flex-col gap-3">
-        {welcome && order.length === 0 ? null : (
-          <h2 className="type-label text-ink-muted">{t.available}</h2>
-        )}
+        {order.length === 0 ? null : <h2 className="type-label text-ink-muted">{t.available}</h2>}
         {available.length > 0 ? (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {available.map((module) => {
@@ -362,17 +330,15 @@ export function ModuleDesk({
         )}
       </div>
 
-      {welcome ? (
-        <Button
-          variant="primary"
-          size="lg"
-          className="self-start"
-          disabled={order.length === 0 || busy}
-          onClick={finish}
-        >
-          {t.start}
-        </Button>
-      ) : null}
+      <Button
+        variant="primary"
+        size="lg"
+        className="self-start"
+        disabled={order.length === 0 || busy}
+        onClick={finish}
+      >
+        {t.start}
+      </Button>
     </section>
   );
 }

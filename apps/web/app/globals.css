@@ -429,8 +429,22 @@
 .pw-jiggle {
   animation: pw-jiggle 380ms ease-in-out infinite;
 }
+/* Arranging the panel: real cards are larger, so they tremble less. */
+@keyframes pw-jiggle-soft {
+  0%,
+  100% {
+    rotate: -0.2deg;
+  }
+  50% {
+    rotate: 0.2deg;
+  }
+}
+.pw-jiggle-soft {
+  animation: pw-jiggle-soft 520ms ease-in-out infinite;
+}
 @media (prefers-reduced-motion: reduce) {
-  .pw-jiggle {
+  .pw-jiggle,
+  .pw-jiggle-soft {
     animation: none;
   }
 }

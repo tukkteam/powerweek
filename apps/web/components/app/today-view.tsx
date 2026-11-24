@@ -2,11 +2,12 @@
 
 import { weekLoads } from "@tukkteam/modules/week";
 import { Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "@/components/app/app-provider";
 import { DayBar } from "@/components/app/day-bar";
 import { ModuleDesk } from "@/components/app/module-desk";
 import { ModuleSlot } from "@/components/app/module-slot";
+import { PanelArranger } from "@/components/app/panel-arranger";
 import { useDayClock } from "@/components/app/use-day-clock";
 import { WeekPulse } from "@/components/app/week-pulse";
 import { useLocale } from "@/components/i18n/locale-provider";
@@ -19,15 +20,18 @@ import { toneStyle } from "@/modules/look";
 /**
  * One day, drawn: the Week Pulse to pick a day, the day as a progress bar, then one card per
  * module on screen, in the person's order. The last box is always the outline of the next
- * module: tapping it (or "Arrange") turns the cards into a desk of tiles to add, remove and
- * reorder them.
+ * module: tapping it (or "Arrange") puts the cards themselves in edit mode, at their real size,
+ * to add, remove and reorder them.
  */
 export function TodayView() {
   const { doc, today, dates, selectedDay, selectDay, listening, thinking, recordsOf, edit } =
     useApp();
   const { lang, dict } = useLocale();
   const [focus, setFocus] = useState<{ module: string; id: string; nonce: number } | null>(null);
-  const [arranging, setArranging] = useState(false);
+  // Arranging the panel, and whether it was opened to add a module.
+  const [arranging, setArranging] = useState<"arrange" | "add" | null>(null);
+  const arrangeButton = useRef<HTMLButtonElement>(null);
+  const returning = useRef(false);
 
   const shown = useMemo(() => shownModules(doc, lang), [doc, lang]);
   const loads = useMemo(() => weekLoads(kernel, doc), [doc]);
@@ -36,19 +40,27 @@ export function TodayView() {
   const dateLabel = shortDate(dates[selectedDay], lang);
   const counts = summaries(shown, selectedDay);
 
-  // The desk works on a copy of the screen. When the screen itself changes while it is open
+  // Arranging works on a copy of the screen. When the screen itself changes while it is open
   // (by voice, or on another device), it starts over from the new one, and while a request is
   // still on its way "Done" waits: it can never put back what that change took away.
   const layoutKey = doc.layout.join(" ");
 
   const arrange = (order: string[] | null) => {
-    setArranging(false);
+    returning.current = true;
+    setArranging(null);
     if (order) void edit([{ op: "layout.set", modules: order }]);
   };
 
+  // Leaving edit mode, the focus goes back to where it was entered.
+  useEffect(() => {
+    if (arranging || !returning.current) return;
+    returning.current = false;
+    arrangeButton.current?.focus({ preventScroll: true });
+  }, [arranging]);
+
   // Nothing on screen yet: the person chooses what they want to organise.
   if (shown.length === 0)
-    return <ModuleDesk key={layoutKey} doc={doc} welcome busy={thinking} onDone={arrange} />;
+    return <ModuleDesk key={layoutKey} doc={doc} busy={thinking} onDone={arrange} />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,12 +134,21 @@ export function TodayView() {
       </div>
 
       {arranging ? (
-        <ModuleDesk key={layoutKey} doc={doc} busy={thinking} onDone={arrange} />
+        <PanelArranger
+          key={layoutKey}
+          doc={doc}
+          day={selectedDay}
+          relation={relation}
+          now={now}
+          busy={thinking}
+          adding={arranging === "add"}
+          onDone={arrange}
+        />
       ) : (
         <section aria-label={dict.modules.title} className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="type-label text-ink-muted">{dict.modules.title}</h2>
-            <Button variant="ghost" onClick={() => setArranging(true)}>
+            <Button ref={arrangeButton} variant="ghost" onClick={() => setArranging("arrange")}>
               {dict.modules.arrange}
             </Button>
           </div>
@@ -144,7 +165,7 @@ export function TodayView() {
             ))}
             <button
               type="button"
-              onClick={() => setArranging(true)}
+              onClick={() => setArranging("add")}
               className="group flex min-h-32 flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-line text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
             >
               <span className="flex size-10 items-center justify-center rounded-full border border-dashed border-current">
