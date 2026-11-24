@@ -19,7 +19,7 @@ pnpm install
 pnpm checkup                 # what works on this machine, and how to fix what doesn't
 ```
 
-That is enough for `pnpm verify` and `pnpm preflight`: the unit tests and the build need no environment variables. To run the app, copy the example environment:
+That is enough for `pnpm preflight`: the unit tests need no environment variables, and for the build it fills in local placeholders when no Supabase values are set (`pnpm verify` on its own needs them in `.env.local`). To run the app, copy the example environment:
 
 ```bash
 cp apps/web/.env.example apps/web/.env.local
