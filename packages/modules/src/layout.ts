@@ -81,6 +81,7 @@ export function layoutOperations<M extends AnyModule>(): Record<
       {
         fields: { modules: ["<module id>", "<module id>"] },
         hint: "the screen shows exactly these modules in this order",
+        // True of every module a model can name. One this build does not know stays as it is.
       },
     ],
     apply(doc, input, ctx) {
@@ -92,11 +93,18 @@ export function layoutOperations<M extends AnyModule>(): Record<
       if (input.modules.length > 0 && wanted.length === 0) return "not_found";
       const before = doc.layout;
       // A module on screen that this build does not know cannot be named here, and is not ours
-      // to take off: it stays where it was. Another device may be showing it.
-      before.forEach((id, index) => {
-        if (!ctx.modules.some((module) => module.id === id))
-          wanted.splice(Math.min(index, wanted.length), 0, id);
-      });
+      // to take off: another device may be showing it. It stays right after what came before
+      // it, so taking a module off or moving one never moves it on that other screen.
+      let anchor: string | null = null;
+      for (const id of before) {
+        if (ctx.modules.some((module) => module.id === id)) {
+          if (wanted.includes(id)) anchor = id;
+          continue;
+        }
+        wanted.splice(anchor === null ? 0 : wanted.indexOf(anchor) + 1, 0, id);
+        anchor = id;
+      }
+      if (wanted.length > MAX_LAYOUT) return "limit";
       if (before.length === wanted.length && before.every((id, i) => id === wanted[i]))
         return "noop";
       for (const id of before) {

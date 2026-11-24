@@ -27,7 +27,7 @@ You write the parts above. The kernel does the rest, the same way for every modu
 - **Receipts and undo.** Every operation reports what it changed. The app shows those lines in the Change Receipt and saves the plan as a new version, so one tap undoes it.
 - **Whole or not at all.** Operations are validated and applied one by one. One that fails, throws, reports nothing or leaves data your schema rejects is undone and listed as rejected; the ones around it still apply. Data a module would not accept is never saved, and an operation that leaves everything exactly as it was is not a change: saving an untouched form does not make a new version of the plan.
 - **Data nobody can change by accident.** Outside `apply`, the data you are handed is frozen: a hook, a view or a record operation that tries to change it throws, and that failure stays inside your module.
-- **The screen.** Which modules are on screen and in what order is part of the plan (`layout`), changed by operations like any other data: `layout.add`, `layout.remove`, `layout.move`, `layout.set`. Using an operation of a module that is off screen puts it on screen.
+- **The screen.** Which modules are on screen and in what order is part of the plan (`layout`), changed by operations like any other data: `layout.add`, `layout.remove`, `layout.move`, `layout.set`. An operation that changes something in a module that is off screen puts it on screen.
 - **Isolation.** Modules never see each other. A module whose stored data this version cannot read is set aside: it shows a notice, its operations are refused and its data is left untouched. A card, a week box or a detail that throws while drawing shows a notice (or nothing) in its place. In every case the rest of the screen keeps working.
 - **Sync and storage.** The plan is one JSON document per person, saved with optimistic concurrency and mirrored to other devices. The database checks the envelope, not what modules store, so a new module needs no migration.
 
@@ -172,7 +172,7 @@ const done = Boolean(records.get(day, item.id));
 <button onClick={() => records.set(day, item.id, done ? null : true)} />;
 ```
 
-`records.set` saves at once, in the order of the calls, with no receipt and no validation: it does not go through `resolve`.
+`records.set` shows the fact at once and saves it behind, with no receipt and no validation: it does not go through `resolve`. Writes to the same key go out in the order of the calls, and one that cannot be saved puts the fact back as it was.
 
 **By voice**, declare a record operation (`record` comes from `parts()`, like `operation`). It resolves what was said into writes; its `state` is frozen, so it cannot touch the plan:
 

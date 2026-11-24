@@ -35,6 +35,7 @@ import {
   type Entries,
 } from "@/lib/plan-api";
 import { unmet } from "@/lib/receipt";
+import { createRecordSync, type RecordSync } from "@/lib/record-sync";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { kernel } from "@/modules";
 import type { ModuleRecords } from "@/modules/host";
@@ -158,13 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const versionRef = useRef(version);
   const receiptRef = useRef(receipt);
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
-  // Dated facts are written one key at a time, in the order they were made. `recordsSeq` counts
-  // what was tapped, so a reload that was on its way while something was tapped is never shown
-  // over it; `recordsStale` asks for another look once the writes have settled.
-  const recordChains = useRef(new Map<string, Promise<void>>());
-  const recordsPending = useRef(0);
-  const recordsSeq = useRef(0);
-  const recordsStale = useRef(false);
+  const records = useRef<RecordSync | null>(null);
   const counter = useRef(0);
 
   const updateReceipt = useCallback((next: Receipt | null) => {
@@ -209,12 +204,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       setUser(toAppUser(data.user));
-      const [fresh, profileRow] = await Promise.all([
-        fetchPlan(supabase),
-        supabase.from("profiles").select("display_name, locale, time_zone").maybeSingle(),
-      ]);
+      // The plan and the profile are asked for together, but the profile does not wait on the
+      // plan: Settings must show the person's own profile even when the plan cannot be read.
+      const plan = fetchPlan(supabase);
+      plan.catch(() => undefined);
+      const profileRow = await supabase
+        .from("profiles")
+        .select("display_name, locale, time_zone")
+        .maybeSingle();
       if (cancelled) return;
-      commit(fresh.doc, fresh.version);
       const row = profileRow.data;
       const timeZone =
         row?.time_zone && isValidTimeZone(row.time_zone) ? row.time_zone : browserTimeZone();
@@ -226,6 +224,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const now = zonedToday(timeZone);
       setToday(now);
       setSelectedDay(now.dayKey);
+      const fresh = await plan;
+      if (cancelled) return;
+      commit(fresh.doc, fresh.version);
       setPhase("ready");
     })().catch((error) => {
       if (cancelled) return;
@@ -262,30 +263,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [profile.timeZone]);
 
-  // Dated facts (ticks, picks, counts) of every module for the visible week.
-  const loadEntries = useCallback(async () => {
-    const seq = recordsSeq.current;
-    const fresh = await fetchEntries(supabase, dates.mon, dates.sun);
-    if (!fresh) return;
-    // Something was tapped while this was on its way: what is on screen is newer.
-    if (seq !== recordsSeq.current || recordsPending.current > 0) {
-      recordsStale.current = true;
-      return;
-    }
-    recordsStale.current = false;
-    setEntries(fresh);
-  }, [supabase, dates.mon, dates.sun]);
-
+  // Dated facts (ticks, picks, counts) of every module for the visible week: shown at once when
+  // tapped, written behind, and never out of step with what is stored (see `record-sync.ts`).
+  const userId = user?.id;
+  const generalError = dict.errors.generic;
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    void fetchEntries(supabase, dates.mon, dates.sun).then((fresh) => {
-      if (!cancelled && fresh) setEntries(fresh);
+    if (!userId) return;
+    const sync = createRecordSync({
+      read: () => fetchEntries(supabase, dates.mon, dates.sun),
+      write: (fact) => writeEntry(supabase, { userId, ...fact }),
+      show: setEntries,
+      failed: () => notify(generalError),
     });
+    records.current = sync;
+    void sync.load();
+    // Back online: whatever could not be checked while away is checked now.
+    const online = () => sync.retry();
+    window.addEventListener("online", online);
     return () => {
-      cancelled = true;
+      window.removeEventListener("online", online);
+      sync.dispose();
+      if (records.current === sync) records.current = null;
     };
-  }, [supabase, user, dates.mon, dates.sun]);
+  }, [supabase, userId, dates.mon, dates.sun, notify, generalError]);
 
   const showReceipt = useCallback(
     (
@@ -430,7 +430,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return false;
           }
           if (changes.length > 0) commit(next, body.version as number);
-          if (body.recorded) void loadEntries();
+          if (body.recorded) void records.current?.load();
           showReceipt(
             "assistant",
             changes,
@@ -461,7 +461,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reload,
       showReceipt,
       dict,
-      loadEntries,
     ],
   );
 
@@ -485,38 +484,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const recordsOf = useCallback(
     (module: string): ModuleRecords => ({
       get: (day, key) => entries.get(entryKey(dates[day], module, key)),
-      set: (day, key, value) => {
-        if (!user) return;
-        const isoDate = dates[day];
-        const id = entryKey(isoDate, module, key);
-        recordsSeq.current += 1;
-        recordsPending.current += 1;
-        setEntries((previous) => {
-          const copy = new Map(previous);
-          if (value === null) copy.delete(id);
-          else copy.set(id, value);
-          return copy;
-        });
-        // Writes to the same fact go out one after another, so two quick taps on a counter
-        // cannot overtake each other; a slow one never holds back the facts next to it.
-        const chains = recordChains.current;
-        const run: Promise<void> = (chains.get(id) ?? Promise.resolve())
-          .then(() => writeEntry(supabase, { userId: user.id, isoDate, module, key, value }))
-          .catch(() => false)
-          .then((ok) => {
-            recordsPending.current -= 1;
-            if (chains.get(id) === run) chains.delete(id);
-            if (!ok) {
-              recordsStale.current = true;
-              notify(dict.errors.generic);
-            }
-            // Once nothing is on its way, show what is really stored.
-            if (recordsStale.current && recordsPending.current === 0) void loadEntries();
-          });
-        chains.set(id, run);
-      },
+      set: (day, key, value) => records.current?.set(dates[day], module, key, value),
     }),
-    [entries, dates, user, supabase, notify, dict.errors.generic, loadEntries],
+    [entries, dates],
   );
 
   const updateProfile = useCallback(

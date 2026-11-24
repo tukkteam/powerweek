@@ -15,8 +15,10 @@ import type { Locale } from "@/lib/i18n/config";
 export interface ModuleRecords {
   get(day: DayKey, key: string): Json | undefined;
   /**
-   * Store a fact for that day's date; null removes it. Saved at once, in the order of the calls,
-   * with no receipt. A key is 1 to 96 characters and a value at most 2000 bytes of JSON.
+   * Store a fact for that day's date; null removes it. Shown at once and saved behind it, with
+   * no receipt; writes to the same key go out in the order of the calls, and one that cannot
+   * be saved puts the fact back. A key is 1 to 96 characters and a value at most 2000 bytes of
+   * JSON.
    */
   set(day: DayKey, key: string, value: Json | null): void;
 }

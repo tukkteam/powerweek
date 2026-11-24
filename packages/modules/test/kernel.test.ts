@@ -566,14 +566,27 @@ describe("the screen", () => {
       layout: ["tasks", "habits", "note"],
       modules: { habits: { v: 1, data: { items: [] } } },
     });
+    // It follows what came before it ("tasks"), wherever that goes.
     const result = kernel.apply(stored, [{ op: "layout.set", modules: ["note", "tasks"] }]);
-    expect(result.doc.layout).toEqual(["note", "habits", "tasks"]);
+    expect(result.doc.layout).toEqual(["note", "tasks", "habits"]);
     expect(result.changes.map((c) => c.kind)).toEqual(["move"]);
+    // Taking off the module before it is not a move: nothing swaps places on the other device.
+    const without = kernel.apply(stored, [{ op: "layout.set", modules: ["note"] }]);
+    expect(without.doc.layout).toEqual(["habits", "note"]);
+    expect(without.changes.map((c) => `${c.kind}:${c.label}`)).toEqual(["remove:tasks"]);
     const emptied = kernel.apply(stored, [{ op: "layout.set", modules: [] }]);
     expect(emptied.doc.layout).toEqual(["habits"]);
     expect(kernel.apply(emptied.doc, [{ op: "layout.set", modules: [] }]).rejected[0]?.reason).toBe(
       "noop",
     );
+  });
+
+  it("never sets a screen longer than a document may hold", () => {
+    const strangers = Array.from({ length: 23 }, (_, i) => `later${i}`);
+    const crowded = read({ schemaVersion: 2, layout: [...strangers, "tasks"], modules: {} });
+    const result = kernel.apply(crowded, [{ op: "layout.set", modules: ["tasks", "note"] }]);
+    expect(result.rejected).toEqual([{ index: 0, op: "layout.set", reason: "limit" }]);
+    expect(result.doc).toBe(crowded);
   });
 
   it("rejects what would change nothing or names nothing known", () => {
