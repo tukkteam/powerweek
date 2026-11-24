@@ -1,3 +1,5 @@
+<!-- AI agents: read AGENTS.md first, then CONTRIBUTING.md (Part 2: For AI agents) before changing anything. -->
+
 <p align="center">
   <img src="apps/web/public/icon.svg" width="88" height="88" alt="PowerWeek">
 </p>
@@ -81,7 +83,16 @@ pnpm dev                                        # http://localhost:3000
 
 ## Contribuir
 
-Las issues y pull requests son bienvenidas: empieza por [CONTRIBUTING.md](CONTRIBUTING.md). Respeta el [código de conducta](CODE_OF_CONDUCT.md) e informa de vulnerabilidades en privado ([SECURITY.md](SECURITY.md)).
+PowerWeek se desarrolla en abierto y cualquiera puede contribuir: cualquiera puede abrir una issue, y cualquiera puede abrir una pull request a partir de una. Para pasar los tests y el build no necesitas cuentas ni claves.
+
+```bash
+pnpm checkup              # qué funciona en tu máquina
+pnpm issue 42 --claim     # una rama para la issue #42, y un aviso de que la coges tú
+pnpm preflight            # las normas de la casa y todo lo que ejecuta la CI
+pnpm pr                   # el borrador de la pull request
+```
+
+La guía está en [CONTRIBUTING.md](CONTRIBUTING.md) (en inglés): la parte 1 es para personas, la parte 2 para agentes de IA. Si trabajas con un agente, apúntalo a [AGENTS.md](AGENTS.md). Las issues y las preguntas pueden ser en español. Respeta el [código de conducta](CODE_OF_CONDUCT.md) e informa de vulnerabilidades en privado ([SECURITY.md](SECURITY.md)).
 
 ## Licencia
 
