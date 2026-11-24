@@ -63,11 +63,23 @@ supabase test db             # run the pgTAP tests
 | `pnpm pr`                            | Drafts the pull request; `--create` pushes and opens it                      |
 | `pnpm verify`                        | What CI runs: tokens check, lint, typecheck, unit tests and production build |
 | `pnpm test`                          | Unit tests (the kernel, every module, parity with old plans, prompt, i18n)   |
-| `pnpm --filter @powerweek/web e2e`   | Playwright smoke tests (build first with `pnpm build`)                       |
+| `pnpm --filter @powerweek/web e2e`   | Playwright tests of the public pages (build first with `pnpm build`)         |
 | `pnpm tokens`                        | Regenerate `tokens.css` from `tokens.json`                                   |
 | `pnpm moves`                         | Re-import the exercise illustrations and catalogue (needs network)           |
 | `pnpm --filter @powerweek/web icons` | Regenerate app icons from the mark                                           |
 | `pnpm db:types`                      | Regenerate `database.types.ts` from the linked project                       |
+
+## End-to-end tests of the app
+
+The tests in `apps/web/e2e/app` use the app signed in: each one starts a new anonymous account, as anyone trying PowerWeek does, and deletes it at the end. They need the build to point at a real Supabase with the migrations applied, so they only run with `E2E_APP=1`. CI runs them for every pull request against a local stack (the "App e2e" job). On your machine, with Docker:
+
+```bash
+supabase start                       # then put its API URL and publishable key in apps/web/.env.local
+pnpm build
+E2E_APP=1 pnpm --filter @powerweek/web e2e e2e/app
+```
+
+Anonymous sign-ins are limited to 30 an hour per IP (`supabase/config.toml`), and each test uses one per browser project. Run them against your own project only, never against the production one.
 
 ## Conventions
 

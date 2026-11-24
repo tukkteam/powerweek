@@ -220,7 +220,7 @@ All four accept `--json` and then print a single JSON object on stdout (command 
 
 - `next dev` re-adds a block to `apps/web/AGENTS.md`. Leave that block alone; committing it keeps the tree clean.
 - A TypeScript error in `en.ts` usually means a key you added to `es.ts` is missing in English (house rule 4).
-- The end-to-end tests run against a production build; `pnpm preflight --e2e` builds first. Run on their own, they need `pnpm build` before.
+- The end-to-end tests run against a production build; `pnpm preflight --e2e` builds first. Run on their own, they need `pnpm build` before. The tests of the signed-in app (`apps/web/e2e/app`) also need a real Supabase and `E2E_APP=1`; CI runs them, see [docs/development.md](docs/development.md#end-to-end-tests-of-the-app).
 - Unit tests need no environment variables. The build needs the two public Supabase values to be _set_, not reachable: `pnpm preflight` and CI fill in local placeholders when they are missing.
 - `plans.doc` is a document of modules handled by the kernel in `packages/modules`. Change it with operations through the kernel, never with JSON edits or SQL.
 - The pgTAP tests and the Supabase local stack need Docker. If it isn't running, don't install or start it on your own; leave the database tests to CI and say so.
