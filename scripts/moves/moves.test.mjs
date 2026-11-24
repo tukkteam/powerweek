@@ -14,6 +14,7 @@ import {
   inverse,
 } from "./register.mjs";
 import { corners, graph, prune, simplify, smooth, strokes } from "./trace.mjs";
+import { bend, between, matchRings, silhouettes } from "./tween.mjs";
 import { pathData, sample } from "./vector.mjs";
 
 /** A blank image with the rectangles given as [x0, y0, x1, y1] (inclusive) filled in. */
@@ -441,4 +442,76 @@ test("a round shape inside a figure is a thing of its own, however small", () =>
   ];
   const lines = finish(redraw(inked(2, ...square, ...head)));
   assert.ok(Math.abs(drawnLength(lines) - 864) < 20, `drawn: ${drawnLength(lines)}`);
+});
+
+/** A box drawn as one closed stroke, `w` by `h`, with its top-left corner at (x, y). */
+const box = (x, y, w, h) => ({
+  points: [
+    [x, y],
+    [x + w, y],
+    [x + w, y + h],
+    [x, y + h],
+  ],
+  closed: true,
+});
+
+test("silhouettes finds the solid shapes of a drawing and walks round each", () => {
+  const shapes = silhouettes([box(100, 100, 120, 80), box(320, 300, 60, 60)], 4);
+  assert.equal(shapes.length, 2);
+  // Largest first; the ring goes round the outside of the pen line.
+  assert.ok(Math.abs(shapes[0].area - 124 * 84) < 600, `area ${shapes[0].area}`);
+  const xs = shapes[0].ring.map((p) => p[0]);
+  assert.ok(Math.min(...xs) < 101 && Math.max(...xs) > 219);
+});
+
+test("matchRings pairs every point of an outline with the same point of its copy", () => {
+  const [{ ring }] = silhouettes([box(100, 100, 120, 80)], 4);
+  const moved = ring.map(([x, y]) => [x + 6, y - 4]);
+  const { pairs } = matchRings(ring, moved);
+  const apart = pairs.map(([i, j]) =>
+    Math.hypot(moved[j][0] - ring[i][0] - 6, moved[j][1] - ring[i][1] + 4),
+  );
+  assert.ok(Math.max(...apart) < 9, `worst pair is ${Math.max(...apart)} off`);
+});
+
+test("bend moves handles exactly, carries what lies between, and leaves a still drawing alone", () => {
+  const from = [
+    [0, 0],
+    [100, 0],
+  ];
+  const points = [
+    [0, 0],
+    [50, 0],
+    [50, 20],
+  ];
+  assert.deepEqual(bend(points, from, from), points);
+  // Both handles go up by 10: so does everything.
+  const up = bend(points, from, [
+    [0, -10],
+    [100, -10],
+  ]);
+  for (const [i, p] of up.entries())
+    assert.ok(Math.hypot(p[0] - points[i][0], p[1] - points[i][1] + 10) < 1e-6);
+});
+
+test("between draws the pose halfway, and says how sure it is", () => {
+  // A post on the ground with an arm that is up in one pose and lower in the other.
+  const pose = (armY) => [box(200, 380, 200, 40), box(280, 160, 40, 220), box(320, armY, 110, 30)];
+  const { strokes, agreement, strain } = between(pose(180), pose(240), 4);
+  // The arm is part of the way down, between where the two poses have it; the ground has not
+  // moved.
+  const arm = strokes[2].points.map((p) => p[1]);
+  const top = Math.min(...arm);
+  assert.ok(top > 192 && top < 228, `arm top at ${top}`);
+  const ground = strokes[0].points.map((p) => p[1]);
+  assert.ok(Math.abs(Math.max(...ground) - 420) < 4);
+  assert.ok(agreement > 0.9 && strain < 1.4, `agreement ${agreement}, strain ${strain}`);
+
+  // Two drawings with nothing in common do not give a pose to trust.
+  const other = [box(60, 60, 30, 380), box(300, 60, 150, 30), box(380, 300, 80, 150)];
+  const wild = between(pose(180), other, 4);
+  assert.ok(
+    wild.agreement < 0.9 || wild.strain > 1.4,
+    `agreement ${wild.agreement}, strain ${wild.strain}`,
+  );
 });

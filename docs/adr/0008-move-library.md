@@ -31,7 +31,7 @@ The "breathing" turned out to be more than scale. Upstream's three frames per ex
 
 - The files are stroked paths now (`fill="none"`, one `stroke-width`), about the same size as before (6.0 MB for 906 frames). They are still masks in the app.
 - The figures are simplified: lines drawn on a shape rather than round it (muscles, creases, machine details) are left out, so a drawing still reads at the size of a card.
-- The poses are still upstream's three key poses. In-between frames, or a brand redraw, can keep the same slugs and file layout.
+- The key poses are still upstream's three. Where two keys are alike enough, a pose halfway between them is derived by matching their silhouettes and bending one drawing towards the other (`scripts/moves/tween.mjs`), and kept only if it holds together: 218 of 604 today, so 57 moves play through five poses, 104 through four and 141 through the three keys. Covering every move would take poses the library does not have: a rigged figure, or drawings made for the purpose. Either can keep the same slugs and file layout.
 - A few frames cut off upstream stay cut off, and frames drawn very thick upstream keep less inner detail than their neighbours: the detail was never there.
 - The changes are listed in `THIRD_PARTY_NOTICES.md` and `apps/web/public/moves/README.md`, as CC BY-SA 4.0 asks.
 - `svgo` is no longer a dependency. Drawing needs `sharp`, which the web app already had.

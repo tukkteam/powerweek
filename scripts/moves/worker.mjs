@@ -2,7 +2,7 @@
  * A worker thread of scripts/moves.mjs: redraws the moves it is given, writes their frames and
  * reports what it did to each.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
 import { anchorOf, compose3, readInk, redraw } from "./art.mjs";
@@ -21,7 +21,7 @@ for (const { slug, equipment } of entries) {
     drawings.push(redraw(await readInk(svg)));
   }
   const anchor = anchorOf(slug, equipment);
-  const { svgs, transforms, links, stoodIn } = compose3(drawings, anchor);
+  const { svgs, tweens, transforms, links, stoodIn } = compose3(drawings, anchor);
   mkdirSync(join(publicDir, slug), { recursive: true });
   let bytesOut = 0;
   svgs.forEach((svg, i) => {
@@ -29,6 +29,15 @@ for (const { slug, equipment } of entries) {
       throw new Error(`${slug} frame ${frames[i]}: nothing was drawn`);
     writeFileSync(join(publicDir, slug, `${frames[i]}.svg`), `${svg}\n`);
     bytesOut += svg.length + 1;
+  });
+  // In-between poses sit beside the keys they join: 1-2.svg, 2-3.svg. One that would not hold
+  // together is not written (and an old one is removed).
+  tweens.forEach(({ svg }, i) => {
+    const file = join(publicDir, slug, `${frames[i]}-${frames[i + 1]}.svg`);
+    if (svg) {
+      writeFileSync(file, `${svg}\n`);
+      bytesOut += svg.length + 1;
+    } else rmSync(file, { force: true });
   });
   parentPort.postMessage({
     slug,
@@ -42,6 +51,12 @@ for (const { slug, equipment } of entries) {
     cut: drawings.map((d) => d.cut),
     // Frames that were all but empty upstream, and the frame that stands in for each.
     stoodIn,
+    // In-betweens: which were good enough to keep, and how each scored.
+    between: tweens.map((t) => ({
+      kept: Boolean(t.svg),
+      agreement: round(t.agreement),
+      strain: round(t.strain),
+    })),
     placed: transforms.map((t) => ({ scale: round(t.scale), dx: round(t.dx), dy: round(t.dy) })),
     links: links.map((l) => ({ ...l, score: round(l.score), gain: round(l.gain) })),
   });

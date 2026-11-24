@@ -22,7 +22,8 @@ import {
   smooth,
   strokes,
 } from "./trace.mjs";
-import { pathData, sample } from "./vector.mjs";
+import { between } from "./tween.mjs";
+import { pathData } from "./vector.mjs";
 
 // sharp is a dependency of the web app (it draws the app icons); borrow it from there instead of
 // adding it to the repository root.
@@ -69,6 +70,13 @@ export const PEN = {
    */
   mark: 140,
   cell: 420,
+  /**
+   * In-between poses (tween.mjs): a pose halfway between two keys is shown only when drawing it
+   * from either key gives the same silhouette, at least `agreement` of it shared, and no line
+   * had to stretch by more than `strain`. Otherwise the figure would tear, and the loop goes
+   * straight from key to key there instead. Set `agreement` above 1 for no in-betweens at all.
+   */
+  tween: { agreement: 0.9, strain: 1.4 },
   outlineGap: 5,
   carryOn: 30,
   look: 45,
@@ -254,7 +262,15 @@ export function compose3(given, anchor = "ground") {
       closed,
     })),
   );
-  return { drawings, svgs: drawings.map(toSvg), transforms: placed, links, stoodIn };
+  // A pose halfway between each pair of keys, where one can be drawn that holds together.
+  const tweens = [0, 1].map((i) => {
+    if (stoodIn[i] !== null || stoodIn[i + 1] !== null)
+      return { svg: null, agreement: 0, strain: 0 };
+    const { strokes, agreement, strain } = between(drawings[i], drawings[i + 1], PEN.weight);
+    const good = agreement >= PEN.tween.agreement && strain <= PEN.tween.strain;
+    return { svg: good ? toSvg(strokes) : null, agreement, strain };
+  });
+  return { drawings, svgs: drawings.map(toSvg), tweens, transforms: placed, links, stoodIn };
 }
 
 /**

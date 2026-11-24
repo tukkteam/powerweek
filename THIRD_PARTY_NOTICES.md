@@ -5,7 +5,8 @@ each under its own license.
 
 ## Exercise illustrations: Workout Guide and Everkinetic (CC BY-SA 4.0)
 
-- Files: `apps/web/public/moves/**` (906 SVG frames, three per exercise).
+- Files: `apps/web/public/moves/**` (906 SVG frames, three per exercise, and the in-between poses
+  derived from them).
 - Source: [Workout Guide](https://github.com/bryllim/workout-guide) by Bryl Lim, commit
   `aac5992`, whose pose artwork builds on [Everkinetic](https://github.com/everkinetic/data).
 - License: [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/).
@@ -15,7 +16,9 @@ each under its own license.
   left out; the three frames of each exercise are moved and scaled so that what stays
   still (the floor, a bench, a bar) lies in the same place; each exercise is fitted to the canvas
   with the same margin; and one frame that is all but empty upstream (`pallof-press`, frame 2)
-  is replaced by the pose before it. Poses are not altered. The app tints the drawings at render
+  is replaced by the pose before it. The three poses of each exercise are upstream's; files named
+  `1-2.svg` and `2-3.svg` are new, a pose halfway between two of upstream's made by bending one
+  drawing towards the next. The app tints the drawings at render
   time with CSS masks. The adapted files keep the CC BY-SA 4.0 license.
 - Per-frame credits, including the Everkinetic source of each adapted pose, are in the upstream
   [manifest](https://github.com/bryllim/workout-guide/blob/aac599224bb9780305239607ef98540b7e0ce389/packages/workout-guide/manifest.json).

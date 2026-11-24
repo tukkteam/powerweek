@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { MoveArt } from "@/modules/train/move-art";
-import { MOVE_ROWS } from "@/modules/train/moves-data";
+import { MOVE_BETWEENS, MOVE_ROWS } from "@/modules/train/moves-data";
 
 /**
  * /es/dev/moves: every exercise illustration, playing. For checking the whole library after
@@ -23,7 +23,8 @@ export default function MovesPage() {
       <header>
         <h1 className="type-display">Move library</h1>
         <p className="type-body text-ink-muted">
-          {MOVE_ROWS.length} moves, three frames each, from apps/web/public/moves. Redraw them with
+          {MOVE_ROWS.length} moves from apps/web/public/moves: three key poses each, and a pose in
+          between where one could be drawn that holds together (marked +1 or +2). Redraw them with
           pnpm moves; how they are drawn is in scripts/moves/art.mjs.
         </p>
       </header>
@@ -34,7 +35,12 @@ export default function MovesPage() {
             className="flex flex-col gap-2 rounded-[14px] border border-line bg-surface p-3 text-tone [content-visibility:auto] [contain-intrinsic-size:auto_220px]"
           >
             <MoveArt slug={slug} play="loop" label={name} className="aspect-square w-full" />
-            <span className="type-caption text-ink-muted">{name}</span>
+            <span className="type-caption text-ink-muted">
+              {name}
+              {MOVE_BETWEENS[slug] ? (
+                <span className="text-tone"> +{MOVE_BETWEENS[slug] === 3 ? 2 : 1}</span>
+              ) : null}
+            </span>
           </li>
         ))}
       </ul>

@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { MOVE_FRAMES } from "./moves";
-import { MOVE_ROWS } from "./moves-data";
+import { moveLoop } from "./move-art";
+import { MOVE_BETWEENS, MOVE_ROWS } from "./moves-data";
 
 /*
  * The illustrations are generated (pnpm moves), and what makes them play well is that they are
@@ -39,14 +40,39 @@ function reach(d: string) {
 }
 
 describe("move art", () => {
+  const BETWEENS = ["1-2", "2-3"] as const;
+  const has = (slug: string, i: number) => Boolean((MOVE_BETWEENS[slug] ?? 0) & (i + 1));
+  // The key poses of every move, and the in-between poses the catalogue says it has.
   const frames = MOVE_ROWS.flatMap(([slug]) =>
-    MOVE_FRAMES.map((frame) => ({ slug, frame, file: `${dir}/${slug}/${frame}.svg` })),
+    [...MOVE_FRAMES, ...BETWEENS.filter((_, i) => has(slug, i))].map((frame) => ({
+      slug,
+      frame,
+      file: `${dir}/${slug}/${frame}.svg`,
+    })),
   );
 
-  it("has three frames for every move in the catalogue", () => {
+  it("has three frames for every move, and exactly the in-betweens the catalogue lists", () => {
     expect(MOVE_ROWS.length).toBeGreaterThanOrEqual(300);
     const missing = frames.filter((f) => !existsSync(f.file)).map((f) => `${f.slug}/${f.frame}`);
     expect(missing).toEqual([]);
+    const unlisted = MOVE_ROWS.flatMap(([slug]) =>
+      BETWEENS.filter((name, i) => !has(slug, i) && existsSync(`${dir}/${slug}/${name}.svg`)).map(
+        (name) => `${slug}/${name}`,
+      ),
+    );
+    expect(unlisted).toEqual([]);
+    expect(Object.keys(MOVE_BETWEENS).every((slug) => MOVE_ROWS.some(([s]) => s === slug))).toBe(
+      true,
+    );
+  });
+
+  it("plays every move as five poses: the keys, with an in-between or the middle key between", () => {
+    const [slug] = Object.entries(MOVE_BETWEENS).find(([, mask]) => mask === 3) ?? [];
+    if (slug) expect(moveLoop(slug)).toEqual([1, "1-2", 2, "2-3", 3]);
+    const [plain] = MOVE_ROWS.find(([s]) => !MOVE_BETWEENS[s]) ?? [];
+    if (plain) expect(moveLoop(plain)).toEqual([1, 2, 2, 2, 3]);
+    const [first] = Object.entries(MOVE_BETWEENS).find(([, mask]) => mask === 1) ?? [];
+    if (first) expect(moveLoop(first)).toEqual([1, "1-2", 2, 2, 3]);
   });
 
   it("draws every frame of every move with the same pen, inside the canvas", () => {
@@ -72,7 +98,7 @@ describe("move art", () => {
     }
     expect(wrong).toEqual([]);
     expect([...weights], "one line weight for the whole library").toHaveLength(1);
-    expect(bytes).toBeLessThan(8 * 1024 * 1024);
+    expect(bytes).toBeLessThan(9 * 1024 * 1024);
   });
 
   it("fills the canvas alike: each move reaches its margin on at least one side", () => {
