@@ -25,8 +25,8 @@ const ARBITRARY = /\[(?:transition|animation)(?:-duration|-timing-function)?:([^
 /** The same in a React style object. */
 const STYLE_KEY =
   /\b(?:transition|animation|transitionDuration|transitionTimingFunction|animationTimingFunction)\s*:\s*(["'`])([^"'`]*)\1/g;
-/** Web Animations API options: a number or a string typed in place of a token. */
-const ANIMATE_OPTION = /\b(duration|easing)\s*:\s*(?:\d|["'`])/g;
+/** Web Animations API and `motion` options: a number or a string typed in place of a token. */
+const ANIMATE_OPTION = /\b(duration|easing|ease)\s*:\s*(?:\d|["'`])/g;
 
 const TAILWIND: [RegExp, string][] = [
   [/(?<![\w-])duration-\d/, "a Tailwind duration; use duration-(--duration-…)"],
@@ -79,7 +79,7 @@ export function findMotionLiterals(path: string, source: string): MotionLiteral[
   else {
     values(ARBITRARY, 1);
     values(STYLE_KEY, 2);
-    if (/\.animate\(/.test(text))
+    if (/\banimate\(/.test(text))
       for (const m of text.matchAll(ANIMATE_OPTION))
         add(m.index!, `a hand-written ${m[1]} in an animation; use durations, easings or springs`);
   }

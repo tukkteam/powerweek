@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageSlide } from "@/components/app/page-slide";
 import { SettingsView } from "@/components/app/settings-view";
 import { getDictionary, hasLocale } from "@/lib/i18n";
 
@@ -10,5 +11,9 @@ export async function generateMetadata({
 }
 
 export default function SettingsPage() {
-  return <SettingsView />;
+  return (
+    <PageSlide>
+      <SettingsView />
+    </PageSlide>
+  );
 }

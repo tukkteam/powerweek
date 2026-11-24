@@ -437,6 +437,92 @@
 }
 
 /*
+ * Dialogs grow out of what was tapped (components/app/use-dialog-motion.ts moves the box); the
+ * backdrop fades in and out with them, and what is inside arrives in a short cascade.
+ */
+dialog[open]::backdrop {
+  animation: pw-fade var(--duration-base) var(--easing-standard) both;
+}
+dialog[data-closing]::backdrop {
+  animation: pw-fade var(--duration-base) var(--easing-exit) reverse both;
+}
+.pw-stagger > * {
+  animation: pw-rise var(--duration-slow) var(--easing-standard) backwards;
+}
+.pw-stagger > :nth-child(1) {
+  animation-delay: 70ms;
+}
+.pw-stagger > :nth-child(2) {
+  animation-delay: 110ms;
+}
+.pw-stagger > :nth-child(3) {
+  animation-delay: 150ms;
+}
+.pw-stagger > :nth-child(4) {
+  animation-delay: 190ms;
+}
+.pw-stagger > :nth-child(5) {
+  animation-delay: 230ms;
+}
+.pw-stagger > :nth-child(n + 6) {
+  animation-delay: 270ms;
+}
+
+/*
+ * Moving between Today, Week and Settings: the page slides the way the tabs go, old and new side
+ * by side like one strip, on the smooth spring. The header and the Voice Dock hold still above
+ * it. Links say which way they go (`transitionTypes`); components/app/page-slide.tsx listens.
+ */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.pw-forward) {
+  animation: pw-out-left var(--spring-smooth-duration) var(--spring-smooth) both;
+}
+::view-transition-new(.pw-forward) {
+  animation: pw-in-right var(--spring-smooth-duration) var(--spring-smooth) both;
+}
+::view-transition-old(.pw-back) {
+  animation: pw-out-right var(--spring-smooth-duration) var(--spring-smooth) both;
+}
+::view-transition-new(.pw-back) {
+  animation: pw-in-left var(--spring-smooth-duration) var(--spring-smooth) both;
+}
+@keyframes pw-out-left {
+  to {
+    translate: -100vw 0;
+  }
+}
+@keyframes pw-in-right {
+  from {
+    translate: 100vw 0;
+  }
+}
+@keyframes pw-out-right {
+  to {
+    translate: 100vw 0;
+  }
+}
+@keyframes pw-in-left {
+  from {
+    translate: -100vw 0;
+  }
+}
+::view-transition-group(pw-header),
+::view-transition-group(pw-dock) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(pw-header),
+::view-transition-old(pw-dock) {
+  display: none;
+}
+::view-transition-new(pw-header),
+::view-transition-new(pw-dock) {
+  animation: none;
+}
+
+/*
  * Reduced motion, in one place. Movement stops or becomes a short fade (at most
  * --duration-instant); nothing that carries information is hidden. Code asks the same question
  * through lib/motion.ts (`reducedMotion`, `useReducedMotion`).
@@ -476,5 +562,16 @@
   }
   .pw-bar {
     transition: background-color var(--duration-quick) var(--easing-standard);
+  }
+  .pw-stagger > * {
+    animation: none;
+  }
+  ::view-transition-old(.pw-forward),
+  ::view-transition-old(.pw-back) {
+    animation: pw-fade var(--duration-instant) var(--easing-standard) reverse both;
+  }
+  ::view-transition-new(.pw-forward),
+  ::view-transition-new(.pw-back) {
+    animation: pw-fade var(--duration-instant) var(--easing-standard) both;
   }
 }

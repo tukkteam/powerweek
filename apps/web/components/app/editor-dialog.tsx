@@ -4,6 +4,7 @@ import type { Operation } from "@tukkteam/modules";
 import { Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { useDialogMotion } from "@/components/app/use-dialog-motion";
 import { Button } from "@/components/ui/button";
 
 export const fieldClass =
@@ -73,6 +74,7 @@ export function EditorDialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const close = useDialogMotion(ref);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -99,7 +101,7 @@ export function EditorDialog({
         <EditorForm
           key={formKey}
           title={title}
-          close={() => ref.current?.close()}
+          close={close}
           onSubmit={onSubmit}
           onDelete={onDelete}
           deleteLabel={deleteLabel}
@@ -160,7 +162,7 @@ function EditorForm({
     <form
       onSubmit={submit}
       onChange={() => setFailed(false)}
-      className="flex flex-col gap-5 p-5 sm:p-6"
+      className="pw-stagger flex flex-col gap-5 p-5 sm:p-6"
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="type-title">{title}</h2>

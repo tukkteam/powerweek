@@ -24,6 +24,7 @@ import { useApp } from "@/components/app/app-provider";
 import { ModuleBoundary } from "@/components/app/module-boundary";
 import { ModuleDesk } from "@/components/app/module-desk";
 import { relationOf, useNowMinutes } from "@/components/app/use-day-clock";
+import { useDialogMotion } from "@/components/app/use-dialog-motion";
 import { useLongPress } from "@/components/app/use-long-press";
 import { WeekStack } from "@/components/app/week-stack";
 import { useLocale } from "@/components/i18n/locale-provider";
@@ -489,6 +490,7 @@ function PeekSheet({
 }) {
   const { dict } = useLocale();
   const ref = useRef<HTMLDialogElement>(null);
+  const close = useDialogMotion(ref);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -504,7 +506,7 @@ function PeekSheet({
       className="mx-auto mt-auto mb-0 max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-b-0 border-line bg-surface-raised p-0 text-ink shadow-float sm:mb-auto sm:rounded-3xl sm:border-b"
     >
       {peek && entry ? (
-        <div className="pw-rise flex flex-col gap-4 p-5 pb-[max(20px,env(safe-area-inset-bottom))]">
+        <div className="pw-stagger flex flex-col gap-4 p-5 pb-[max(20px,env(safe-area-inset-bottom))]">
           <div className="flex items-center justify-between gap-3">
             <span
               className="mx-auto block h-1 w-10 rounded-full bg-line-strong sm:hidden"
@@ -513,7 +515,7 @@ function PeekSheet({
           </div>
           <DayPeek entry={entry} dayKey={peek.day} title={title} />
           <div className="flex justify-between gap-2 pt-1">
-            <Button variant="ghost" onClick={() => ref.current?.close()}>
+            <Button variant="ghost" onClick={close}>
               <X size={18} strokeWidth={2} aria-hidden="true" />
               {dict.common.close}
             </Button>

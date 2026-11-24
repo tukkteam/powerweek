@@ -141,8 +141,12 @@ To tune them, run `pnpm dev` and open `/es/dev/motion`: every spring, easing and
 ### Which tool for which motion
 
 - **Presses, hovers and colour**: CSS transitions on the tokens.
-- **Navigation and opening a detail**: React's `<ViewTransition>` (React 19.3; no configuration in Next.js 16, see `apps/web/node_modules/next/dist/docs/01-app/02-guides/view-transitions.md`). Animate transforms and opacity only, with the tokens in the `::view-transition-*` rules. Without browser support nothing breaks: the change just doesn't animate.
-- **Gestures and interruptible springs** (drag, swipe to dismiss): `motion`. It is kept for this, because a spring that carries the release velocity and can be redirected mid-flight is hard to get right by hand. Import it only in components that drag, so it never lands in other bundles. Until the shared drag engine (#29) arrives, arranging uses pointer events and the Web Animations API with `spring-bouncy`.
+- **Moving between screens**: React's `<ViewTransition>` (React 19.3; no configuration in Next.js 16, see `apps/web/node_modules/next/dist/docs/01-app/02-guides/view-transitions.md`). Today, Week and Settings sit left to right in that order; each link says which way it goes (`transitionTypes`, from `slideTo` in `components/app/page-slide.tsx`) and each page is wrapped in `PageSlide`, so the old screen slides out and the new one in beside it, on `spring-smooth`. The header and the Voice Dock hold still above it. The browser's back button just swaps, and without View Transitions support nothing breaks.
+- **Dialogs, the tab pill and anything that must turn round mid-flight**: `motion` (Motion, formerly Framer Motion), fed with our springs through `physics(name)` in `lib/motion.ts`, so the library plays exactly the springs CSS does. A spring in `motion` keeps its velocity when it is interrupted, which is what makes principle 2 hold: close a dialog while it is still opening and it heads home from where it is.
+  - Every dialog uses `useDialogMotion` (`components/app/use-dialog-motion.ts`): it grows out of what was tapped (or the focused control, for the keyboard) on `spring-bouncy`, its backdrop fades, its content arrives in a short cascade (`pw-stagger`), and closing, by button or Escape, shrinks it back into where it came from on `spring-snappy`. Use the `close` it returns instead of `dialog.close()`.
+  - The Today/Week pill is one element handed from tab to tab (`layoutId`), so it slides across on `spring-bouncy`.
+  - `MotionConfig reducedMotion="user"` in the app shell turns its movement off for people who ask for less motion.
+- **Gestures** (drag, swipe to dismiss): `motion` too, for the same reason. Until the shared drag engine (#29) arrives, arranging uses pointer events and the Web Animations API with `spring-bouncy`.
 
 ### What the build checks
 
@@ -150,7 +154,7 @@ To tune them, run `pnpm dev` and open `/es/dev/motion`: every spring, easing and
 
 ### Reduced motion
 
-Asked in one place in each language. In CSS, the `prefers-reduced-motion` block at the end of `app/globals.css`. In code, `reducedMotion()` (at the moment of the call) and `useReducedMotion()` (a hook that follows changes while the page is open) from `lib/motion.ts`. Both are tested.
+Asked in one place in each language. In CSS, the `prefers-reduced-motion` block at the end of `app/globals.css`. In code, `reducedMotion()` (at the moment of the call) and `useReducedMotion()` (a hook that follows changes while the page is open) from `lib/motion.ts`. Both are tested. With reduced motion, dialogs and screens fade in and out in `duration-instant`; nothing grows, slides or cascades.
 
 ### Accessibility
 

@@ -15,7 +15,7 @@ import {
 } from "@powerweek/design-tokens/motion";
 import { useSyncExternalStore } from "react";
 
-export { durations, easings, springs, type EasingName, type SpringName };
+export { bezier, durations, easings, springs, type EasingName, type SpringName };
 
 /**
  * A spring's easing for the Web Animations API, which throws on an easing it cannot parse: the
@@ -27,6 +27,23 @@ export function springEasing(name: SpringName): string {
   return typeof CSS !== "undefined" && CSS.supports("transition-timing-function", easing)
     ? easing
     : easings.standard;
+}
+
+/**
+ * A spring token in the shape the `motion` library takes (mass 1): the same spring CSS plays as
+ * `--spring-*`, but simulated, so it can be interrupted and carry its velocity into the next
+ * animation. Stiffness is the square of the angular frequency; damping is twice the damping
+ * ratio times it.
+ */
+export function physics(name: SpringName): {
+  type: "spring";
+  stiffness: number;
+  damping: number;
+  mass: 1;
+} {
+  const { response, damping } = springs[name];
+  const omega = (2 * Math.PI) / response;
+  return { type: "spring", stiffness: omega * omega, damping: 2 * damping * omega, mass: 1 };
 }
 
 /**

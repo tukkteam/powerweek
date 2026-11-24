@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useApp } from "@/components/app/app-provider";
 import { MicSettings } from "@/components/app/mic-settings";
+import { useDialogMotion } from "@/components/app/use-dialog-motion";
 import { LanguageSwitch } from "@/components/i18n/language-switch";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -255,16 +256,17 @@ function ConfirmDelete({
 }) {
   const { dict } = useLocale();
   const [busy, setBusy] = useState(false);
+  const close = useDialogMotion(dialogRef);
   return (
     <dialog
       ref={dialogRef}
       className="m-auto w-[min(92vw,420px)] rounded-3xl border border-line bg-surface-raised p-0 text-ink shadow-float"
     >
-      <div className="flex flex-col gap-5 p-6">
+      <div className="pw-stagger flex flex-col gap-5 p-6">
         <h2 className="type-title">{dict.settings.deleteAccount}</h2>
         <p className="type-body text-ink-muted">{dict.settings.deleteConfirm}</p>
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => dialogRef.current?.close()}>
+          <Button variant="ghost" onClick={close}>
             {dict.common.cancel}
           </Button>
           <Button
@@ -274,7 +276,7 @@ function ConfirmDelete({
               setBusy(true);
               const ok = await onConfirm();
               setBusy(false);
-              if (ok) dialogRef.current?.close();
+              if (ok) close();
             }}
           >
             {dict.settings.deleteConfirmButton}

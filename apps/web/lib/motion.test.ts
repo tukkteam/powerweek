@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   durations,
   ease,
+  physics,
   easings,
   reducedMotion,
   springEasing,
@@ -36,6 +37,15 @@ describe("motion tokens", () => {
     const order = [durations.instant, durations.quick, durations.base, durations.slow];
     expect([...order, durations.glide]).toEqual([...order, durations.glide].sort((a, b) => a - b));
     expect(durations.instant).toBeLessThanOrEqual(150);
+  });
+
+  it("gives motion the same springs: frequency and damping ratio survive the conversion", () => {
+    for (const name of ["snappy", "smooth", "bouncy"] as const) {
+      const { stiffness, damping, mass } = physics(name);
+      const omega = Math.sqrt(stiffness / mass);
+      expect((2 * Math.PI) / omega).toBeCloseTo(springs[name].response, 6);
+      expect(damping / (2 * Math.sqrt(stiffness * mass))).toBeCloseTo(springs[name].damping, 6);
+    }
   });
 
   it("falls back to the standard easing where linear() is not understood", () => {

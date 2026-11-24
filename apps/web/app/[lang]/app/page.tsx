@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageSlide } from "@/components/app/page-slide";
 import { TodayView } from "@/components/app/today-view";
 import { getDictionary, hasLocale } from "@/lib/i18n";
 
@@ -8,5 +9,9 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/app">): Pr
 }
 
 export default function TodayPage() {
-  return <TodayView />;
+  return (
+    <PageSlide>
+      <TodayView />
+    </PageSlide>
+  );
 }

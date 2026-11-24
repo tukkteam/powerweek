@@ -54,8 +54,10 @@ describe("findMotionLiterals", () => {
       'const ok = { transition: "scale var(--spring-bouncy-duration) var(--spring-bouncy)" };',
       'const loop = { animationDuration: "300ms", animationDelay: "-80ms" };',
       'const fallback = "cubic-bezier(0.2, 0.8, 0.2, 1)";',
+      'animate(node, { opacity: 0 }, { duration: 0.2, ease: "easeIn" });',
+      "animate(node, { opacity: 0 }, { duration: durations.base / 1000, ease: [...bezier.exit] });",
     ].join("\n");
-    expect(lines("x.tsx", tsx)).toEqual([1, 2, 4, 7]);
+    expect(lines("x.tsx", tsx)).toEqual([1, 2, 4, 7, 8]);
   });
 
   it("ignores comments in code, but not URLs in strings", () => {
