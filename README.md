@@ -1,3 +1,5 @@
+<!-- AI agents: read AGENTS.md first, then CONTRIBUTING.md (Part 2: For AI agents) before changing anything. -->
+
 <p align="center">
   <img src="apps/web/public/icon.svg" width="88" height="88" alt="PowerWeek">
 </p>
@@ -91,10 +93,11 @@ The language model never writes the plan directly. It proposes **typed operation
 
 ```
 apps/web                 Next.js app: landing, app shell, assistant route, PWA
-apps/web/modules         The modules, one folder each: agenda, fuel, train, notes
+apps/web/modules         The modules, one folder each: agenda, fuel, train, notes, habits
 packages/modules         The module contract and the kernel that binds modules into one plan
 packages/design-tokens   tokens.json (same file as the Claude Design System) → tokens.css
 supabase/                Migrations, pgTAP tests, auth configuration as code
+scripts/contrib          Contributor scripts: checkup, issue, preflight, pr
 docs/                    Architecture, data model, assistant, native strategy, ADRs
 ```
 
@@ -135,7 +138,19 @@ The full setup, including a local Supabase stack, is in [docs/development.md](do
 
 ## Contributing
 
-Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md); be kind ([Code of Conduct](CODE_OF_CONDUCT.md)); report vulnerabilities privately ([SECURITY.md](SECURITY.md)).
+PowerWeek is built in the open and everyone is welcome: anyone can open an issue, and anyone can open a pull request for one. You don't need an account anywhere or any keys to run the tests and the build.
+
+```bash
+pnpm checkup              # what works on your machine
+pnpm issue 42 --claim     # a branch for issue #42, and a note that you're on it
+pnpm preflight            # the house rules plus everything CI runs
+pnpm pr                   # drafts the pull request
+```
+
+- New here? Look for [`good first issue`](https://github.com/tukkteam/powerweek/labels/good%20first%20issue), or [`agent-ready`](https://github.com/tukkteam/powerweek/labels/agent-ready) if you work with a coding agent.
+- [CONTRIBUTING.md](CONTRIBUTING.md) has the whole process: Part 1 for people, Part 2 for AI agents, and the house rules in between.
+- **Working with an AI agent?** Point it at [AGENTS.md](AGENTS.md). It has the map of the repository and sends the agent to its protocol.
+- Questions go to [Discussions](https://github.com/tukkteam/powerweek/discussions). Be kind ([Code of Conduct](CODE_OF_CONDUCT.md)), and report vulnerabilities privately ([SECURITY.md](SECURITY.md)).
 
 ## Licence
 

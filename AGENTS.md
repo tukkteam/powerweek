@@ -1,20 +1,41 @@
 # Agent guide
 
-Instructions for AI coding agents (and humans in a hurry) working in this repository.
+For AI coding agents (and humans in a hurry) working in this repository.
+
+**Before your first edit, read [CONTRIBUTING.md, Part 2: For AI agents](CONTRIBUTING.md#part-2-for-ai-agents)** and the [house rules](CONTRIBUTING.md#house-rules). They say what you may do without asking, the workflow and its scripts, and when a change is done. This file is the map.
+
+## Start
+
+```bash
+pnpm checkup --json        # what this machine can run
+pnpm issue <n> --json      # the issue, and a branch for it from the latest main
+pnpm preflight --json      # house rules on your diff, then everything CI runs
+pnpm pr --json             # the pull request draft; --create only after your human agrees
+```
 
 ## Map
 
 - `apps/web`: Next.js 16 app. Landing at `app/[lang]/page.tsx`, the app shell and the screens that host modules in `components/app`, the assistant route in `app/api/assistant/route.ts`. Exercise illustrations in `public/moves` (generated, CC BY-SA 4.0).
-- `apps/web/modules`: the modules, one folder each (`agenda`, `fuel`, `train`, `notes`, `habits`): `module.ts` (data, operations, what the assistant knows), `messages.ts` (strings), `views.tsx` and tests. `index.ts` and `views.tsx` are the registry. Read [docs/modules.md](docs/modules.md) before writing or changing one.
-- `packages/modules` (`@tukkteam/modules`): the module contract and the kernel that binds modules into one document: it routes operations, keeps receipts, composes the assistant prompt. It imports nothing from the app. `src/week` is the weekly layer (days, times, the day timeline); `src/testing.ts` is the conformance check.
-- `packages/design-tokens`: `tokens.json` → `tokens.css`. Do not edit `tokens.css` by hand.
-- `supabase`: migrations (never edit an applied one), pgTAP tests, `config.toml` (auth as code).
-- `docs`: architecture, data model, assistant, native strategy, ADRs. Update them when behaviour changes.
+- `apps/web/modules`: the modules, one folder each (`agenda`, `fuel`, `train`, `notes`, `habits`): `module.ts` (data, operations, what the assistant knows), `messages.ts` (strings), `views.tsx` and tests. `index.ts` and `views.tsx` are the registry; `test-kit.ts` has the test helpers. Read [docs/modules.md](docs/modules.md) before writing or changing one.
+- `packages/modules` (`@tukkteam/modules`): the module contract and the kernel that binds modules into one document: it routes operations, keeps receipts, composes the assistant prompt. It imports nothing from the app. `src/week` is the weekly layer (days, times, the day timeline); `src/testing.ts` is the conformance check. Changing it changes the contract: ask first.
+- `packages/design-tokens`: `tokens.json` → `tokens.css` (generated with `pnpm tokens`).
+- `supabase`: migrations (append-only), pgTAP tests, `config.toml` (auth as code).
+- `scripts/contrib`: the contributor scripts above. `scripts/moves.mjs` regenerates the exercise library.
+- `docs`: architecture, modules, data model, assistant, design system, development, ADRs. Update them when behaviour changes.
 
-## Rules
+## Rules in one line each
 
-1. Next.js 16 differs from older versions: `proxy.ts` instead of middleware, Cache Components (no cookies, headers or `new Date()` during render), async `params`. Read `apps/web/node_modules/next/dist/docs/` before using an unfamiliar API.
-2. The plan changes only through operations, and every operation belongs to a module. Add new behaviour as a new operation in that module, with an example and tests. Modules never import each other.
-3. A module's strings go in its `messages.ts`, in both languages; the app's own strings go in both dictionaries (`es.ts` is the reference). Styling uses token-backed Tailwind classes; inside a module, colour is always `tone`, never a colour name.
-4. Never commit secrets. `.env.local` is ignored; production values live in Vercel and Supabase.
-5. Before you finish: `pnpm verify`. For UI work also run the e2e tests and look at the result in a browser.
+The full text, and why, is in the [house rules](CONTRIBUTING.md#house-rules).
+
+1. The plan changes only through module operations, with examples and tests.
+2. Modules never import each other and pass `checkModule`.
+3. Database changes are new migrations with pgTAP tests; never edit one on `main`.
+4. Every string in Spanish and English (`es.ts` is the reference; modules use `messages.ts`).
+5. Colours from tokens; inside a module, `tone`.
+6. Accessibility is part of done.
+7. Next.js 16: read `apps/web/node_modules/next/dist/docs/` before an unfamiliar API.
+8. No secrets in the repository.
+9. No dependency without a written reason.
+10. Docs move with behaviour.
+
+Before you finish: `pnpm preflight` (add `--e2e` for UI work) and look at the result in a browser when the app can run.

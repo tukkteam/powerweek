@@ -9,8 +9,19 @@
 
 ## Setup
 
+Fork the repository on GitHub, then:
+
 ```bash
+git clone https://github.com/<you>/powerweek.git && cd powerweek
+git remote add upstream https://github.com/tukkteam/powerweek.git
+corepack enable
 pnpm install
+pnpm checkup                 # what works on this machine, and how to fix what doesn't
+```
+
+That is enough for `pnpm preflight`: the unit tests need no environment variables, and for the build it fills in local placeholders when no Supabase values are set (`pnpm verify` on its own needs them in `.env.local`). To run the app, copy the example environment:
+
+```bash
 cp apps/web/.env.example apps/web/.env.local
 ```
 
@@ -46,6 +57,10 @@ supabase test db             # run the pgTAP tests
 | Command                              | Purpose                                                                      |
 | ------------------------------------ | ---------------------------------------------------------------------------- |
 | `pnpm dev`                           | Next.js dev server on http://localhost:3000                                  |
+| `pnpm checkup`                       | Checks your machine and says what you can run                                |
+| `pnpm issue <n>`                     | Reads issue `n` and creates a branch for it from the latest `main`           |
+| `pnpm preflight`                     | House rules on your diff, then formatting and `pnpm verify`                  |
+| `pnpm pr`                            | Drafts the pull request; `--create` pushes and opens it                      |
 | `pnpm verify`                        | What CI runs: tokens check, lint, typecheck, unit tests and production build |
 | `pnpm test`                          | Unit tests (the kernel, every module, parity with old plans, prompt, i18n)   |
 | `pnpm --filter @powerweek/web e2e`   | Playwright smoke tests (build first with `pnpm build`)                       |

@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Question or help with a contribution
+    url: https://github.com/tukkteam/powerweek/discussions/categories/q-a
+    about: Ask in Discussions. No question is too small.
   - name: Security vulnerability
     url: https://github.com/tukkteam/powerweek/security/advisories/new
     about: Report vulnerabilities privately, please.
