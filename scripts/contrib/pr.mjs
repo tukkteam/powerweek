@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pnpm pr [--create] [--draft] [--title "feat(web): …"] [--test "steps"] [--ai "tool; what you checked"] [--json]
+// pnpm pr [--create] [--draft] [--title "feat(web): …"] [--test "steps"] [--json]
 // Drafts the pull request from your branch: title, "Closes #N", the commits, and the checklist
 // filled in from your last `pnpm preflight`. Without --create it only prints the draft (and saves it
 // to .git/powerweek-pr.md) so you can edit it. With --create it pushes the branch and opens the PR.
@@ -103,10 +103,6 @@ ${box(pre?.ok && !pre?.quick && pre?.head === head, "`pnpm preflight` passes (re
 ${box(!touches.code || pre?.results?.every((r) => r.id !== "tests.missing"), "Tests cover the change, including what it should reject")}
 ${box(pre?.ok && !pre?.quick, "Strings in both languages (`es` and `en`; the parity tests in `pnpm verify` check it)")}
 ${touches.db ? box(pre?.ran?.db && passed("db.pgtap"), "Database changes are new migrations, with pgTAP tests") + "\n" : ""}${touches.ui ? box(pre?.ran?.e2e && passed("e2e"), "End-to-end tests pass (`pnpm preflight --e2e`) and screenshots are attached") + "\n" : ""}${box(touches.docs || !touches.code, "Docs updated where behaviour changed")}
-
-## AI assistance
-
-${option("ai") ?? '<!-- Did an AI agent write part of this? Which one, and what did you check yourself? "None" is a fine answer. -->'}
 `;
 
 const draftPath = statePath("pr.md");
@@ -122,10 +118,6 @@ if (!flag("create")) {
   finish({ ok: true, created: false, title, body, draftPath, problems });
 }
 
-if (!option("ai"))
-  problems.push(
-    'Say whether an AI agent helped: --ai "None", or --ai "Claude Code; I read every line and ran the app"',
-  );
 if (problems.length) fail(`Not opening the PR yet:\n    - ${problems.join("\n    - ")}`);
 if (!ghReady())
   fail("This needs the GitHub CLI, logged in", `Or open the PR on GitHub and paste ${draftPath}`);
@@ -157,7 +149,7 @@ if (!url) fail("`gh pr create` failed", "Run it by hand to see why, or open the 
 say(`${mark.ok} Opened ${url}`);
 say(
   c.dim(
-    "A maintainer will review it. Fill in the sections left as comments (how to test, screenshots, AI assistance).",
+    "A maintainer will review it. Fill in the sections left as comments (how to test, screenshots).",
   ),
 );
 finish({ ok: true, created: true, url, title });

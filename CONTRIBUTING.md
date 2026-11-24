@@ -94,11 +94,7 @@ Run `pnpm preflight` before you open the pull request. It checks your diff again
 
 ### Using AI to contribute
 
-Welcome. Much of PowerWeek is written with coding agents, and this repository is set up for them: [AGENTS.md](AGENTS.md) and [Part 2](#part-2-for-ai-agents) give your agent the map, the rules and the workflow, and the scripts give it the same checks you'd run. Three things we ask:
-
-1. **You're the author.** Read the diff before you open the pull request, and be ready to explain any line of it. "The AI wrote it" isn't an answer to a review question.
-2. **Say so.** The template has an "AI assistance" section: which tool, and what you checked yourself. It doesn't count against you; it helps us review well.
-3. **People talk to people.** Write issue and review comments yourself, or at least read and edit what your agent drafted. Please don't open issues or pull requests in bulk.
+Go for it. Much of PowerWeek is written with coding agents, and this repository is set up for them: [AGENTS.md](AGENTS.md) and [Part 2](#part-2-for-ai-agents) give your agent the map, the rules and the workflow, and the scripts give it the same checks you'd run. Use whatever tools you like, as much as you like; there's nothing to declare. A pull request is judged by what it does and whether `pnpm preflight` passes, not by who or what typed it.
 
 ### Getting help
 
@@ -178,7 +174,7 @@ pnpm preflight --json               # 5. before the PR: everything, including th
 #                                        add --e2e for UI changes, --db for database changes when Docker runs
 git commit -m "type(scope): …"      # 6. Conventional Commits, the why in the body
 pnpm pr --json                      # 7. draft; show it to your human
-pnpm pr --create --test "…" --ai "…"   # 8. only after your human agrees
+pnpm pr --create --test "…"   # 8. only after your human agrees
 ```
 
 The scripts, so you can rely on them:
@@ -190,7 +186,7 @@ The scripts, so you can rely on them:
 | `pnpm preflight` | House-rule checks on the diff, then `format:check` and `pnpm verify`; `--quick`, `--e2e`, `--db`                     | 1 on any failure     | `.git/powerweek-preflight.json`              |
 | `pnpm pr`        | Drafts title and body from commits, the issue and the last preflight; `--create` pushes and opens it                 | 1 if not ready       | `.git/powerweek-pr.md`; a PR with `--create` |
 
-All four accept `--json` and then print a single JSON object on stdout (command output goes to stderr). `pnpm pr --create` refuses to run unless the last full preflight passed on the current commit with a clean tree, the title is a Conventional Commit, and `--ai` says whether and how AI helped.
+All four accept `--json` and then print a single JSON object on stdout (command output goes to stderr). `pnpm pr --create` refuses to run unless the last full preflight passed on the current commit with a clean tree, and the title is a Conventional Commit.
 
 ### 2.4 Definition of done
 
@@ -199,7 +195,7 @@ All four accept `--json` and then print a single JSON object on stdout (command 
 - `pnpm preflight` passed in full on the commit you're proposing, with `--e2e` for UI changes.
 - For UI changes, if the app can run (`pnpm checkup` says so): you looked at it at 390 px and at desktop width, in both themes. If you couldn't, say so in the pull request instead of implying you did.
 - Docs updated where behaviour changed (house rule 10).
-- The pull request body says what and why, how to test it, and the AI assistance used: tool, model if known, and what was verified by running it versus by reading.
+- The pull request body says what and why, and how to test it.
 
 ### 2.5 Scope
 
