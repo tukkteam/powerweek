@@ -30,6 +30,7 @@ The "breathing" turned out to be more than scale. Upstream's three frames per ex
 `pnpm moves` now redraws every frame instead of optimising it with SVGO: it finds the line down the middle of each stroke and draws it again as a stroked path at one weight, lines the frames of each exercise up on what stays still (the floor, or the bar for hanging exercises), fits each exercise to the canvas with the same margin, and lets the previous pose stand in for the empty frame. The method and its knobs are in `scripts/moves/art.mjs`; [docs/design-system.md](../design-system.md#exercise-illustrations) describes the result.
 
 - The files are stroked paths now (`fill="none"`, one `stroke-width`), about the same size as before (6.0 MB for 906 frames). They are still masks in the app.
+- The figures are simplified: lines drawn on a shape rather than round it (muscles, creases, machine details) are left out, so a drawing still reads at the size of a card.
 - The poses are still upstream's three key poses. In-between frames, or a brand redraw, can keep the same slugs and file layout.
 - A few frames cut off upstream stay cut off, and frames drawn very thick upstream keep less inner detail than their neighbours: the detail was never there.
 - The changes are listed in `THIRD_PARTY_NOTICES.md` and `apps/web/public/moves/README.md`, as CC BY-SA 4.0 asks.

@@ -1,7 +1,7 @@
 // Tests for the move library pipeline. Run with `node --test scripts/` (part of `pnpm test`).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { PEN, anchorOf, redraw, standIns, toSvg } from "./art.mjs";
+import { PEN, anchorOf, finish, redraw, standIns, toSvg } from "./art.mjs";
 import { close, distanceTo, strokeHalfWidth, thin, tidy } from "./image.mjs";
 import {
   IDENTITY,
@@ -349,52 +349,96 @@ test("anchorOf knows what stays still", () => {
 });
 
 test("a frame that is all but empty is replaced by the pose before it", () => {
-  const line = (n) => ({
-    strokes: [
-      {
-        points: [
-          [0, 0],
-          [n, 0],
-        ],
-        closed: false,
-      },
-    ],
-  });
-  const { drawings, stoodIn } = standIns([line(300), line(4), line(280)]);
+  const frame = (n) => ({ points: Array.from({ length: n }, (_, i) => [i, 0]) });
+  const { frames, stoodIn } = standIns([frame(300), frame(4), frame(280)]);
   assert.deepEqual(stoodIn, [null, 0, null]);
-  assert.equal(drawings[1], drawings[0]);
-  assert.deepEqual(standIns([line(300), line(250), line(280)]).stoodIn, [null, null, null]);
-  assert.deepEqual(standIns([line(3), line(250), line(280)]).stoodIn, [1, null, null]);
+  assert.equal(frames[1], frames[0]);
+  assert.deepEqual(standIns([frame(300), frame(250), frame(280)]).stoodIn, [null, null, null]);
+  assert.deepEqual(standIns([frame(3), frame(250), frame(280)]).stoodIn, [1, null, null]);
 });
 
-test("redraw turns thick and thin versions of a drawing into the same lines", () => {
+/** Ink at the pipeline's resolution, with bars `t` pixels thick either side of each line given. */
+function inked(t, ...lines) {
   const side = 512 * PEN.resolution;
-  const drawing = (t) => {
-    const ink = new Uint8Array(side * side);
-    const bar = (x0, y0, x1, y1) => {
-      for (let y = y0 - t; y <= y1 + t; y++)
-        for (let x = x0 - t; x <= x1 + t; x++) ink[y * side + x] = 1;
-    };
-    bar(200, 300, 800, 300);
-    bar(500, 300, 500, 700);
-    return redraw({ ink, side });
-  };
+  const ink = new Uint8Array(side * side);
+  for (const [x0, y0, x1, y1] of lines)
+    for (let y = y0 - t; y <= y1 + t; y++)
+      for (let x = x0 - t; x <= x1 + t; x++) ink[y * side + x] = 1;
+  return { ink, side };
+}
+const drawnLength = (lines) =>
+  lines.reduce(
+    (sum, s) =>
+      sum +
+      (s.closed ? [...s.points, s.points[0]] : s.points)
+        .slice(1)
+        .reduce((n, p, i) => n + Math.hypot(p[0] - s.points[i][0], p[1] - s.points[i][1]), 0),
+    0,
+  );
+
+test("redraw turns thick and thin versions of a drawing into the same lines", () => {
+  const drawing = (t) => redraw(inked(t, [200, 300, 800, 300], [500, 300, 500, 700]));
   const thinOne = drawing(2);
   const thickOne = drawing(9);
   assert.ok(thickOne.weight > 3 * thinOne.weight, "upstream drew them very differently");
-  const length = (d) =>
-    d.strokes.reduce(
-      (sum, s) =>
-        sum +
-        s.points
-          .slice(1)
-          .reduce((n, p, i) => n + Math.hypot(p[0] - s.points[i][0], p[1] - s.points[i][1]), 0),
-      0,
-    );
   // A 300-unit bar and a 200-unit post, whatever they were drawn with.
-  assert.ok(Math.abs(length(thinOne) - 500) < 12, `thin: ${length(thinOne)}`);
-  assert.ok(Math.abs(length(thickOne) - 500) < 25, `thick: ${length(thickOne)}`);
-  const svg = toSvg(thickOne.strokes);
+  assert.ok(
+    Math.abs(drawnLength(finish(thinOne)) - 500) < 12,
+    `thin: ${drawnLength(finish(thinOne))}`,
+  );
+  assert.ok(
+    Math.abs(drawnLength(finish(thickOne)) - 500) < 25,
+    `thick: ${drawnLength(finish(thickOne))}`,
+  );
+  const svg = toSvg(finish(thickOne));
   assert.match(svg, new RegExp(`stroke-width="${PEN.weight}"`));
   assert.match(svg, /fill="none"/);
+});
+
+// A square outline (200 units a side), a mark drawn inside it, and a line outside it.
+const square = [
+  [200, 200, 600, 200],
+  [200, 600, 600, 600],
+  [200, 200, 200, 600],
+  [600, 200, 600, 600],
+];
+const mark = [340, 400, 420, 400];
+const cable = [700, 300, 700, 460];
+
+test("finish takes a mark off a shape and keeps the shape and what lies outside it", () => {
+  const lines = finish(redraw(inked(2, ...square, mark, cable)));
+  // 800 units of outline and 80 of cable; the 40-unit mark is gone.
+  assert.ok(Math.abs(drawnLength(lines) - 880) < 20, `drawn: ${drawnLength(lines)}`);
+  assert.ok(
+    lines.every((line) =>
+      line.points.every(([x, y]) => !(x > 150 && x < 250 && y > 190 && y < 210)),
+    ),
+  );
+  // With simplifying turned off, the mark is drawn too.
+  const keep = PEN.mark;
+  PEN.mark = 0;
+  try {
+    assert.ok(Math.abs(drawnLength(finish(redraw(inked(2, ...square, mark, cable)))) - 920) < 20);
+  } finally {
+    PEN.mark = keep;
+  }
+});
+
+test("an outline left open still has an inside", () => {
+  // The top edge stops 20 units short of the corner.
+  const open = [[200, 200, 560, 200], ...square.slice(1)];
+  const lines = finish(redraw(inked(2, ...open, mark)));
+  assert.ok(Math.abs(drawnLength(lines) - 780) < 20, `drawn: ${drawnLength(lines)}`);
+});
+
+test("a round shape inside a figure is a thing of its own, however small", () => {
+  // A 16-unit square "head" inside the big square: small, but drawn all the way round.
+  const head = [
+    [380, 380, 412, 380],
+    [380, 412, 412, 412],
+    [380, 380, 380, 412],
+    [412, 380, 412, 412],
+  ];
+  const lines = finish(redraw(inked(2, ...square, ...head)));
+  assert.ok(Math.abs(drawnLength(lines) - 864) < 20, `drawn: ${drawnLength(lines)}`);
 });

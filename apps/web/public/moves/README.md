@@ -8,7 +8,8 @@ The exercise illustrations in this folder come from **Workout Guide** by Bryl Li
   https://creativecommons.org/licenses/by-sa/4.0/
 - Changes: every frame is redrawn. Upstream's traced outlines are reduced to the line down the
   middle of each stroke and drawn again with a single pen (stroke width 4.2 on the 512
-  canvas), so every frame of every exercise has the same line weight; the three frames of each
+  canvas), so every frame of every exercise has the same line weight; marks drawn inside the
+  figures (muscles, creases, machine details) are left out; the three frames of each
   exercise are moved and scaled so that what stays still (the floor, a bench, a bar) lies in
   the same place; and each exercise is fitted to the canvas with the same margin. Poses are
   not altered. PowerWeek tints the drawings at render time with CSS masks.

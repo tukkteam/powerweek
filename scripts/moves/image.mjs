@@ -139,6 +139,46 @@ export function tidy(ink, w, h, minArea, maxHole) {
 }
 
 /**
+ * The faces of a drawing: the areas its lines divide the canvas into, once gaps in those lines
+ * up to `gap` pixels are closed. Returns the face of each pixel (0 on a line), the area of each
+ * face, which faces are outside (they reach the edge of the canvas) rather than enclosed, and
+ * which are round: nearly as much area as a circle with their edge would hold.
+ */
+export function faces(ink, w, h, gap) {
+  const { labels, areas } = components(invert(close(ink, w, h, gap / 2)), w, h, false);
+  const outside = new Uint8Array(areas.length);
+  for (let x = 0; x < w; x++) {
+    outside[labels[x]] = 1;
+    outside[labels[(h - 1) * w + x]] = 1;
+  }
+  for (let y = 0; y < h; y++) {
+    outside[labels[y * w]] = 1;
+    outside[labels[y * w + w - 1]] = 1;
+  }
+  outside[0] = 0;
+  // The edge of a face, counted in pixel sides it shares with anything else.
+  const edge = new Float64Array(areas.length);
+  for (let y = 1; y < h - 1; y++)
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const label = labels[i];
+      if (!label) continue;
+      if (labels[i - 1] !== label) edge[label]++;
+      if (labels[i + 1] !== label) edge[label]++;
+      if (labels[i - w] !== label) edge[label]++;
+      if (labels[i + w] !== label) edge[label]++;
+    }
+  const round = new Uint8Array(areas.length);
+  // Pixel sides overstate a slanted edge by up to √2; 4/π on average for a circle.
+  const perimeter = edge.map((sides) => (sides * Math.PI) / 4);
+  for (let face = 1; face < areas.length; face++) {
+    const p = perimeter[face];
+    round[face] = p && (4 * Math.PI * areas[face]) / (p * p) > 0.72 ? 1 : 0;
+  }
+  return { labels, areas, outside, round };
+}
+
+/**
  * The typical half-width of the strokes in a drawing, in pixels: the median depth along the
  * ridges of the depth map (the middle of each stroke).
  */
@@ -220,6 +260,32 @@ export function thin(ink, w, h) {
     }
   }
   return img;
+}
+
+/** Half the size: each pixel is set where any of the four it covers was. */
+export function halve(img, w, h) {
+  const hw = w >> 1;
+  const hh = h >> 1;
+  const out = new Uint8Array(hw * hh);
+  for (let y = 0; y < hh; y++)
+    for (let x = 0; x < hw; x++) {
+      const i = 2 * y * w + 2 * x;
+      out[y * hw + x] = img[i] | img[i + 1] | img[i + w] | img[i + w + 1];
+    }
+  return out;
+}
+
+/** Draws a straight line `width` pixels wide into an image. */
+export function drawLine(img, w, h, [x0, y0], [x1, y1], width = 3) {
+  const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0)) * 2 || 1;
+  const r = (width - 1) / 2;
+  for (let s = 0; s <= steps; s++) {
+    const cx = x0 + ((x1 - x0) * s) / steps;
+    const cy = y0 + ((y1 - y0) * s) / steps;
+    for (let y = Math.round(cy - r); y <= Math.round(cy + r); y++)
+      for (let x = Math.round(cx - r); x <= Math.round(cx + r); x++)
+        if (x >= 0 && y >= 0 && x < w && y < h) img[y * w + x] = 1;
+  }
 }
 
 export const NEIGHBOURS = { DX, DY };

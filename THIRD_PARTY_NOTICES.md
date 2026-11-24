@@ -11,7 +11,8 @@ each under its own license.
 - License: [Creative Commons Attribution-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-sa/4.0/).
 - Changes: every frame is redrawn. Upstream's traced outlines are reduced to the line down the
   middle of each stroke and drawn again with a single pen, so every frame of every exercise has
-  the same line weight; the three frames of each exercise are moved and scaled so that what stays
+  the same line weight; marks drawn inside the figures (muscles, creases, machine details) are
+  left out; the three frames of each exercise are moved and scaled so that what stays
   still (the floor, a bench, a bar) lies in the same place; each exercise is fitted to the canvas
   with the same margin; and one frame that is all but empty upstream (`pallof-press`, frame 2)
   is replaced by the pose before it. Poses are not altered. The app tints the drawings at render

@@ -10,9 +10,18 @@
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { close, depth, strokeHalfWidth, thin, tidy } from "./image.mjs";
+import { close, depth, drawLine, faces, halve, strokeHalfWidth, thin, tidy } from "./image.mjs";
 import { SIZE, alignFrames, apply, compose, distanceMap, fit } from "./register.mjs";
-import { corners, graph, lengthOf, prune, simplify, smooth, strokes } from "./trace.mjs";
+import {
+  corners,
+  declutter,
+  graph,
+  looseEnds,
+  prune,
+  simplify,
+  smooth,
+  strokes,
+} from "./trace.mjs";
 import { pathData, sample } from "./vector.mjs";
 
 // sharp is a dependency of the web app (it draws the app icons); borrow it from there instead of
@@ -46,6 +55,23 @@ export const PEN = {
   /** A turn sharper than this many degrees, measured over `cornerReach` units, stays a corner. */
   corner: 50,
   cornerReach: 4,
+  /**
+   * How much detail is taken out of a figure, in units of the finished drawing (see `declutter`
+   * in trace.mjs). A line with the same enclosed area on both sides is a mark on something
+   * rather than the edge of anything; marks shorter than `mark` go. Enclosed areas smaller than
+   * `cell` square units (a kneecap, the squares of a six-pack) count as part of what surrounds
+   * them, unless they are round. Set `mark` to 0 to keep every line upstream drew.
+   *
+   * Outlines are often left open (a neck that never meets the shoulder): gaps up to `outlineGap`
+   * count as closed, and a loose end is carried on up to `carryOn` to the next line where doing
+   * so closes an area off from the outside. `look` is how far from a line to search for what
+   * lies beside it, where lines crowd together.
+   */
+  mark: 140,
+  cell: 420,
+  outlineGap: 5,
+  carryOn: 30,
+  look: 45,
 };
 
 /** A frame as ink: 1 where upstream painted, at `PEN.resolution` pixels per unit. */
@@ -66,8 +92,10 @@ export async function readInk(svg) {
 }
 
 /**
- * The strokes of a frame, in SVG units: the line down the middle of everything upstream drew.
- * Also returns `weight`, the typical width of the lines upstream, for the report.
+ * Reads a frame: finds the line down the middle of everything upstream drew and the solid shape
+ * those lines enclose. The result is still pixels; `finish` turns it into strokes once the size
+ * the frame will be shown at is known. Also returns `weight`, the typical width of the lines
+ * upstream, and `points`, the lines as a cloud of points in SVG units.
  */
 export function redraw({ ink, side }) {
   const px = PEN.resolution;
@@ -100,8 +128,42 @@ export function redraw({ ink, side }) {
   const clean = tidy(fused, side, side, 0.9 * width * width, 0.8 * width * width);
   const depths = depth(clean, side, side);
   const skeleton = prune(thin(clean, side, side), side, side, depths);
-  const lines = strokes(graph(skeleton, side, side));
-  const drawn = lines
+  const points = [];
+  for (let i = 0; i < skeleton.length; i++)
+    if (skeleton[i] && i % 3 === 0)
+      points.push([((i % side) + 0.5) / px, (Math.floor(i / side) + 0.5) / px]);
+  // A frame whose ink runs into the edge of the canvas was cut off upstream.
+  const cut = { top: false, bottom: false };
+  for (let x = 0; x < side; x++) {
+    if (ink[2 * side + x]) cut.top = true;
+    if (ink[(side - 3) * side + x]) cut.bottom = true;
+  }
+  return { skeleton, clean, depths, side, half, points, weight: width / px, fused: gap, cut };
+}
+
+/**
+ * The strokes of a frame, in the frame's own SVG units, with the detail taken out. `scale` is
+ * how much larger than upstream drew it the frame will be shown, so that "detail" means the
+ * same in a figure drawn small as in one drawn large.
+ */
+export function finish(frame, scale = 1) {
+  const px = PEN.resolution;
+  const { side, depths } = frame;
+  const size = (units) => (units * px) / scale;
+  const gap = size(PEN.outlineGap);
+  const lean = PEN.mark
+    ? declutter(frame.skeleton, side, side, enclosed(frame, gap, size(PEN.carryOn)), {
+        mark: size(PEN.mark),
+        cell: size(1) * size(1) * PEN.cell,
+        // From just past the stroke's own edge; then up to a good way into the figure.
+        near: [frame.half + 2, frame.half + gap / 2 + 5],
+        far: size(PEN.look),
+        speck: size(4),
+      })
+    : frame.skeleton;
+  // Taking a mark away leaves the stub of its junction on the line it left; prune those too.
+  const skeleton = prune(lean, side, side, depths);
+  return strokes(graph(skeleton, side, side))
     .map(({ points, closed }) => {
       const pinned = corners(points, closed, Math.round(PEN.cornerReach * px), PEN.corner);
       const smoothed = smooth(points, closed, PEN.smoothing * px, pinned);
@@ -111,17 +173,47 @@ export function redraw({ ink, side }) {
       return { points: kept.map(([x, y]) => [(x + 0.5) / px, (y + 0.5) / px]), closed };
     })
     .filter((s) => s.points.length);
-  // A frame whose ink runs into the edge of the canvas was cut off upstream.
-  const cut = { top: false, bottom: false };
-  for (let x = 0; x < side; x++) {
-    if (ink[2 * side + x]) cut.top = true;
-    if (ink[(side - 3) * side + x]) cut.bottom = true;
-  }
-  return { strokes: drawn, weight: width / px, fused: gap, cut };
 }
 
-const cloud = (drawing) => {
-  const points = sample(drawing.strokes, 1.5);
+/**
+ * The faces of a frame (see `faces` in image.mjs), with its outline completed first. Outlines
+ * are often left open, and an open figure has no inside. Each loose end could be carried on to
+ * the next line; the shortest gaps are tried first, and a stretch is kept when it turns open
+ * ground into an enclosed area, which is what closing an outline does. The loose end of a mark
+ * inside a figure that is already closed encloses nothing new and is left.
+ */
+export function enclosed(frame, gap, reach) {
+  const { side, clean, skeleton } = frame;
+  const stretches = looseEnds(skeleton, clean, side, side, reach)
+    .map(([a, b]) => ({ a, b, length: Math.hypot(b[0] - a[0], b[1] - a[1]) }))
+    .sort((p, q) => p.length - q.length);
+  if (!stretches.length) return faces(clean, side, side, gap);
+  // Judged at half size: it only has to tell whether an area closed.
+  const half = side >> 1;
+  const inside = (img) => {
+    const { labels, outside } = faces(img, half, half, gap / 2);
+    let n = 0;
+    for (let i = 0; i < labels.length; i++) if (!labels[i] || !outside[labels[i]]) n++;
+    return n;
+  };
+  const small = halve(clean, side, side);
+  const completed = Uint8Array.from(clean);
+  let before = inside(small);
+  const worthwhile = 60 * (side / 1024) ** 2;
+  for (const { a, b } of stretches) {
+    const trial = Uint8Array.from(small);
+    drawLine(trial, half, half, [a[0] / 2, a[1] / 2], [b[0] / 2, b[1] / 2], 2);
+    const after = inside(trial);
+    if (after - before < worthwhile) continue;
+    small.set(trial);
+    before = after;
+    drawLine(completed, side, side, a, b);
+  }
+  return faces(completed, side, side, gap);
+}
+
+const cloud = (frame) => {
+  const { points } = frame;
   const box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
   for (const [x, y] of points) {
     box.minX = Math.min(box.minX, x);
@@ -129,7 +221,7 @@ const cloud = (drawing) => {
     box.minY = Math.min(box.minY, y);
     box.maxY = Math.max(box.maxY, y);
   }
-  return { points, map: distanceMap(points), box, cut: drawing.cut };
+  return { points, map: distanceMap(points), box, cut: frame.cut };
 };
 
 /**
@@ -145,43 +237,40 @@ export function anchorOf(slug, equipment) {
 }
 
 /**
- * Lines up the frames of one exercise and fits them to the canvas. `drawings` are the results of
- * `redraw`, in frame order. Returns the SVG of each frame and what was done, for the report.
+ * Lines up the frames of one exercise and fits them to the canvas. `given` are the results of
+ * `redraw`, in frame order. The frames are lined up on everything upstream drew (the detail
+ * helps find what stays still), and only then simplified. Returns the strokes of each frame in
+ * place, their SVGs, and what was done, for the report.
  */
 export function compose3(given, anchor = "ground") {
-  const { drawings, stoodIn } = standIns(given);
-  const clouds = drawings.map(cloud);
+  const { frames, stoodIn } = standIns(given);
+  const clouds = frames.map(cloud);
   const { transforms, links } = alignFrames(clouds, { anchor });
   const onto = fit(clouds, transforms, PEN.margin + PEN.weight / 2);
   const placed = transforms.map((t) => compose(t, onto));
-  const svgs = drawings.map((drawing, i) =>
-    toSvg(
-      drawing.strokes.map(({ points, closed }) => ({
-        points: points.map((p) => apply(placed[i], p)),
-        closed,
-      })),
-    ),
+  const drawings = frames.map((frame, i) =>
+    finish(frame, placed[i].scale).map(({ points, closed }) => ({
+      points: points.map((p) => apply(placed[i], p)),
+      closed,
+    })),
   );
-  return { svgs, transforms: placed, links, stoodIn };
+  return { drawings, svgs: drawings.map(toSvg), transforms: placed, links, stoodIn };
 }
 
 /**
  * A frame that is all but empty upstream (a few specks where a figure should be) would blink the
  * drawing off. The pose before it stands in, or the one after for a first frame. Returns the
- * drawings to use and, for each frame, the index of the frame that stood in for it (or null).
+ * frames to use and, for each, the index of the frame that stood in for it (or null).
  */
-export function standIns(drawings) {
-  const ink = drawings.map((d) => d.strokes.reduce((sum, s) => sum + lengthOf(s.points), 0));
-  const stoodIn = drawings.map((_, i) => {
+export function standIns(frames) {
+  const ink = frames.map((frame) => frame.points.length);
+  const stoodIn = frames.map((_, i) => {
     const others = ink.filter((_, j) => j !== i).sort((a, b) => a - b);
     const typical = others[others.length >> 1];
     if (ink[i] >= 0.2 * typical) return null;
     return i > 0 ? i - 1 : 1;
   });
-  return {
-    drawings: drawings.map((d, i) => (stoodIn[i] === null ? d : drawings[stoodIn[i]])),
-    stoodIn,
-  };
+  return { frames: frames.map((f, i) => (stoodIn[i] === null ? f : frames[stoodIn[i]])), stoodIn };
 }
 
 /** The SVG of one frame: a single path, drawn with the pen, with no fill. */

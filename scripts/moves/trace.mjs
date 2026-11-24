@@ -2,7 +2,7 @@
  * From a thinned drawing (lines one pixel wide, see `thin` in image.mjs) to strokes: lists of
  * points that follow each line of the drawing, as a pen would. Used by scripts/moves.mjs.
  */
-import { NEIGHBOURS } from "./image.mjs";
+import { NEIGHBOURS, components } from "./image.mjs";
 
 const { DX, DY } = NEIGHBOURS;
 
@@ -236,8 +236,10 @@ export function strokes({ nodes, edges }, reach = 10) {
   const follow = (startKey) => {
     // Walk from an end with no partner, edge after edge, until the line stops.
     const points = [];
+    const through = [];
     let key = startKey;
     let closed = false;
+    let last = -1;
     while (key >= 0) {
       const edge = edges[key >> 1];
       if (used[edge.id]) {
@@ -245,17 +247,21 @@ export function strokes({ nodes, edges }, reach = 10) {
         break;
       }
       used[edge.id] = 1;
+      through.push(edge.id);
       const run = key & 1 ? [...edge.points].reverse() : edge.points;
       for (let i = points.length ? 1 : 0; i < run.length; i++) points.push(run[i]);
+      last = key & 1 ? edge.from : edge.to;
       key = partner[key ^ 1];
     }
-    return { points, closed };
+    const first = startKey & 1 ? edges[startKey >> 1].to : edges[startKey >> 1].from;
+    // `edges` are the graph edges the stroke runs along; `ends` the nodes it starts and stops at.
+    return { points, closed, edges: through, ends: closed ? [] : [first, last] };
   };
   for (const edge of edges) {
     if (used[edge.id]) continue;
     if (edge.from < 0) {
       used[edge.id] = 1;
-      out.push({ points: edge.points, closed: true });
+      out.push({ points: edge.points, closed: true, edges: [edge.id], ends: [] });
     } else if (partner[edge.id * 2] < 0) out.push(follow(edge.id * 2));
     else if (partner[edge.id * 2 + 1] < 0) out.push(follow(edge.id * 2 + 1));
   }
@@ -263,7 +269,8 @@ export function strokes({ nodes, edges }, reach = 10) {
   for (const edge of edges) if (!used[edge.id]) out.push({ ...follow(edge.id * 2), closed: true });
   // A pixel on its own is a dot: an eye, a navel, the end of a bar seen head-on.
   for (const node of nodes)
-    if (!node.edges.length) out.push({ points: [[node.x, node.y]], closed: false });
+    if (!node.edges.length)
+      out.push({ points: [[node.x, node.y]], closed: false, edges: [], ends: [node.id, node.id] });
   for (const stroke of out) {
     const { points } = stroke;
     const last = points.length - 1;
@@ -386,4 +393,275 @@ export function simplify(points, tolerance) {
     }
   }
   return points.filter((_, i) => keep[i]);
+}
+
+/**
+ * Takes the detail out of a drawing and leaves what it is a drawing of. Seen small, the marks
+ * inside a figure (muscles, creases, the plates of a weight stack) crowd it; its outline, its
+ * limbs, its clothes and the machine are what read.
+ *
+ * What tells a contour from a mark is what lies on either side. A drawing divides the canvas
+ * into faces: the outside, and every area its lines enclose (`faces` in image.mjs). A contour
+ * has a different face on each side: body and outside, arm and chest, shorts and thigh. A mark
+ * has the same enclosed face on both: it is a line drawn on something, not the edge of
+ * anything. Marks shorter than `mark` pixels go. Lines with the outside on both sides (a cable,
+ * a bar drawn as one line) are not marks and stay. When it cannot tell, a line stays.
+ *
+ * Finding the face beside a line takes two looks. Close by (`near` pixels) is enough for most.
+ * Where lines crowd together there is no open face nearby, so the second look goes further
+ * (`far` pixels), straight through other undecided lines, and stops at the first line already
+ * known to be a contour: the face on this side of that contour is the answer.
+ *
+ * Small faces (under `cell` pixels: a kneecap, the squares of a six-pack) are first merged into
+ * the enclosed neighbour they share most of their edge with, so the line between them goes too.
+ * A small face that is round (a head, the end of a dumbbell) is a thing in its own right and is
+ * left alone. Scraps shorter than `speck` go unless out in the open.
+ */
+export function declutter(skeleton, w, h, faces, { mark, cell, near, far, speck }) {
+  const g = graph(skeleton, w, h);
+  const lines = strokes(g);
+  const { labels, areas, outside, round } = faces;
+  const UNKNOWN = -1;
+  /** The face at a point: 0 outside, UNKNOWN on a line or where lines were closed together. */
+  const faceAt = (x, y) => {
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+    if (cx < 0 || cy < 0 || cx >= w || cy >= h) return 0;
+    const label = labels[cy * w + cx];
+    return label ? (outside[label] ? 0 : label) : UNKNOWN;
+  };
+
+  // Which stroke, and which of its points, each pixel of the skeleton belongs to.
+  const owner = new Int32Array(w * h).fill(-1);
+  const index = new Int32Array(w * h);
+  lines.forEach(({ points }, n) => {
+    points.forEach(([x, y], k) => {
+      const i = Math.round(y) * w + Math.round(x);
+      if (owner[i] < 0) {
+        owner[i] = n;
+        index[i] = k;
+      }
+    });
+  });
+  const tangent = (points, k) => {
+    const a = points[Math.max(0, k - 3)];
+    const b = points[Math.min(points.length - 1, k + 3)];
+    const size = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [(b[0] - a[0]) / size, (b[1] - a[1]) / size];
+  };
+  /** The two normals of a stroke at a point: side 0 and side 1. */
+  const normals = ([tx, ty]) => [
+    [ty, -tx],
+    [-ty, tx],
+  ];
+
+  // First look: the face close by on each side, for every few points of every stroke.
+  const samples = lines.map(({ points }) => {
+    const found = [];
+    if (points.length < 2) return found;
+    for (let k = 0; k < points.length; k += 3) {
+      const sides = [UNKNOWN, UNKNOWN];
+      normals(tangent(points, k)).forEach(([nx, ny], side) => {
+        for (let d = near[0]; d <= near[1] && sides[side] === UNKNOWN; d += 1)
+          sides[side] = faceAt(points[k][0] + nx * d, points[k][1] + ny * d);
+      });
+      found.push({ k, sides });
+    }
+    return found;
+  });
+
+  // Merge small faces into the enclosed neighbour they touch most.
+  const parent = new Int32Array(areas.length).map((_, i) => i);
+  const find = (i) => {
+    while (parent[i] !== i) i = parent[i] = parent[parent[i]];
+    return i;
+  };
+  const touching = new Map();
+  for (const found of samples)
+    for (const {
+      sides: [a, b],
+    } of found) {
+      if (a <= 0 || b <= 0 || a === b) continue;
+      const key = a < b ? a * areas.length + b : b * areas.length + a;
+      touching.set(key, (touching.get(key) ?? 0) + 1);
+    }
+  const small = [];
+  for (let face = 1; face < areas.length; face++)
+    if (!outside[face] && areas[face] < cell && !round[face]) small.push(face);
+  small.sort((a, b) => areas[a] - areas[b]);
+  for (const face of small) {
+    let best = -1;
+    let most = 0;
+    for (const [key, count] of touching) {
+      const a = Math.floor(key / areas.length);
+      const b = key % areas.length;
+      const other = a === face ? b : b === face ? a : -1;
+      if (other > 0 && count > most && find(other) !== find(face)) {
+        most = count;
+        best = other;
+      }
+    }
+    if (best > 0) parent[find(face)] = find(best);
+  }
+  const same = (a, b) => a === b || (a > 0 && b > 0 && find(a) === find(b));
+
+  /** The face a stroke mostly has on one side, among the samples that could tell. */
+  const mostly = (found, side) => {
+    const votes = new Map();
+    for (const { sides } of found) {
+      const face = sides[side];
+      if (face === UNKNOWN) continue;
+      const key = face > 0 ? find(face) : 0;
+      votes.set(key, (votes.get(key) ?? 0) + 1);
+    }
+    let best = UNKNOWN;
+    let most = 0;
+    for (const [face, count] of votes)
+      if (count > most) {
+        most = count;
+        best = face;
+      }
+    return { face: best, share: found.length ? most / found.length : 0 };
+  };
+
+  // A stroke is a contour once both its sides are known and differ.
+  const contour = new Uint8Array(lines.length);
+  const side = lines.map(() => [UNKNOWN, UNKNOWN]);
+  const settle = () => {
+    let news = 0;
+    lines.forEach((_, n) => {
+      if (contour[n]) return;
+      const a = mostly(samples[n], 0);
+      const b = mostly(samples[n], 1);
+      if (a.face === UNKNOWN || b.face === UNKNOWN || a.share < 0.3 || b.share < 0.3) return;
+      if (same(a.face, b.face)) return;
+      contour[n] = 1;
+      side[n] = [a.face, b.face];
+      news++;
+    });
+    return news;
+  };
+  settle();
+
+  // Second look, for sides still unknown: further out, through undecided lines, up to the first
+  // contour. Repeated while it keeps finding new contours.
+  for (let round = 0; round < 3; round++) {
+    lines.forEach(({ points }, n) => {
+      if (contour[n]) return;
+      for (const sample of samples[n]) {
+        const [x, y] = points[sample.k];
+        normals(tangent(points, sample.k)).forEach(([nx, ny], s) => {
+          if (sample.sides[s] !== UNKNOWN) return;
+          for (let d = near[0]; d <= far; d += 1) {
+            const px = x + nx * d;
+            const py = y + ny * d;
+            const face = faceAt(px, py);
+            if (face !== UNKNOWN) {
+              sample.sides[s] = face;
+              return;
+            }
+            const i = Math.round(py) * w + Math.round(px);
+            const hit = owner[i];
+            if (hit < 0 || hit === n || !contour[hit]) continue;
+            // We came from the side of that contour its normal points back along our ray to.
+            const [n0] = normals(tangent(lines[hit].points, index[i]));
+            const from = n0[0] * -nx + n0[1] * -ny > 0 ? 0 : 1;
+            sample.sides[s] = side[hit][from];
+            return;
+          }
+        });
+      }
+    });
+    if (!settle()) break;
+  }
+
+  const next = Uint8Array.from(skeleton);
+  const dead = new Uint8Array(g.edges.length);
+  lines.forEach((line, n) => {
+    if (!line.edges.length) {
+      // A dot stays only out in the open.
+      const [x, y] = line.points[0];
+      let open = 0;
+      for (const [ux, uy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        let face = UNKNOWN;
+        for (let d = near[0]; d <= far && face === UNKNOWN; d += 2)
+          face = faceAt(x + ux * d, y + uy * d);
+        if (face === 0) open++;
+      }
+      if (open < 4) for (const i of g.nodes[line.ends[0]].members) next[i] = 0;
+      return;
+    }
+    const found = samples[n];
+    const length = lengthOf(line.points);
+    if (contour[n] || !found.length || length >= mark) return;
+    let marks = 0;
+    let open = 0;
+    for (const {
+      sides: [a, b],
+    } of found) {
+      if (a > 0 && b > 0 && same(a, b)) marks++;
+      if (a === 0 && b === 0) open++;
+    }
+    // A scrap too short to be anything goes unless it clearly lies out in the open.
+    if (length < speck ? open === found.length : marks < 0.6 * found.length) return;
+    for (const id of line.edges) {
+      dead[id] = 1;
+      for (const i of g.edges[id].run) next[i] = 0;
+    }
+  });
+  // A line end or a junction with nothing left attached goes with its strokes.
+  for (const node of g.nodes)
+    if (node.edges.length && node.edges.every((edge) => dead[edge.id]))
+      for (const i of node.members) next[i] = 0;
+  // Crumbs left where several marks met.
+  const bits = components(next, w, h, true);
+  for (let i = 0; i < next.length; i++)
+    if (next[i] && bits.areas[bits.labels[i]] < speck && faceAt(i % w, Math.floor(i / w)) !== 0)
+      next[i] = 0;
+  return next;
+}
+
+/**
+ * Where a drawing's outline could be completed: for every loose end of a line, the straight
+ * stretch from that end, carrying on the way it was heading (or a little to either side), to the
+ * next line it would meet within `reach` pixels. `ink` is the drawing the skeleton came from;
+ * a stretch starts once it is clear of the ink around its own end. Returns the stretches as
+ * pairs of points. Which of them really close an outline is for the caller to judge.
+ */
+export function looseEnds(skeleton, ink, w, h, reach) {
+  const { nodes } = graph(skeleton, w, h);
+  const out = [];
+  for (const node of nodes) {
+    if (node.junction || node.edges.length !== 1) continue;
+    const { points, from } = node.edges[0];
+    if (points.length < 4) continue;
+    const [dx, dy] = heading(points, from === node.id, 12);
+    // `heading` points along the line, away from this end; the gap lies the other way.
+    let best = null;
+    for (const turn of [0, -0.3, 0.3]) {
+      const cos = Math.cos(turn);
+      const sin = Math.sin(turn);
+      const ux = -(dx * cos - dy * sin);
+      const uy = -(dx * sin + dy * cos);
+      let clear = false;
+      for (let d = 1; d <= reach; d++) {
+        const x = Math.round(node.x + ux * d);
+        const y = Math.round(node.y + uy * d);
+        if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) break;
+        const on = ink[y * w + x];
+        if (!on) clear = true;
+        else if (clear) {
+          if (!best || d < best.d) best = { d, to: [node.x + ux * (d + 2), node.y + uy * (d + 2)] };
+          break;
+        }
+      }
+    }
+    if (best) out.push([[node.x, node.y], best.to]);
+  }
+  return out;
 }
