@@ -90,6 +90,14 @@ describe("format", () => {
         "es",
       ),
     ).toBe("Nuevo orden: Entreno, Agenda");
+    // A module this build does not know is not on this screen, so it is not named.
+    expect(
+      describeChange(
+        screen({ kind: "move", label: "", data: { order: ["later", "train", "agenda"] } }),
+        dict,
+        "es",
+      ),
+    ).toBe("Nuevo orden: Entreno, Agenda");
     expect(describeChange(screen({ label: "gone" }), getDictionary("en"), "en")).toBe(
       "gone module on screen",
     );

@@ -76,8 +76,16 @@ export function describeChange(change: Change, dict: Dictionary, lang: Locale): 
   if (change.module === "app") {
     const t = dict.modules.receipt;
     const order = change.data?.order;
+    // The order may hold a module this build does not know (another device shows it): the
+    // line names the ones on this screen.
     if (Array.isArray(order))
-      return t.order(order.map((id) => moduleName(String(id), lang)).join(", "));
+      return t.order(
+        order
+          .map(String)
+          .filter((id) => kernel.get(id))
+          .map((id) => moduleName(id, lang))
+          .join(", "),
+      );
     const name = moduleName(change.label, lang);
     const position = change.data?.position;
     if (change.kind === "move" && typeof position === "number") return t.moved(name, position);
