@@ -28,6 +28,15 @@
   --color-tone-teal: var(--tone-teal);
   --color-danger: var(--danger);
   --color-focus: var(--focus);
+  /* Motion: `ease-standard` and friends read the motion tokens, and Tailwind's own easings are
+     gone so a hand-picked curve can't slip in. `transition` without a duration is instant. */
+  --ease-*: initial;
+  --ease-standard: var(--easing-standard);
+  --ease-emphasized: var(--easing-emphasized);
+  --ease-exit: var(--easing-exit);
+  --ease-sway: var(--easing-sway);
+  --default-transition-duration: var(--duration-instant);
+  --default-transition-timing-function: var(--easing-standard);
 }
 
 @theme {
@@ -193,22 +202,22 @@
 
 .pw-listen-bar {
   transform-origin: bottom;
-  animation: pw-listen 900ms ease-in-out infinite;
+  animation: pw-listen 900ms var(--easing-sway) infinite;
 }
 .pw-halo {
-  animation: pw-halo 1400ms ease-in-out infinite;
+  animation: pw-halo 1400ms var(--easing-sway) infinite;
 }
 .pw-rise {
-  animation: pw-rise 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: pw-rise var(--duration-base) var(--easing-standard) both;
 }
 .pw-fade {
-  animation: pw-fade 200ms ease-out both;
+  animation: pw-fade var(--duration-quick) var(--easing-standard) both;
 }
 .pw-bar {
   transition:
-    height 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    width 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background-color 160ms ease-out;
+    height var(--duration-base) var(--easing-emphasized),
+    width var(--duration-base) var(--easing-emphasized),
+    background-color var(--duration-quick) var(--easing-standard);
 }
 @keyframes pw-listen-x {
   0%,
@@ -229,7 +238,7 @@
 
 /* Progress fills (day bar, agenda bars) glide to their new width. */
 .pw-fill {
-  transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: width var(--duration-glide) var(--easing-standard);
 }
 
 /*
@@ -237,14 +246,14 @@
  * their new place, and new blocks draw themselves left to right like a bar filling.
  */
 .pw-track {
-  transition: min-height 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: min-height var(--duration-slow) var(--easing-standard);
 }
 .pw-slide {
   transition:
-    top 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    left 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    width 480ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 160ms ease-out;
+    top var(--duration-slow) var(--easing-standard),
+    left var(--duration-slow) var(--easing-standard),
+    width var(--duration-slow) var(--easing-standard),
+    filter var(--duration-quick) var(--easing-standard);
 }
 @keyframes pw-reveal {
   from {
@@ -257,7 +266,7 @@
   }
 }
 .pw-reveal {
-  animation: pw-reveal 560ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation: pw-reveal var(--duration-slow) var(--easing-standard) backwards;
 }
 @keyframes pw-pop {
   from {
@@ -270,7 +279,7 @@
   }
 }
 .pw-pop {
-  animation: pw-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: pw-pop var(--duration-slow) var(--easing-emphasized) backwards;
 }
 
 /* A live item breathes. */
@@ -284,7 +293,7 @@
   }
 }
 .pw-live {
-  animation: pw-live 1600ms ease-in-out infinite;
+  animation: pw-live 1600ms var(--easing-sway) infinite;
 }
 
 /*
@@ -373,47 +382,13 @@
 /* Long-press feedback on touch: the box sinks a little before the detail opens. */
 .pw-press {
   transition:
-    transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    translate 200ms ease-out,
-    border-color 200ms ease-out,
-    box-shadow 200ms ease-out;
+    transform var(--duration-slow) var(--easing-standard),
+    translate var(--duration-quick) var(--easing-standard),
+    border-color var(--duration-quick) var(--easing-standard),
+    box-shadow var(--duration-quick) var(--easing-standard);
 }
 .pw-press[data-pressing="true"] {
   transform: scale(0.97);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pw-listen-bar,
-  .pw-halo,
-  .pw-live,
-  .pw-frames > .pw-art {
-    animation: none !important;
-  }
-  .pw-fill,
-  .pw-track,
-  .pw-slide {
-    transition: none;
-  }
-  .pw-reveal,
-  .pw-pop {
-    animation: none;
-  }
-  .pw-press {
-    transition:
-      border-color 200ms ease-out,
-      box-shadow 200ms ease-out;
-  }
-  .pw-press:hover,
-  .pw-press[data-pressing="true"] {
-    transform: none;
-    translate: none;
-  }
-  .pw-rise {
-    animation: pw-fade 200ms ease-out both;
-  }
-  .pw-bar {
-    transition: background-color 160ms ease-out;
-  }
 }
 
 /* Arranging modules: tiles tremble a little, like icons waiting to be moved. */
@@ -427,7 +402,7 @@
   }
 }
 .pw-jiggle {
-  animation: pw-jiggle 380ms ease-in-out infinite;
+  animation: pw-jiggle 380ms var(--easing-sway) infinite;
 }
 /* Arranging the panel: each card turns by --pw-tremble, set from its width so wide and narrow
    cards move their edges the same; the duration and phase differ per card. */
@@ -441,7 +416,7 @@
   }
 }
 .pw-tremble {
-  animation: pw-tremble 300ms ease-in-out infinite;
+  animation: pw-tremble 300ms var(--easing-sway) infinite;
 }
 /* The dashed edge of a card being arranged: dashes march slowly round it. */
 @keyframes pw-march {
@@ -460,10 +435,46 @@
 .pw-outline[data-lifted] {
   filter: drop-shadow(0 0 6px color-mix(in oklab, currentColor 55%, transparent));
 }
+
+/*
+ * Reduced motion, in one place. Movement stops or becomes a short fade (at most
+ * --duration-instant); nothing that carries information is hidden. Code asks the same question
+ * through lib/motion.ts (`reducedMotion`, `useReducedMotion`).
+ */
 @media (prefers-reduced-motion: reduce) {
+  .pw-listen-bar,
+  .pw-halo,
+  .pw-live,
+  .pw-frames > .pw-art {
+    animation: none !important;
+  }
+  .pw-fill,
+  .pw-track,
+  .pw-slide {
+    transition: none;
+  }
+  .pw-reveal,
+  .pw-pop,
   .pw-jiggle,
   .pw-tremble,
   .pw-outline rect {
     animation: none;
+  }
+  .pw-press {
+    transition:
+      border-color var(--duration-quick) var(--easing-standard),
+      box-shadow var(--duration-quick) var(--easing-standard);
+  }
+  .pw-press:hover,
+  .pw-press[data-pressing="true"] {
+    transform: none;
+    translate: none;
+  }
+  .pw-rise,
+  .pw-fade {
+    animation: pw-fade var(--duration-instant) var(--easing-standard) both;
+  }
+  .pw-bar {
+    transition: background-color var(--duration-quick) var(--easing-standard);
   }
 }

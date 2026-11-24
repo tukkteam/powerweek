@@ -214,7 +214,7 @@ function FuelCard({
                           aria-label={on ? t.unpickLabel(option.title) : t.pickLabel(option.title)}
                           title={option.note}
                           onClick={() => records.set(day, pickKey(slot), on ? null : option.id)}
-                          className={`inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-[0.875rem] transition-[background-color,border-color,color,opacity] duration-200 ${
+                          className={`inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-[0.875rem] transition-[background-color,border-color,color,opacity] duration-(--duration-quick) ${
                             on
                               ? "border-tone bg-tone font-semibold text-bg"
                               : chosen

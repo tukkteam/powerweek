@@ -11,9 +11,10 @@ packages/design-tokens/tokens.json   (edit here, or in the design artifact and c
         │  pnpm tokens  (scripts/build.mjs; CI runs it with --check)
         ▼
 packages/design-tokens/tokens.css    :root / [data-theme="dark|light|system"] custom properties
-        │  @import in apps/web/app/globals.css
+packages/design-tokens/motion.ts     the motion tokens for TypeScript (@powerweek/design-tokens/motion)
+        │  @import in apps/web/app/globals.css; motion.ts through apps/web/lib/motion.ts
         ▼
-Tailwind utilities                   bg-surface, text-ink-muted, border-line, text-volt-ink, …
+Tailwind utilities                   bg-surface, text-ink-muted, border-line, ease-standard, …
 ```
 
 Themes switch by setting `data-theme` on `<html>` (`dark`, `light` or `system`); the choice is stored in `localStorage` and applied before first paint.
@@ -93,6 +94,66 @@ Spanish first (tú), English second, same tone: imperative, short and warm. "Dil
 
 ## Motion and accessibility
 
-Bars spring (about 240 ms), progress fills glide (700 ms), everything else eases out in 160–220 ms; `prefers-reduced-motion` turns motion into fades and stops illustration loops. Hover details appear after 320 ms and never take the pointer; on touch screens a 450 ms press opens the same detail as a bottom sheet, and a normal tap always opens the day. Touch targets are at least 44 px, icon-only buttons have labels, dialogs use the native `<dialog>` element, and the receipt and notices are live regions.
+PowerWeek should move like a well-made Apple app: one way of moving, everywhere. Motion is built from tokens, like colour, and the build fails when an easing or a duration is typed in by hand.
 
-Arranging the panel works with a mouse, a finger and a keyboard. On a card's handle, Space or Enter picks the card up, the arrow keys move it one place (up and left earlier, down and right later), Home and End to either end, Space or Enter drops it and Escape puts it back; each step is announced in a live region, in the interface language. While arranging, each card trembles at its own pace, turned by an angle set from its width so wide and narrow cards move their edges the same (`trembleAngle` in `lib/motion.ts`); its dashed edge marches slowly round it; the controls pop in, staggered, and hold still. A card in hand grows a little on a spring, its edge turns solid and glows in its tone, and it tracks the pointer 1:1; neighbours and the drop move on the same spring (`SPRING` in `lib/motion.ts`, until the motion tokens of #25). With reduced motion nothing trembles, marches, pops, lifts or glides.
+### Six principles
+
+A reviewer can check each of these.
+
+1. **Springs, not just durations.** Movement uses springs defined by response and damping, as in SwiftUI, so it settles naturally. Durations are for fades and colour.
+2. **Interruptible.** An animation can be reversed or redirected mid-flight (tap again, drag back) and continues from where it is, without jumping or restarting.
+3. **1:1 under the finger.** During a gesture the element tracks the pointer exactly; the animation starts on release and carries the release velocity.
+4. **Spatially coherent.** Things open from where they were tapped and close back into it; navigation moves in the direction of the tabs.
+5. **Smooth on real devices.** Only `transform`, `opacity` and `filter` animate: never width, height, top or left. 60 fps on a mid-range Android phone with 4× CPU throttling, 120 fps where the screen allows it, and no long task (over 50 ms) during an animation.
+6. **Respectful.** With `prefers-reduced-motion`, movement becomes a short fade (at most `duration-instant`, 150 ms) or nothing, and never removes information. Focus and screen-reader announcements never wait for an animation.
+
+Still to bring in line with principle 5: the Week Pulse bars (`pw-bar`, height and width), progress fills (`pw-fill`, width) and the Day Bar (`pw-track`, `pw-slide`: min-height, top, left, width). The motion issues for presses (#26), details (#27), tabs (#28) and dragging (#29) take them on.
+
+### Motion tokens
+
+In `tokens.json` under `motion`; `pnpm tokens` writes them to `tokens.css` and `motion.ts`.
+
+| Token               | Value                               | Use it for                                                                                            |
+| ------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `easing-standard`   | `cubic-bezier(0.2, 0.8, 0.2, 1)`    | The default: entrances, glides, fills, fades, colour. Starts fast, lands softly.                      |
+| `easing-emphasized` | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Small things that grow or appear: Week Pulse bars, controls popping in. Overshoots.                   |
+| `easing-exit`       | `cubic-bezier(0.3, 0, 1, 1)`        | Things leaving: a sheet closing, a card dismissed.                                                    |
+| `easing-sway`       | `cubic-bezier(0.42, 0, 0.58, 1)`    | Loops that go back and forth: listening bars, a breathing dot, the tremble.                           |
+| `duration-instant`  | 150 ms                              | Press feedback, hover colour, and the longest fade allowed with reduced motion.                       |
+| `duration-quick`    | 200 ms                              | Fades, colour, borders, shadows.                                                                      |
+| `duration-base`     | 260 ms                              | Small movements: a bar growing, a card rising in, a tile settling.                                    |
+| `duration-slow`     | 440 ms                              | Larger movements: the Day Bar resizing, blocks gliding, a pressed box sinking.                        |
+| `duration-glide`    | 700 ms                              | Progress: fills and numbers moving to a new value slowly enough to follow.                            |
+| `spring-snappy`     | response 0.28 s, damping 0.85       | Presses and toggles: quick, almost no bounce. Settles in 400 ms.                                      |
+| `spring-smooth`     | response 0.4 s, damping 1           | Opening and closing details, moving between screens: no bounce. Settles in 600 ms.                    |
+| `spring-bouncy`     | response 0.38 s, damping 0.72       | Things moved by hand: a dropped card, neighbours making room. About 4 % overshoot, settles in 620 ms. |
+
+A spring's `response` is its period without damping, in seconds (smaller is faster); `damping` is the damping ratio (1 settles without overshooting). The build samples each spring every 20 ms until it stays within 0.1 % of its target (`scripts/spring.mjs`) and writes it as a CSS `linear()` easing with its duration. Where `linear()` is not understood (Safari before 17.2), the `--spring-*` variables fall back to the standard easing.
+
+Where to read them:
+
+- **CSS**: `var(--easing-standard)`, `var(--duration-quick)`, `var(--spring-bouncy)` with `var(--spring-bouncy-duration)`.
+- **Tailwind**: `ease-standard`, `ease-emphasized`, `ease-exit`, `ease-sway`; `duration-(--duration-quick)`. Tailwind's own easings (`ease-in`, `ease-out`, `ease-in-out`) are removed. A bare `transition` or `transition-colors` uses `duration-instant` and `easing-standard`.
+- **TypeScript**: `durations`, `easings`, `springs` from `@/lib/motion`, plus `springEasing(name)` for the Web Animations API (with the same fallback) and `ease(name)` to ease a number by hand on the same curve (`useTween` does, so a number and its fill arrive together).
+
+To tune them, run `pnpm dev` and open `/es/dev/motion`: every spring, easing and duration side by side, and each track can be sent back mid-flight. That page exists only in development (`page.dev.tsx`; see `pageExtensions` in `next.config.ts`).
+
+### Which tool for which motion
+
+- **Presses, hovers and colour**: CSS transitions on the tokens.
+- **Navigation and opening a detail**: React's `<ViewTransition>` (React 19.3; no configuration in Next.js 16, see `apps/web/node_modules/next/dist/docs/01-app/02-guides/view-transitions.md`). Animate transforms and opacity only, with the tokens in the `::view-transition-*` rules. Without browser support nothing breaks: the change just doesn't animate.
+- **Gestures and interruptible springs** (drag, swipe to dismiss): `motion`. It is kept for this, because a spring that carries the release velocity and can be redirected mid-flight is hard to get right by hand. Import it only in components that drag, so it never lands in other bundles. Until the shared drag engine (#29) arrives, arranging uses pointer events and the Web Animations API with `spring-bouncy`.
+
+### What the build checks
+
+`lib/motion-literals.test.ts` reads every stylesheet and component in `apps/web` and fails on a hand-written easing (`cubic-bezier(…)`, `linear(…)`, an `ease` keyword, a Tailwind `ease-out` or `duration-200`) or a hand-written duration in a transition, an animation or a Web Animations call. Three things may stay local on purpose: the period of an endless loop (an animation with `infinite`, such as the tremble or the listening bars, is the rhythm of that one element), delays (choreography, such as a stagger), and the `linear` keyword. A new kind of motion that the tokens can't express is a new token: add it to `tokens.json`, run `pnpm tokens`, and look at it on `/es/dev/motion`.
+
+### Reduced motion
+
+Asked in one place in each language. In CSS, the `prefers-reduced-motion` block at the end of `app/globals.css`. In code, `reducedMotion()` (at the moment of the call) and `useReducedMotion()` (a hook that follows changes while the page is open) from `lib/motion.ts`. Both are tested.
+
+### Accessibility
+
+Hover details appear after 320 ms and never take the pointer; on touch screens a 450 ms press opens the same detail as a bottom sheet, and a normal tap always opens the day. Touch targets are at least 44 px, icon-only buttons have labels, dialogs use the native `<dialog>` element, and the receipt and notices are live regions.
+
+Arranging the panel works with a mouse, a finger and a keyboard. On a card's handle, Space or Enter picks the card up, the arrow keys move it one place (up and left earlier, down and right later), Home and End to either end, Space or Enter drops it and Escape puts it back; each step is announced in a live region, in the interface language. While arranging, each card trembles at its own pace, turned by an angle set from its width so wide and narrow cards move their edges the same (`trembleAngle` in `lib/motion.ts`); its dashed edge marches slowly round it; the controls pop in, staggered, and hold still. A card in hand grows a little on a spring, its edge turns solid and glows in its tone, and it tracks the pointer 1:1; neighbours and the drop move on the same spring (`spring-bouncy`). With reduced motion nothing trembles, marches, pops, lifts or glides.

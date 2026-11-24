@@ -5,7 +5,7 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "inverse";
 type Size = "md" | "lg" | "icon";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-full font-bold whitespace-nowrap select-none transition-[transform,background-color,color,border-color] duration-150 ease-out active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40";
+  "inline-flex items-center justify-center gap-2 rounded-full font-bold whitespace-nowrap select-none transition-[transform,background-color,color,border-color] duration-(--duration-instant) ease-standard active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40";
 
 const variants: Record<Variant, string> = {
   primary: "bg-volt text-on-volt hover:brightness-105",

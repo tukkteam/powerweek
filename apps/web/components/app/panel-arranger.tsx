@@ -28,7 +28,7 @@ import {
   type Held,
   type Moved,
 } from "@/lib/arrange";
-import { reducedMotion, SPRING, SPRING_MS, springEasing, trembleAngle } from "@/lib/motion";
+import { reducedMotion, springEasing, springs, trembleAngle } from "@/lib/motion";
 import { kernel } from "@/modules";
 import type { Shown } from "@/modules/board";
 import { ModuleIcon, toneStyle } from "@/modules/look";
@@ -259,8 +259,8 @@ export function PanelArranger({
       node.style.transform = "";
       if (!reducedMotion())
         node.animate([{ transform: from }, { transform: "none" }], {
-          duration: SPRING_MS,
-          easing: springEasing(),
+          duration: springs.bouncy.duration,
+          easing: springEasing("bouncy"),
         });
     }
     if (put === "back") change(current.origin);
@@ -344,8 +344,8 @@ export function PanelArranger({
       const dy = from.top - to.top;
       if (still || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) continue;
       node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
-        duration: SPRING_MS,
-        easing: springEasing(),
+        duration: springs.bouncy.duration,
+        easing: springEasing("bouncy"),
       });
     }
     before.current = new Map();
@@ -525,7 +525,8 @@ export function PanelArranger({
                     lifted ? "shadow-float motion-safe:scale-[1.03]" : ""
                   }`}
                   style={{
-                    transition: `scale ${SPRING_MS}ms ${SPRING}, box-shadow 220ms ease-out`,
+                    transition:
+                      "scale var(--spring-bouncy-duration) var(--spring-bouncy), box-shadow var(--duration-quick) var(--easing-standard)",
                   }}
                 >
                   {/* The card trembles; its controls hold still, so they are easy to hit. */}

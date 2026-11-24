@@ -189,16 +189,32 @@ if (hex.length)
     "Hard-coded hex colours added. Use token classes (inside a module, `tone`).",
     hex,
   );
-if (
-  paths.includes("packages/design-tokens/tokens.css") &&
-  !paths.includes("packages/design-tokens/tokens.json")
-) {
+for (const generated of ["tokens.css", "motion.ts"])
+  if (
+    paths.includes(`packages/design-tokens/${generated}`) &&
+    !paths.includes("packages/design-tokens/tokens.json") &&
+    !paths.some((p) => p.startsWith("packages/design-tokens/scripts/"))
+  )
+    add(
+      `design.tokens-${generated.replace(".", "-")}`,
+      "fail",
+      `${generated} is generated: edit tokens.json and run \`pnpm tokens\``,
+    );
+
+// Motion comes from tokens: a quick look at added lines (the full check is a unit test)
+const motionPattern =
+  /cubic-bezier\(|linear\(\s*\d|(?<![\w-])(duration-\d|ease-(in|out|in-out)(?![\w-]))|(transition|animation)\s*:[^;]*\b\d+m?s\b(?![^;]*infinite)/;
+const motion = [...added]
+  .filter(([p]) => /^apps\/web\/.*\.(tsx?|css)$/.test(p) && !isTest(p))
+  .filter(([, lines]) => lines.some((l) => motionPattern.test(l) && !/^\s*(\/\/|\*)/.test(l)))
+  .map(([p]) => p);
+if (motion.length)
   add(
-    "design.tokens-css",
-    "fail",
-    "tokens.css is generated: edit tokens.json and run `pnpm tokens`",
+    "design.motion",
+    "warn",
+    "Hand-written easing or duration added. Use the motion tokens (docs/design-system.md#motion-and-accessibility).",
+    motion,
   );
-}
 
 // Tests and docs travel with behaviour
 const code = paths.filter(isCode);
