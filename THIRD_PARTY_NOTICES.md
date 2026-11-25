@@ -5,6 +5,10 @@ each under its own license.
 
 ## Exercise illustrations: Workout Guide and Everkinetic (CC BY-SA 4.0)
 
+Deprecated: the app draws exercises with its own mannequin, and shows these frames only for a
+move that has no figure yet. They are due to be removed
+([#35](https://github.com/tukkteam/powerweek/issues/35)); until then this notice stands.
+
 - Files: `apps/web/public/moves/**` (906 SVG frames, three per exercise, and the in-between poses
   derived from them).
 - Source: [Workout Guide](https://github.com/bryllim/workout-guide) by Bryl Lim, commit

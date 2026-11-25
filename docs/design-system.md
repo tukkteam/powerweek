@@ -86,6 +86,8 @@ At the gym nobody wants to tick boxes between sets. Exercises are tiles you glan
 
 ### Exercise illustrations
 
+> **Deprecated.** The drawn frames below are superseded by the mannequin (next section, [ADR 0013](adr/0013-mannequin.md)), which draws every move in the catalogue. They are kept only as a fallback for a move with no figure yet, and are due to be removed ([#35](https://github.com/tukkteam/powerweek/issues/35)). Do not build on them.
+
 Drawings come from the move library (see [ADR 0008](adr/0008-move-library.md)): 302 exercises with three frames each, served from `apps/web/public/moves/<slug>/<frame>.svg`. They are masks, never `<img>`, so the brand colour drives them; frame 1 is the still image, and animation only runs on hover, focus or in the exercise sheet (and never with reduced motion). Credits: Workout Guide by Bryl Lim, based on Everkinetic, CC BY-SA 4.0.
 
 Upstream, the three frames of an exercise are three separate drawings: hair-thin lines in one, marker-thick in the next, at slightly different sizes and places, so played in a row they flickered and jumped. `pnpm moves` therefore redraws the whole library with one pen (`scripts/moves/art.mjs`):

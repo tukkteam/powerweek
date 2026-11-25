@@ -16,6 +16,8 @@ export const MOVE_SOURCE = {
 /**
  * Which moves have a pose drawn between their key poses, for a smoother loop: 1 = between frames
  * 1 and 2 (1-2.svg), 2 = between 2 and 3 (2-3.svg), 3 = both. Moves not listed have neither.
+ * @deprecated The drawn frames are a fallback only; the mannequin draws every move (ADR 0013).
+ * Removal: issue #35.
  */
 export const MOVE_BETWEENS: Readonly<Record<string, 1 | 2 | 3>> = {
   "active-hang": 3,

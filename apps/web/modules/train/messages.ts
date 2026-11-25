@@ -23,7 +23,10 @@ export interface TrainMessages extends ModuleMessages {
   phase: (n: number) => string;
   openExercise: (name: string) => string;
   noArt: string;
+  /** Credit for the drawn frames, shown only when a move falls back to them (deprecated). */
   credit: string;
+  /** Credit for the catalogue a move comes from (names, equipment, muscles). */
+  source: string;
   and: string;
   editor: {
     newExercise: string;
@@ -68,6 +71,7 @@ export const messages: Record<Locale, TrainMessages> = {
     openExercise: (name) => `Ver «${name}»`,
     noArt: "Sin dibujo",
     credit: "Ilustración: Workout Guide (Bryl Lim), basada en Everkinetic · CC BY-SA 4.0",
+    source: "Datos del ejercicio: Workout Guide (Bryl Lim) · MIT",
     and: " y ",
     editor: {
       newExercise: "Nuevo ejercicio",
@@ -146,6 +150,7 @@ export const messages: Record<Locale, TrainMessages> = {
     openExercise: (name) => `View “${name}”`,
     noArt: "No drawing",
     credit: "Illustration: Workout Guide (Bryl Lim), based on Everkinetic · CC BY-SA 4.0",
+    source: "Exercise data: Workout Guide (Bryl Lim) · MIT",
     and: " and ",
     editor: {
       newExercise: "New exercise",

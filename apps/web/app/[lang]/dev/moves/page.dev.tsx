@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
-import { MoveArt } from "@/modules/train/move-art";
+import { DrawnMoveArt } from "@/modules/train/move-art";
 import { MOVE_BETWEENS, MOVE_ROWS } from "@/modules/train/moves-data";
 
 /**
+ * Deprecated, with the drawn frames it shows (ADR 0013, issue #35).
+ *
  * /es/dev/moves: every exercise illustration, playing. For checking the whole library after
  * `pnpm moves`: the same line weight everywhere, and nothing that should stay still jumping.
  * A developer tool: the `.dev.tsx` extension keeps it out of production builds
  * (next.config.ts), nothing links to it, and its copy is English only.
  */
 export const metadata: Metadata = {
-  title: "Move library",
+  title: "Move library (deprecated)",
   robots: { index: false, follow: false },
 };
 
@@ -21,7 +23,11 @@ export default function MovesPage() {
       style={{ "--tone": "var(--tone-volt)" } as CSSProperties}
     >
       <header>
-        <h1 className="type-display">Move library</h1>
+        <h1 className="type-display">Move library (deprecated)</h1>
+        <p className="type-body text-ink-muted">
+          The app draws every exercise with the mannequin (/es/dev/figure). These drawn frames are
+          kept only as a fallback and are due to be removed (issue #35).
+        </p>
         <p className="type-body text-ink-muted">
           {MOVE_ROWS.length} moves from apps/web/public/moves: three key poses each, and a pose in
           between where one could be drawn that holds together (marked +1 or +2). Redraw them with
@@ -34,7 +40,7 @@ export default function MovesPage() {
             key={slug}
             className="flex flex-col gap-2 rounded-[14px] border border-line bg-surface p-3 text-tone [content-visibility:auto] [contain-intrinsic-size:auto_220px]"
           >
-            <MoveArt slug={slug} play="loop" label={name} className="aspect-square w-full" />
+            <DrawnMoveArt slug={slug} play="loop" label={name} className="aspect-square w-full" />
             <span className="type-caption text-ink-muted">
               {name}
               {MOVE_BETWEENS[slug] ? (

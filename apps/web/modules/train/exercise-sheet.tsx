@@ -7,6 +7,7 @@ import { useDialogMotion } from "@/components/app/use-dialog-motion";
 import { Button } from "@/components/ui/button";
 import type { TrainMessages } from "./messages";
 import type { Exercise } from "./module";
+import { hasFigure } from "./figure/library";
 import { MoveArt } from "./move-art";
 import { MOVE_FRAMES, muscleLoad, resolveMove } from "./moves";
 import { MuscleMap } from "./muscle-map";
@@ -193,7 +194,7 @@ function SheetBody({
 
         <div className="flex flex-wrap items-end justify-between gap-3 border-t border-line pt-4">
           <p className="type-caption max-w-[18rem] text-[0.6875rem] text-ink-muted">
-            {move ? t.credit : ""}
+            {move ? (hasFigure(move.slug) ? t.source : t.credit) : ""}
           </p>
           <Button onClick={edit}>
             <Pencil size={16} strokeWidth={1.75} aria-hidden="true" />
