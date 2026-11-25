@@ -16,6 +16,11 @@
  *        pnpm moves --report FILE   also writes what was done to each move, as JSON
  *
  * Drawing takes a few minutes; it runs on every core.
+ *
+ * DEPRECATED since 2026-11-25: the drawn frames are superseded by the mannequin
+ * (docs/adr/0013-mannequin.md, apps/web/modules/train/figure) and kept only as a fallback for a
+ * move with no figure. Removal is tracked in https://github.com/tukkteam/powerweek/issues/35.
+ * The catalogue import is not deprecated: moves-data.ts still comes from here.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -24,6 +29,11 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import { PEN } from "./moves/art.mjs";
+
+console.warn(
+  "pnpm moves: the drawn frames are deprecated (ADR 0013) and kept only as a fallback; " +
+    "removal is tracked in https://github.com/tukkteam/powerweek/issues/35",
+);
 
 const REPO = "bryllim/workout-guide";
 const COMMIT = "aac599224bb9780305239607ef98540b7e0ce389";
@@ -197,6 +207,10 @@ writeFileSync(
   join(publicDir, "README.md"),
   `# Move library artwork
 
+> **Deprecated** since 2026-11-25. PowerWeek draws every exercise with its own mannequin
+> (docs/adr/0013-mannequin.md); these frames are kept only as a fallback for a move that has no
+> figure yet, and are due to be removed: https://github.com/tukkteam/powerweek/issues/35
+
 The exercise illustrations in this folder come from **Workout Guide** by Bryl Lim
 (https://github.com/${REPO}, commit \`${COMMIT.slice(0, 7)}\`), whose pose artwork builds on
 **Everkinetic** (https://github.com/everkinetic/data).
@@ -247,6 +261,8 @@ export const MOVE_SOURCE = {
 /**
  * Which moves have a pose drawn between their key poses, for a smoother loop: 1 = between frames
  * 1 and 2 (1-2.svg), 2 = between 2 and 3 (2-3.svg), 3 = both. Moves not listed have neither.
+ * @deprecated The drawn frames are a fallback only; the mannequin draws every move (ADR 0013).
+ * Removal: issue #35.
  */
 export const MOVE_BETWEENS: Readonly<Record<string, 1 | 2 | 3>> = {
 ${betweens}

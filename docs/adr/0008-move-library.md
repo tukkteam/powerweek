@@ -1,6 +1,11 @@
 # 0008 · Exercise illustrations come from an open library the assistant links to
 
-Date: 2026-11-13 · Status: Accepted
+Date: 2026-11-13 · Status: Superseded by [ADR 0013](0013-mannequin.md) on 2026-11-25
+
+> The app now draws every exercise with its own mannequin (ADR 0013). The frames this record
+> describes are deprecated: kept, unchanged, as a fallback for a move with no figure, and due
+> to be removed ([#35](https://github.com/tukkteam/powerweek/issues/35)). The catalogue (names,
+> equipment, muscles) still comes from Workout Guide as decided here.
 
 ## Context
 

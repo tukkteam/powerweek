@@ -297,6 +297,9 @@
 }
 
 /*
+ * Deprecated (ADR 0013, issue #35): the drawn frames are only shown for a move the mannequin
+ * does not know yet. Remove with them.
+ *
  * Move art: exercise illustrations are SVG line drawings used as masks, so they paint with
  * currentColor. Every frame is drawn with the same pen and the frames of an exercise are lined
  * up with each other (scripts/moves.mjs), so playing them reads as one figure moving.

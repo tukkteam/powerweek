@@ -1,5 +1,9 @@
 # Move library artwork
 
+> **Deprecated** since 2026-11-25. PowerWeek draws every exercise with its own mannequin
+> (docs/adr/0013-mannequin.md); these frames are kept only as a fallback for a move that has no
+> figure yet, and are due to be removed: https://github.com/tukkteam/powerweek/issues/35
+
 The exercise illustrations in this folder come from **Workout Guide** by Bryl Lim
 (https://github.com/bryllim/workout-guide, commit `aac5992`), whose pose artwork builds on
 **Everkinetic** (https://github.com/everkinetic/data).
