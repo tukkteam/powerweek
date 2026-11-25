@@ -346,7 +346,7 @@ export const es = {
     signOutAnonymousWarning: "Sin email, al cerrar sesión perderás esta semana.",
     credits: "Créditos",
     creditsMoves:
-      "Ilustraciones de ejercicios: Workout Guide, de Bryl Lim, basadas en Everkinetic. Licencia CC BY-SA 4.0.",
+      "Ejercicios (nombres, material, músculos): Workout Guide, de Bryl Lim (MIT). El maniquí que los ejecuta es de PowerWeek. Dibujos de reserva para ejercicios sin maniquí: Workout Guide, basados en Everkinetic (CC BY-SA 4.0).",
     creditsBody: "Mapa muscular: polígonos de react-body-highlighter (MIT).",
     creditsFonts: "Tipografías: Archivo y Geist Mono (SIL Open Font License).",
     creditsCode: "PowerWeek es código abierto con licencia MIT.",
