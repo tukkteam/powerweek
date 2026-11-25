@@ -1,13 +1,23 @@
-import { MOVE_FRAMES } from "./moves";
+import { MOVE_BETWEENS } from "./moves-data";
 import { Dumbbell } from "lucide-react";
 import type { CSSProperties } from "react";
 
 /** Public URL of one illustration frame (see apps/web/public/moves). */
-export function moveFrameUrl(slug: string, frame: number): string {
+export function moveFrameUrl(slug: string, frame: number | string): string {
   return `/moves/${slug}/${frame}.svg`;
 }
 
-function maskStyle(slug: string, frame: number): CSSProperties {
+/**
+ * The five poses a loop plays through, first to last: the three key poses with, between each
+ * pair, the in-between pose where the library has one, or the middle key again where it does
+ * not (so every loop has the same eight steps and the same rhythm).
+ */
+export function moveLoop(slug: string): readonly (number | string)[] {
+  const has = MOVE_BETWEENS[slug] ?? 0;
+  return [1, has & 1 ? "1-2" : 2, 2, has & 2 ? "2-3" : 2, 3];
+}
+
+function maskStyle(slug: string, frame: number | string): CSSProperties {
   const image = `url(${moveFrameUrl(slug, frame)})`;
   return { maskImage: image, WebkitMaskImage: image };
 }
@@ -27,7 +37,7 @@ interface MoveArtProps {
 /**
  * An exercise illustration. Frames are SVG line drawings used as CSS masks, so they take the
  * current text colour (volt on Night, olive on Day) and stay on brand. Animated drawings stack
- * the three frames and cross-fade them start → middle → end → middle.
+ * the poses of the loop (`moveLoop`) and show them in turn, there and back.
  */
 export function MoveArt({ slug, play = "none", frame = 1, label, className = "" }: MoveArtProps) {
   const a11y = label ? ({ role: "img", "aria-label": label } as const) : { "aria-hidden": true };
@@ -46,8 +56,8 @@ export function MoveArt({ slug, play = "none", frame = 1, label, className = "" 
   // Frames share one grid cell, so the stack sizes like a single element wherever it is placed.
   return (
     <span {...a11y} data-play={play} className={`pw-frames grid ${className}`}>
-      {MOVE_FRAMES.map((n) => (
-        <span key={n} className="pw-art col-start-1 row-start-1" style={maskStyle(slug, n)} />
+      {moveLoop(slug).map((frame, i) => (
+        <span key={i} className="pw-art col-start-1 row-start-1" style={maskStyle(slug, frame)} />
       ))}
     </span>
   );

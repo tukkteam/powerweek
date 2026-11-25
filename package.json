@@ -13,7 +13,7 @@
     "start": "pnpm --filter @powerweek/web start",
     "lint": "pnpm -r --parallel lint",
     "typecheck": "pnpm -r --parallel typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && node --test \"scripts/**/*.test.mjs\"",
     "e2e": "pnpm --filter @powerweek/web e2e",
     "tokens": "pnpm --filter @powerweek/design-tokens build",
     "tokens:check": "pnpm --filter @powerweek/design-tokens check",
@@ -30,7 +30,6 @@
     "moves": "node scripts/moves.mjs"
   },
   "devDependencies": {
-    "prettier": "^3.6.2",
-    "svgo": "^4.1.0"
+    "prettier": "^3.6.2"
   }
 }
