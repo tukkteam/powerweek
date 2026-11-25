@@ -326,7 +326,7 @@ export const en: Dictionary = {
     signOutAnonymousWarning: "Without an email, signing out loses this week.",
     credits: "Credits",
     creditsMoves:
-      "Exercise illustrations: Workout Guide by Bryl Lim, based on Everkinetic. Licensed CC BY-SA 4.0.",
+      "Exercises (names, equipment, muscles): Workout Guide by Bryl Lim (MIT). The mannequin that performs them is PowerWeek's own. Fallback drawings for exercises without a mannequin: Workout Guide, based on Everkinetic (CC BY-SA 4.0).",
     creditsBody: "Muscle map: polygons from react-body-highlighter (MIT).",
     creditsFonts: "Typefaces: Archivo and Geist Mono (SIL Open Font License).",
     creditsCode: "PowerWeek is open source under the MIT license.",
