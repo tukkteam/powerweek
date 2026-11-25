@@ -1,20 +1,26 @@
 "use client";
 
 import { Settings } from "lucide-react";
+import { MotionConfig, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { AppProvider, useApp } from "@/components/app/app-provider";
 import { ChangeReceipt, NoticeToast } from "@/components/app/change-receipt";
+import { slideTo, type Screen } from "@/components/app/page-slide";
 import { VoiceDock } from "@/components/app/voice-dock";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
+import { physics } from "@/lib/motion";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <AppProvider>
-      <Chrome>{children}</Chrome>
+      {/* Springs from `motion` follow the reduced-motion setting: no movement, only fades. */}
+      <MotionConfig reducedMotion="user">
+        <Chrome>{children}</Chrome>
+      </MotionConfig>
     </AppProvider>
   );
 }
@@ -25,6 +31,14 @@ function Chrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const base = `/${lang}/app`;
   const isSettings = pathname.startsWith(`${base}/settings`);
+  const isWeek = pathname.startsWith(`${base}/week`);
+  const screen: Screen | null = isSettings
+    ? "settings"
+    : isWeek
+      ? "week"
+      : pathname === base
+        ? "today"
+        : null;
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
@@ -33,8 +47,8 @@ function Chrome({ children }: { children: ReactNode }) {
   }, []);
 
   const tabs = [
-    { href: base, label: dict.app.navToday, active: pathname === base },
-    { href: `${base}/week`, label: dict.app.navWeek, active: pathname.startsWith(`${base}/week`) },
+    { href: base, label: dict.app.navToday, screen: "today" as const },
+    { href: `${base}/week`, label: dict.app.navWeek, screen: "week" as const },
   ];
 
   return (
@@ -46,9 +60,17 @@ function Chrome({ children }: { children: ReactNode }) {
         {dict.common.skipToContent}
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur-md">
+      <header
+        className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur-md"
+        style={{ viewTransitionName: "pw-header" }}
+      >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:px-6">
-          <Link href={base} aria-label="PowerWeek" className="shrink-0">
+          <Link
+            href={base}
+            transitionTypes={slideTo(screen, "today")}
+            aria-label="PowerWeek"
+            className="shrink-0"
+          >
             <Wordmark className="text-[0.9375rem] sm:text-[1.0625rem]" />
           </Link>
           <div className="flex items-center gap-0.5 sm:gap-1">
@@ -56,21 +78,35 @@ function Chrome({ children }: { children: ReactNode }) {
               aria-label={dict.app.pulseLabel}
               className="flex gap-1 rounded-full border border-line bg-surface p-1"
             >
-              {tabs.map((tab) => (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  aria-current={tab.active ? "page" : undefined}
-                  className={`flex h-9 items-center rounded-full px-3 text-sm font-bold transition-colors sm:px-4 ${
-                    tab.active ? "bg-ink text-bg" : "text-ink-muted hover:text-ink"
-                  }`}
-                >
-                  {tab.label}
-                </Link>
-              ))}
+              {tabs.map((tab) => {
+                const active = tab.screen === screen;
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    transitionTypes={slideTo(screen, tab.screen)}
+                    aria-current={active ? "page" : undefined}
+                    className={`relative flex h-9 items-center rounded-full px-3 text-sm font-bold transition-colors duration-(--duration-quick) sm:px-4 ${
+                      active ? "text-bg" : "text-ink-muted hover:text-ink"
+                    }`}
+                  >
+                    {/* One pill, handed from tab to tab: it slides across on a spring. */}
+                    {active ? (
+                      <motion.span
+                        layoutId="pw-tab-pill"
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded-full bg-ink"
+                        transition={physics("bouncy")}
+                      />
+                    ) : null}
+                    <span className="relative">{tab.label}</span>
+                  </Link>
+                );
+              })}
             </nav>
             <Link
               href={`${base}/settings`}
+              transitionTypes={slideTo(screen, "settings")}
               aria-label={dict.app.navSettings}
               aria-current={isSettings ? "page" : undefined}
               className={`flex size-11 items-center justify-center rounded-full transition-colors ${
@@ -103,7 +139,10 @@ function Chrome({ children }: { children: ReactNode }) {
         )}
       </main>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6">
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6 sm:pb-6"
+        style={{ viewTransitionName: "pw-dock" }}
+      >
         <div className="pointer-events-auto mx-auto flex w-full max-w-[640px] flex-col gap-3">
           <NoticeToast />
           <ChangeReceipt />

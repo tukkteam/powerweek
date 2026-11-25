@@ -3,6 +3,7 @@
 import { Pencil, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { useDialogMotion } from "@/components/app/use-dialog-motion";
 import { Button } from "@/components/ui/button";
 import type { TrainMessages } from "./messages";
 import type { Exercise } from "./module";
@@ -29,6 +30,7 @@ export function ExerciseSheet({
   onEdit: (exercise: Exercise) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const { close, handOff } = useDialogMotion(ref);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -48,9 +50,10 @@ export function ExerciseSheet({
           key={exercise.id}
           exercise={exercise}
           t={t}
-          close={() => ref.current?.close()}
+          close={close}
           edit={() => {
-            ref.current?.close();
+            // The sheet turns into the editor instead of leaving and coming back.
+            handOff();
             onEdit(exercise);
           }}
         />
@@ -83,7 +86,7 @@ function SheetBody({
     : [];
 
   return (
-    <div className="flex flex-col">
+    <div className="pw-stagger flex flex-col">
       <div className="relative bg-tone/[0.06] px-5 pt-5 pb-4 text-tone">
         <button
           type="button"
@@ -115,7 +118,7 @@ function SheetBody({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-5 p-5 sm:p-6">
+      <div className="pw-stagger flex flex-col gap-5 p-5 sm:p-6">
         <div>
           {move ? <p className="type-label text-ink-muted">{move.name}</p> : null}
           <h2 className="type-title mt-1">{exercise.name}</h2>

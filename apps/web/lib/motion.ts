@@ -1,34 +1,114 @@
 /**
- * Motion shared by the screens that move things by hand. Until the motion tokens of #25 exist,
- * this is the one place these values live.
+ * Motion for the app: the motion tokens (`@powerweek/design-tokens/motion`, generated from
+ * tokens.json, where `tempo` sets the pace of everything), the helpers that play them from code,
+ * and the one place that asks whether the person wants less motion. CSS reads the same tokens as
+ * variables (`--easing-*`, `--duration-*`, `--spring-*`). docs/motion.md lists the recipes built
+ * on them and says which to use for what.
  */
+import {
+  bezier,
+  durations,
+  easings,
+  springs,
+  tempo,
+  type EasingName,
+  type SpringName,
+} from "@powerweek/design-tokens/motion";
+import { useSyncExternalStore } from "react";
+
+export { bezier, durations, easings, springs, tempo, type EasingName, type SpringName };
 
 /**
- * A spring with a little give: it overshoots by about 4 % and settles in `SPRING_MS`. Written
- * as a CSS `linear()` easing, sampled from a damped spring (period 0.38 s, damping ratio 0.72),
- * so CSS transitions and the Web Animations API can both use it.
+ * A spring's easing for the Web Animations API, which throws on an easing it cannot parse: the
+ * spring, or the standard easing where `linear()` is not understood (Safari before 17.2).
+ * Client only.
  */
-export const SPRING =
-  "linear(0, 0.047, 0.158, 0.299, 0.448, 0.587, 0.71, 0.811, 0.89, 0.949, 0.989, 1.016, 1.031, 1.037, 1.038, 1.035, 1.031, 1.025, 1.019, 1.014, 1.01, 1.006, 1.003, 1.001, 1, 0.999, 0.999, 0.999, 1)";
-export const SPRING_MS = 560;
-
-/** For browsers without `linear()` (Safari before 17.2): an ease-out with no overshoot. */
-const FALLBACK = "cubic-bezier(0.2, 0.8, 0.2, 1)";
-
-/**
- * The spring, or the fallback where `linear()` is not understood. Use it for the Web Animations
- * API, which throws on an easing it cannot parse. Client only.
- */
-export function springEasing(): string {
-  return typeof CSS !== "undefined" && CSS.supports("transition-timing-function", SPRING)
-    ? SPRING
-    : FALLBACK;
+export function springEasing(name: SpringName): string {
+  const { easing } = springs[name];
+  return typeof CSS !== "undefined" && CSS.supports("transition-timing-function", easing)
+    ? easing
+    : easings.standard;
 }
 
-/** The person asked for less motion. Client only. */
+/**
+ * A spring token in the shape the `motion` library takes (mass 1): the same spring CSS plays as
+ * `--spring-*`, but simulated, so it can be interrupted and carry its velocity into the next
+ * animation. Stiffness is the square of the angular frequency; damping is twice the damping
+ * ratio times it.
+ */
+export function physics(name: SpringName): {
+  type: "spring";
+  stiffness: number;
+  damping: number;
+  mass: 1;
+} {
+  const { response, damping } = springs[name];
+  const omega = (2 * Math.PI) / response;
+  return { type: "spring", stiffness: omega * omega, damping: 2 * damping * omega, mass: 1 };
+}
+
+/**
+ * An easing as a function from progress (0 to 1) to eased progress, for code that moves numbers
+ * itself, so a tweened number and a CSS fill next to it move as one.
+ */
+export function ease(name: EasingName): (t: number) => number {
+  const [x1, y1, x2, y2] = bezier[name];
+  const at = (a: number, b: number, s: number) =>
+    3 * a * s * (1 - s) ** 2 + 3 * b * s ** 2 * (1 - s) + s ** 3;
+  const slope = (a: number, b: number, s: number) =>
+    3 * a * (1 - s) ** 2 + 6 * (b - a) * s * (1 - s) + 3 * (1 - b) * s ** 2;
+  return (t) => {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    // Find the curve parameter whose x is t (Newton's method, then halving if it stalls).
+    let s = t;
+    for (let i = 0; i < 8; i++) {
+      const dx = slope(x1, x2, s);
+      if (Math.abs(dx) < 1e-6) break;
+      s -= (at(x1, x2, s) - t) / dx;
+    }
+    if (!(s >= 0 && s <= 1) || Math.abs(at(x1, x2, s) - t) > 1e-5) {
+      let low = 0;
+      let high = 1;
+      s = t;
+      for (let i = 0; i < 40; i++) {
+        if (at(x1, x2, s) < t) low = s;
+        else high = s;
+        s = (low + high) / 2;
+      }
+    }
+    return at(y1, y2, s);
+  };
+}
+
+// ── Reduced motion ──────────────────────────────────────────────────────────────────────────
+// The one place code asks. CSS asks in one place too: the reduced-motion block at the end of
+// app/globals.css.
+
+export const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+/** The person asked for less motion. Client only; false where there is no window. */
 export function reducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return typeof window !== "undefined" && window.matchMedia(REDUCED_MOTION).matches;
 }
+
+/** Calls `onChange` whenever the preference changes; returns the unsubscribe. */
+export function subscribeReducedMotion(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const query = window.matchMedia(REDUCED_MOTION);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+/**
+ * Whether the person asked for less motion, kept up to date while the page is open. False on
+ * the server and in the first render, so the markup matches before hydration.
+ */
+export function useReducedMotion(): boolean {
+  return useSyncExternalStore(subscribeReducedMotion, reducedMotion, () => false);
+}
+
+// ── Arranging ───────────────────────────────────────────────────────────────────────────────
 
 /**
  * How far a card of this width turns while it trembles, in degrees, so that its edges move the

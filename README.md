@@ -95,7 +95,7 @@ The language model never writes the plan directly. It proposes **typed operation
 apps/web                 Next.js app: landing, app shell, assistant route, PWA
 apps/web/modules         The modules, one folder each: agenda, fuel, train, notes, habits
 packages/modules         The module contract and the kernel that binds modules into one plan
-packages/design-tokens   tokens.json (same file as the Claude Design System) → tokens.css
+packages/design-tokens   tokens.json (same file as the Claude Design System) → tokens.css, motion.ts
 supabase/                Migrations, pgTAP tests, auth configuration as code
 scripts/contrib          Contributor scripts: checkup, issue, preflight, pr
 docs/                    Architecture, data model, assistant, native strategy, ADRs

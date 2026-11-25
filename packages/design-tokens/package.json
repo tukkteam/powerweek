@@ -2,11 +2,12 @@
   "name": "@powerweek/design-tokens",
   "version": "0.1.0",
   "private": true,
-  "description": "PowerWeek design tokens (same tokens.json as the Claude Design System) and the generated CSS custom properties.",
+  "description": "PowerWeek design tokens (same tokens.json as the Claude Design System) the generated CSS custom properties, and the motion tokens for TypeScript.",
   "type": "module",
   "exports": {
     "./tokens.css": "./tokens.css",
-    "./tokens.json": "./tokens.json"
+    "./tokens.json": "./tokens.json",
+    "./motion": "./motion.ts"
   },
   "scripts": {
     "build": "node scripts/build.mjs",

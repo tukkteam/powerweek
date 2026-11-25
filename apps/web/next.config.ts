@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -10,13 +11,19 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
 ];
 
-const nextConfig: NextConfig = {
+const config = (phase: string): NextConfig => ({
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
   reactStrictMode: true,
+  // Pages named `page.dev.tsx` (tools such as /dev/motion) exist only under `next dev`: they
+  // are never part of a production build.
+  pageExtensions:
+    phase === PHASE_DEVELOPMENT_SERVER
+      ? ["dev.tsx", "tsx", "ts", "jsx", "js"]
+      : ["tsx", "ts", "jsx", "js"],
   // Workspace packages ship TypeScript sources.
-  transpilePackages: ["@tukkteam/modules"],
+  transpilePackages: ["@tukkteam/modules", "@powerweek/design-tokens"],
   turbopack: {
     root: path.resolve(process.cwd(), "../.."),
     rules: {
@@ -32,6 +39,6 @@ const nextConfig: NextConfig = {
       { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }] },
     ];
   },
-};
+});
 
-export default nextConfig;
+export default config;

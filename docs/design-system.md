@@ -11,9 +11,10 @@ packages/design-tokens/tokens.json   (edit here, or in the design artifact and c
         │  pnpm tokens  (scripts/build.mjs; CI runs it with --check)
         ▼
 packages/design-tokens/tokens.css    :root / [data-theme="dark|light|system"] custom properties
-        │  @import in apps/web/app/globals.css
+packages/design-tokens/motion.ts     the motion tokens for TypeScript (@powerweek/design-tokens/motion)
+        │  @import in apps/web/app/globals.css; motion.ts through apps/web/lib/motion.ts
         ▼
-Tailwind utilities                   bg-surface, text-ink-muted, border-line, text-volt-ink, …
+Tailwind utilities                   bg-surface, text-ink-muted, border-line, ease-standard, …
 ```
 
 Themes switch by setting `data-theme` on `<html>` (`dark`, `light` or `system`); the choice is stored in `localStorage` and applied before first paint.
@@ -93,6 +94,10 @@ Spanish first (tú), English second, same tone: imperative, short and warm. "Dil
 
 ## Motion and accessibility
 
-Bars spring (about 240 ms), progress fills glide (700 ms), everything else eases out in 160–220 ms; `prefers-reduced-motion` turns motion into fades and stops illustration loops. Hover details appear after 320 ms and never take the pointer; on touch screens a 450 ms press opens the same detail as a bottom sheet, and a normal tap always opens the day. Touch targets are at least 44 px, icon-only buttons have labels, dialogs use the native `<dialog>` element, and the receipt and notices are live regions.
+Motion has its own guide: **[docs/motion.md](motion.md)**. It covers the tokens (including `tempo`, the one dial for the whole app's pace), the recipes to use for dialogs, screens and the rest, the six principles, reduced motion and what the build checks.
 
-Arranging the panel works with a mouse, a finger and a keyboard. On a card's handle, Space or Enter picks the card up, the arrow keys move it one place (up and left earlier, down and right later), Home and End to either end, Space or Enter drops it and Escape puts it back; each step is announced in a live region, in the interface language. While arranging, each card trembles at its own pace, turned by an angle set from its width so wide and narrow cards move their edges the same (`trembleAngle` in `lib/motion.ts`); its dashed edge marches slowly round it; the controls pop in, staggered, and hold still. A card in hand grows a little on a spring, its edge turns solid and glows in its tone, and it tracks the pointer 1:1; neighbours and the drop move on the same spring (`SPRING` in `lib/motion.ts`, until the motion tokens of #25). With reduced motion nothing trembles, marches, pops, lifts or glides.
+### Accessibility
+
+Hover details appear after 320 ms and never take the pointer; on touch screens a 450 ms press opens the same detail as a bottom sheet, and a normal tap always opens the day. Touch targets are at least 44 px, icon-only buttons have labels, dialogs use the native `<dialog>` element, and the receipt and notices are live regions.
+
+Arranging the panel works with a mouse, a finger and a keyboard. On a card's handle, Space or Enter picks the card up, the arrow keys move it one place (up and left earlier, down and right later), Home and End to either end, Space or Enter drops it and Escape puts it back; each step is announced in a live region, in the interface language. While arranging, each card trembles at its own pace, turned by an angle set from its width so wide and narrow cards move their edges the same (`trembleAngle` in `lib/motion.ts`); its dashed edge marches slowly round it; the controls pop in, staggered, and hold still. A card in hand grows a little on a spring, its edge turns solid and glows in its tone, and it tracks the pointer 1:1; neighbours and the drop move on the same spring (`spring-bouncy`). With reduced motion nothing trembles, marches, pops, lifts or glides.

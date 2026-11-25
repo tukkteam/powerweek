@@ -324,7 +324,7 @@ function ExerciseTile({
         type="button"
         onClick={onOpen}
         aria-label={t.openExercise(exercise.name)}
-        className="group flex h-full w-full flex-col overflow-hidden rounded-[12px] border border-line bg-bg/40 text-left transition duration-200 ease-out hover:-translate-y-0.5 hover:border-tone/70"
+        className="group flex h-full w-full flex-col overflow-hidden rounded-[12px] border border-line bg-bg/40 text-left transition duration-(--duration-quick) ease-standard hover:-translate-y-0.5 hover:border-tone/70"
       >
         <span className="relative block aspect-[4/3] w-full bg-tone/[0.06] text-tone">
           <MoveArt slug={move?.slug} play="hover" className="absolute inset-2.5" />

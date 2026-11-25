@@ -28,7 +28,7 @@ import {
   type Held,
   type Moved,
 } from "@/lib/arrange";
-import { reducedMotion, SPRING, SPRING_MS, springEasing, trembleAngle } from "@/lib/motion";
+import { durations, reducedMotion, springEasing, springs, trembleAngle } from "@/lib/motion";
 import { kernel } from "@/modules";
 import type { Shown } from "@/modules/board";
 import { ModuleIcon, toneStyle } from "@/modules/look";
@@ -43,8 +43,6 @@ const EDGE = 88;
 const SPEED = 18;
 /** The Voice Dock covers the bottom of the window. */
 const DOCK = 104;
-/** Entering edit mode, each card's controls pop in this much after the one before. */
-const STAGGER = 45;
 /** How long a card counts as new, so its entrance runs once and not again when it moves. */
 const ENTERING = 900;
 
@@ -259,8 +257,8 @@ export function PanelArranger({
       node.style.transform = "";
       if (!reducedMotion())
         node.animate([{ transform: from }, { transform: "none" }], {
-          duration: SPRING_MS,
-          easing: springEasing(),
+          duration: springs.bouncy.duration,
+          easing: springEasing("bouncy"),
         });
     }
     if (put === "back") change(current.origin);
@@ -344,8 +342,8 @@ export function PanelArranger({
       const dy = from.top - to.top;
       if (still || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) continue;
       node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
-        duration: SPRING_MS,
-        easing: springEasing(),
+        duration: springs.bouncy.duration,
+        easing: springEasing("bouncy"),
       });
     }
     before.current = new Map();
@@ -509,7 +507,9 @@ export function PanelArranger({
             const lifted = dragging === id || held?.id === id;
             const fresh = entering.has(id);
             // Staggered entrance, and each card trembles at its own pace, never in step.
-            const pop = fresh ? { animationDelay: `${index * STAGGER + 80}ms` } : undefined;
+            const pop = fresh
+              ? { animationDelay: `${(index + 2) * durations.stagger}ms` }
+              : undefined;
             return (
               <li
                 key={id}
@@ -525,7 +525,8 @@ export function PanelArranger({
                     lifted ? "shadow-float motion-safe:scale-[1.03]" : ""
                   }`}
                   style={{
-                    transition: `scale ${SPRING_MS}ms ${SPRING}, box-shadow 220ms ease-out`,
+                    transition:
+                      "scale var(--spring-bouncy-duration) var(--spring-bouncy), box-shadow var(--duration-quick) var(--easing-standard)",
                   }}
                 >
                   {/* The card trembles; its controls hold still, so they are easy to hit. */}

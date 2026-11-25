@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { reducedMotion } from "@/lib/motion";
 
 const OP_CLASS: Record<string, string> = {
   "+": "text-volt-ink",
@@ -20,7 +21,7 @@ export function HeroDemo() {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (reducedMotion()) return;
     const id = window.setInterval(() => setIndex((i) => (i + 1) % demos.length), 4200);
     return () => window.clearInterval(id);
   }, [demos.length]);

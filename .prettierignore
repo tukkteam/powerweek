@@ -3,6 +3,7 @@ pnpm-lock.yaml
 node_modules
 coverage
 packages/design-tokens/tokens.css
+packages/design-tokens/motion.ts
 apps/web/lib/supabase/database.types.ts
 supabase/.temp
 packages/modules/schema

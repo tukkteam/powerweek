@@ -13,14 +13,12 @@ import {
 } from "react";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
+import { durations, easings, reducedMotion } from "@/lib/motion";
 import { kernel } from "@/modules";
 import { summaries, type Shown } from "@/modules/board";
 import { ModuleIcon, toneStyle } from "@/modules/look";
 
 const DRAG_SLOP = 6;
-const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
-
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
  * The welcome for a screen that is still empty: the modules laid out like a desk of tiles. Tap
@@ -115,8 +113,8 @@ export function ModuleDesk({
       const dy = from.top - to.top;
       if (still || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) continue;
       node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
-        duration: 260,
-        easing: EASE,
+        duration: durations.base,
+        easing: easings.standard,
       });
     }
     before.current = new Map();
@@ -180,7 +178,10 @@ export function ModuleDesk({
       const from = node.style.transform;
       node.style.transform = "";
       if (!reducedMotion())
-        node.animate([{ transform: from }, { transform: "none" }], { duration: 200, easing: EASE });
+        node.animate([{ transform: from }, { transform: "none" }], {
+          duration: durations.base,
+          easing: easings.standard,
+        });
     }
     setDragging(null);
   };

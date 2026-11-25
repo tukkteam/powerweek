@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageSlide } from "@/components/app/page-slide";
 import { WeekView } from "@/components/app/week-view";
 import { getDictionary, hasLocale } from "@/lib/i18n";
 
@@ -10,5 +11,9 @@ export async function generateMetadata({
 }
 
 export default function WeekPage() {
-  return <WeekView />;
+  return (
+    <PageSlide>
+      <WeekView />
+    </PageSlide>
+  );
 }

@@ -253,7 +253,7 @@ What a module may draw:
 
 From the host you may use:
 
-- **Components.** `ModuleCard` and `CellHeader` (the shared chrome), `EditorDialog` with `Field` and `fieldClass` (a form that sends one operation and starts in its first field; `form.text`, `form.orNull`, `form.orUndefined`, `form.raw` and `form.all` read it), `ModuleIcon`, `Button`, and `useTapped`.
+- **Components.** `ModuleCard` and `CellHeader` (the shared chrome), `EditorDialog` with `Field` and `fieldClass` (a form that sends one operation and starts in its first field, and opens and closes with the app's dialog motion, see [motion.md](motion.md); `form.text`, `form.orNull`, `form.orUndefined`, `form.raw` and `form.all` read it), `ModuleIcon`, `Button`, and `useTapped`.
 - **Words.** `useLocale().dict` for what every module says the same way: `dict.app` (add, edit, mark as done), `dict.editor` (field labels), `dict.common` and `dict.days`. Everything that is yours goes in your own `messages.ts`.
 
 Colour: write `text-tone`, `bg-tone`, `bg-tone/15`, `border-tone/40`. Never a colour name. The tone is one of `blue`, `volt`, `orange`, `sand`, `violet`, `rose`, `teal`; each is a pair of colours (Night and Day) in [`tokens.json`](../packages/design-tokens/tokens.json), checked on every build for contrast and for staying apart from the other tones with colour blindness. Colour is never the only cue: your module also has an icon and a name. The rest of the look is in [`design-system.md`](design-system.md), and the accessibility rules every screen follows are in [`development.md`](development.md).
