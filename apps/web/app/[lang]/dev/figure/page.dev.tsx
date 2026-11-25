@@ -4,7 +4,8 @@ import { Figure } from "@/modules/train/figure/figure";
 import { EXERCISES } from "@/modules/train/figure/library";
 
 /**
- * /es/dev/figure: every exercise the mannequin knows, moving, with its two end poses beside it.
+ * /es/dev/figure: every exercise the mannequin knows, moving, and beside it three stills: where
+ * it starts, halfway there, and where it turns back.
  * For drawing new exercises (modules/train/figure/library.ts) and for judging the figure itself.
  * A developer tool: the `.dev.tsx` extension keeps it out of production builds
  * (next.config.ts), nothing links to it, and its copy is English only.
@@ -31,9 +32,10 @@ export default function FigurePage() {
       <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {slugs.map((slug) => (
           <li key={slug} className="rounded-[14px] border border-line bg-surface p-4 text-tone">
-            <div className="grid grid-cols-3 items-end gap-3">
+            <div className="grid grid-cols-4 items-end gap-3">
               <Figure slug={slug} play="loop" label={slug} className="w-full" />
               <Figure slug={slug} className="w-full opacity-80" />
+              <Figure slug={slug} phase={0.25} className="w-full opacity-80" />
               <Figure slug={slug} phase={0.5} className="w-full opacity-80" />
             </div>
             <p className="type-caption mt-2 text-ink-muted">{slug}</p>

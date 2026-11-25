@@ -3,9 +3,9 @@
  * it is seen from; this turns it into a few SVG path strings, one per layer, which `Figure`
  * paints in the current colour.
  *
- * The figure is a silhouette: a head, a torso and tapering limbs, with nothing drawn on them.
- * Depth is shown the way pictograms show it: limbs on the far side are dimmer, and a limb that
- * passes in front of the body is set off from it by a thin gap.
+ * The figure is a silhouette: a head, a trunk and limbs, with nothing drawn on them. Depth is
+ * shown the way pictograms show it: limbs on the far side are dimmer, and every part is set off
+ * by a thin gap from whatever lies behind it.
  */
 import {
   BODY,
@@ -337,24 +337,32 @@ function trunk(s: Skeleton, P: (p: Vec) => Point, zoom: number): string {
  */
 const FAR = { arm: 6.5, leg: 2.6 } as const;
 
-/** The gap that sets a limb off from the body it passes in front of. */
+/** The gap that sets every part of the figure off from what lies behind it. */
 export const GAP = 1.3;
+
+/**
+ * One part of the figure: the head, the trunk, an arm or a leg. Every part is set off, by the
+ * same thin gap, from whatever lies behind it: another part, or gear.
+ */
+export interface Part {
+  /** Its shape, to fill, and to stroke `edge` thick (which is what rounds the trunk's corners). */
+  shape: string;
+  edge: number;
+  /** What is cleared, a gap's width larger all round, from everything behind this part. */
+  halo: string;
+  /** On the far side of the body, and so drawn dimmer. */
+  far: boolean;
+}
 
 export interface Drawing {
   /** Gear behind the figure: lines to stroke and shapes to fill. */
   gearLines: string;
   gearSolids: string;
-  /** Limbs on the far side of the body. */
-  back: string;
-  /** The torso, to fill and to stroke `torsoEdge` thick. */
-  torso: string;
-  torsoEdge: number;
-  head: string;
-  /** Limbs on the near side, and the part of them that is set off from what lies behind. */
-  front: string;
-  cut: string;
-  /** Everything the figure covers, to set it off from the gear behind it. */
-  figure: string;
+  /**
+   * The parts of the figure, from the one furthest back to the one in front: always seven, the
+   * head, the trunk, two arms, two legs, and one with no shape of its own (see `draw`).
+   */
+  parts: readonly Part[];
   /** Gear in front of the figure. */
   frontLines: string;
   frontSolids: string;
@@ -370,9 +378,9 @@ export function draw(pose: Pose, gear: readonly Gear[], view: View): Drawing {
   const P = (p: Vec) => project(p, view);
   const at = (name: keyof Skeleton) => P(s[name]);
 
-  let back = "";
-  let front = "";
-  let cut = "";
+  const behind: (Part & { depth: number })[] = [];
+  const before: (Part & { depth: number })[] = [];
+  let nearLegs = "";
   for (const side of ["L", "R"] as const) {
     const arm = [at(`shoulder${side}`), at(`elbow${side}`), at(`wrist${side}`)] as const;
     const leg = [at(`hip${side}`), at(`knee${side}`), at(`ankle${side}`)] as const;
@@ -381,44 +389,50 @@ export function draw(pose: Pose, gear: readonly Gear[], view: View): Drawing {
       [leg, BODY.leg * zoom],
     ] as const) {
       // A limb is two bars of one width with round ends: no hand, no foot.
-      const shape = limb(joints[0], joints[1], wide, wide) + limb(joints[1], joints[2], wide, wide);
+      const lower = limb(joints[1], joints[2], wide, wide);
+      const shape = limb(joints[0], joints[1], wide, wide) + lower;
       // A limb is on the far side when the joint it hangs from is well behind the middle of
       // the body (the chest for an arm, the hips for a leg), wherever the limb itself reaches.
       const far =
         joints === arm
           ? joints[0][2] < at("chest")[2] - FAR.arm
           : joints[0][2] < at("pelvis")[2] - FAR.leg;
-      if (far) back += shape;
-      else if (joints === arm) {
-        // An arm is a bar beside the trunk: where it crosses the body, all of it is set off.
-        front += shape;
-        cut += shape;
-      } else {
-        front += shape;
-        // A leg carries on from the trunk, so it is set off only from a little way down.
+      let halo = shape;
+      if (joints === leg && !far) {
+        // A leg in front carries on from the trunk, so it is set off only from a little way
+        // down: at the hip the two are one shape.
         const from: Point = [
           joints[0][0] + (joints[1][0] - joints[0][0]) * 0.45,
           joints[0][1] + (joints[1][1] - joints[0][1]) * 0.45,
           0,
         ];
-        cut += limb(from, joints[1], wide, wide) + limb(joints[1], joints[2], wide, wide);
+        halo = limb(from, joints[1], wide, wide) + lower;
+        nearLegs += shape;
       }
+      const depth = (joints[0][2] + joints[1][2] + joints[2][2]) / 3;
+      (far ? behind : before).push({ shape, edge: 0, halo, far, depth });
     }
   }
+  const nearer = (a: { depth: number }, b: { depth: number }) => a.depth - b.depth;
   const torso = trunk(s, P, zoom);
   const head = disc(at("head"), BODY.head * zoom);
+  // Back to front: the far limbs, the trunk, the head, the near limbs. Among limbs on the same
+  // side, the one nearer the viewer is in front. Just behind the trunk goes a part that paints
+  // nothing: it clears the gap round the whole of the near legs, so that the top of a thigh,
+  // which is one shape with the trunk, is still set off from the far leg behind it.
+  const parts: Part[] = [
+    ...behind.sort(nearer),
+    { shape: "", edge: 0, halo: nearLegs, far: false },
+    { shape: torso, edge: CORNER * zoom, halo: torso, far: false },
+    { shape: head, edge: 0, halo: head, far: false },
+    ...before.sort(nearer),
+  ].map(({ shape, edge, halo, far }) => ({ shape, edge, halo, far }));
   const g = drawGear(gear, s, view);
   const left = project([0, 0, 0], view);
   return {
     gearLines: g.lines,
     gearSolids: g.solids,
-    back,
-    torso,
-    torsoEdge: CORNER * zoom,
-    head,
-    front,
-    cut,
-    figure: back + front + head,
+    parts,
     frontLines: g.frontLines,
     frontSolids: g.frontSolids,
     lineWidth: 2.3 * zoom,

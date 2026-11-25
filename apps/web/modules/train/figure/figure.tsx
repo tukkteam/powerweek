@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { ease, reducedMotion } from "@/lib/motion";
 import { EXERCISES, poseAt, viewOf, type Exercise } from "./library";
-import { CANVAS, GAP, draw, type Drawing } from "./scene";
+import { CANVAS, GAP, draw } from "./scene";
 
 /** How long one repetition takes: there and back. */
 const LOOP_MS = 2600;
@@ -28,19 +28,9 @@ function run(step: (now: number) => void) {
   };
 }
 
-const LAYERS = [
-  "gearSolids",
-  "gearLines",
-  "back",
-  "torso",
-  "head",
-  "front",
-  "cut",
-  "figure",
-  "frontSolids",
-  "frontLines",
-] as const;
-type Layer = (typeof LAYERS)[number];
+const GEAR_LAYERS = ["gearSolids", "gearLines", "frontSolids", "frontLines"] as const;
+/** How bright the limbs on the far side of the body are. */
+const FAR = 0.62;
 
 /**
  * An exercise, performed by the mannequin. A silhouette in the current colour: the figure
@@ -73,14 +63,23 @@ export function Figure({
   useEffect(() => {
     const root = svg.current;
     if (!root || !exercise || play === "none" || reducedMotion()) return;
-    const paths = new Map<Layer, SVGPathElement[]>();
-    for (const layer of LAYERS)
-      paths.set(layer, [...root.querySelectorAll<SVGPathElement>(`[data-layer="${layer}"]`)]);
+    const all = (query: string) => [...root.querySelectorAll<SVGPathElement>(query)];
+    const gear = GEAR_LAYERS.map((layer) => [layer, all(`[data-layer="${layer}"]`)] as const);
+    const parts = all("[data-part]");
+    const halos = all("[data-halo]");
     const show = (at: number) => {
       const next = draw(poseAt(exercise, at, sway), exercise.gear ?? [], viewOf(exercise));
-      for (const layer of LAYERS)
-        for (const path of paths.get(layer)!)
-          path.setAttribute("d", next[layer as keyof Drawing] as string);
+      for (const [layer, paths] of gear)
+        for (const path of paths) path.setAttribute("d", next[layer]);
+      // Which part is in front of which can change as the figure moves, so each slot takes
+      // whatever part now belongs at that depth, with its own brightness and edge.
+      next.parts.forEach((part, k) => {
+        parts[k]?.setAttribute("d", part.shape);
+        parts[k]?.setAttribute("stroke-width", String(part.edge));
+        parts[k]?.setAttribute("opacity", part.far ? String(FAR) : "1");
+        halos[k]?.setAttribute("d", part.halo);
+        halos[k]?.setAttribute("stroke-width", String(part.edge + GAP * 2));
+      });
     };
 
     let started = 0;
@@ -135,6 +134,45 @@ export function Figure({
   const a11y = label ? ({ role: "img", "aria-label": label } as const) : { "aria-hidden": true };
   const whole = { x: 0, y: 0, width: CANVAS, height: CANVAS };
   const round = { strokeLinejoin: "round", strokeLinecap: "round" } as const;
+
+  // Built from the back: the gear, then each part of the figure in turn. Before a part is
+  // painted, everything behind it is cut back to leave a gap round it, so the head, the trunk
+  // and every limb are set off from what they cover in the same way.
+  let scene: ReactNode = (
+    <g opacity={GEAR}>
+      <path
+        data-layer="gearSolids"
+        d={still.gearSolids}
+        stroke="currentColor"
+        strokeWidth={still.lineWidth * 1.6}
+        {...round}
+      />
+      <path
+        data-layer="gearLines"
+        d={still.gearLines}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={still.lineWidth}
+        {...round}
+      />
+    </g>
+  );
+  still.parts.forEach((part, k) => {
+    scene = (
+      <>
+        <g mask={`url(#${id}p${k})`}>{scene}</g>
+        <path
+          data-part={k}
+          d={part.shape}
+          opacity={part.far ? FAR : 1}
+          stroke="currentColor"
+          strokeWidth={part.edge}
+          {...round}
+        />
+      </>
+    );
+  });
+
   return (
     <svg
       ref={svg}
@@ -145,30 +183,19 @@ export function Figure({
       {...a11y}
     >
       <defs>
-        {/* Gear behind the figure stops a little short of it. */}
-        <mask id={`${id}g`} maskUnits="userSpaceOnUse" {...whole}>
-          <rect {...whole} fill="white" />
-          <path
-            data-layer="figure"
-            d={still.figure}
-            fill="black"
-            stroke="black"
-            strokeWidth={GAP * 2}
-          />
-          <path
-            data-layer="torso"
-            d={still.torso}
-            fill="black"
-            stroke="black"
-            strokeWidth={still.torsoEdge + GAP * 2}
-            {...round}
-          />
-        </mask>
-        {/* The body stops a little short of a limb that passes in front of it. */}
-        <mask id={`${id}b`} maskUnits="userSpaceOnUse" {...whole}>
-          <rect {...whole} fill="white" />
-          <path data-layer="cut" d={still.cut} fill="black" stroke="black" strokeWidth={GAP * 2} />
-        </mask>
+        {still.parts.map((part, k) => (
+          <mask key={k} id={`${id}p${k}`} maskUnits="userSpaceOnUse" {...whole}>
+            <rect {...whole} fill="white" />
+            <path
+              data-halo={k}
+              d={part.halo}
+              fill="black"
+              stroke="black"
+              strokeWidth={part.edge + GAP * 2}
+              {...round}
+            />
+          </mask>
+        ))}
         {/* And the whole figure stops short of gear held in front of it. */}
         <mask id={`${id}f`} maskUnits="userSpaceOnUse" {...whole}>
           <rect {...whole} fill="white" />
@@ -189,40 +216,7 @@ export function Figure({
         opacity={0.22}
         {...round}
       />
-      {/* Gear behind stops short of the figure, and of gear in front of it. */}
-      <g mask={`url(#${id}f)`}>
-        <g mask={`url(#${id}g)`} opacity={GEAR}>
-          <path
-            data-layer="gearSolids"
-            d={still.gearSolids}
-            stroke="currentColor"
-            strokeWidth={still.lineWidth * 1.6}
-            {...round}
-          />
-          <path
-            data-layer="gearLines"
-            d={still.gearLines}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={still.lineWidth}
-            {...round}
-          />
-        </g>
-      </g>
-      <g mask={`url(#${id}f)`}>
-        <g mask={`url(#${id}b)`}>
-          <path data-layer="back" d={still.back} opacity={0.62} />
-          <path
-            data-layer="torso"
-            d={still.torso}
-            stroke="currentColor"
-            strokeWidth={still.torsoEdge}
-            {...round}
-          />
-          <path data-layer="head" d={still.head} />
-        </g>
-        <path data-layer="front" d={still.front} />
-      </g>
+      <g mask={`url(#${id}f)`}>{scene}</g>
       <g opacity={GEAR}>
         <path
           data-layer="frontLines"

@@ -181,13 +181,49 @@ describe("the exercises", () => {
   it("draw as paths with nothing left undefined", () => {
     for (const [slug, exercise] of all) {
       const drawing = draw(poseAt(exercise, 0.3, sway), exercise.gear ?? [], viewOf(exercise));
-      for (const [layer, value] of Object.entries(drawing)) {
-        if (typeof value !== "string") continue;
-        expect(value, `${slug} ${layer}`).not.toMatch(/NaN|undefined|Infinity/);
+      const texts = [
+        drawing.gearLines,
+        drawing.gearSolids,
+        drawing.frontLines,
+        drawing.frontSolids,
+        drawing.floor,
+        ...drawing.parts.flatMap((part) => [part.shape, part.halo]),
+      ];
+      for (const text of texts) expect(text, slug).not.toMatch(/NaN|undefined|Infinity/);
+    }
+  });
+
+  it("set every part of the figure off from what is behind it, all the way round the loop", () => {
+    for (const [slug, exercise] of all) {
+      for (let phase = 0; phase < 1; phase += 0.1) {
+        const drawn = draw(poseAt(exercise, phase, sway), exercise.gear ?? [], viewOf(exercise));
+        // Always seven, so the picture keeps its structure while it moves. One paints nothing:
+        // it clears the gap round the near legs where they join the trunk.
+        expect(drawn.parts, slug).toHaveLength(7);
+        const parts = drawn.parts.filter((part) => part.shape);
+        // Head, trunk, two arms, two legs: each with a shape and something to clear behind it.
+        expect(parts, slug).toHaveLength(6);
+        for (const part of parts) {
+          expect(part.shape.length, slug).toBeGreaterThan(20);
+          expect(part.halo.length, slug).toBeGreaterThan(20);
+        }
+        // Back to front: limbs on the far side, the trunk (the one part with an edge), the
+        // head, limbs on the near side.
+        const trunkAt = parts.findIndex((part) => part.edge > 0);
+        expect(
+          parts.filter((part) => part.edge > 0),
+          slug,
+        ).toHaveLength(1);
+        expect(
+          parts.slice(0, trunkAt).every((part) => part.far),
+          slug,
+        ).toBe(true);
+        expect(
+          parts.slice(trunkAt).every((part) => !part.far),
+          slug,
+        ).toBe(true);
+        expect(parts.length - trunkAt, slug).toBeGreaterThanOrEqual(2);
       }
-      expect(drawing.torso.startsWith("M")).toBe(true);
-      expect(drawing.head.length).toBeGreaterThan(20);
-      expect(drawing.back.length + drawing.front.length).toBeGreaterThan(200);
     }
   });
 });
