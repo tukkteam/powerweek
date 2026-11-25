@@ -16,4 +16,4 @@ Short records of decisions that shape the codebase: the context, the decision an
 | [0010](0010-modules.md)                             | A plan is a document of modules, bound by a contract and a kernel       | Accepted |
 | [0011](0011-dated-facts.md)                         | Dated facts of every module live in one table                           | Accepted |
 | [0012](0012-modules-ship-with-the-app.md)           | Modules ship with the app; a catalogue comes before a marketplace       | Proposed |
-| [0013](0013-mannequin.md)                           | Exercises are performed by a mannequin laid out from parts              | Proposed |
+| [0013](0013-mannequin.md)                           | Exercises are performed by a mannequin laid out from parts              | Accepted |

@@ -82,8 +82,17 @@ describe("the skeleton", () => {
     // Halfway from hanging to overhead is straight ahead, at full length.
     expect(far(half.shoulderR, half.wristR)).toBeCloseTo(BODY.upperArm + BODY.forearm, 4);
     expect(half.wristR[2] - half.shoulderR[2]).toBeCloseTo(BODY.upperArm + BODY.forearm, 4);
-    expect(blendPose(down, up, 0).arms?.flex).toBe(0);
-    expect(blendPose(down, up, 1).arms?.flex).toBe(180);
+    expect(blendPose(down, up, 0).armL?.flex).toBe(0);
+    expect(blendPose(down, up, 1).armR?.flex).toBe(180);
+  });
+
+  it("blends each limb whole, however a pose says it", () => {
+    // One key speaks of both legs, the next of each: the left leg must not pass through zero.
+    const both: Pose = { legs: { flex: 60, bend: 80 } };
+    const each: Pose = { legL: { flex: 60, bend: 80 }, legR: { flex: 10, bend: 0 } };
+    const half = blendPose(both, each, 0.5);
+    expect(half.legL).toEqual({ flex: 60, bend: 80 });
+    expect(half.legR).toEqual({ flex: 35, bend: 40 });
   });
 });
 

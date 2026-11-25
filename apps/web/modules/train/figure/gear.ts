@@ -48,14 +48,20 @@ const PAIRS = {
   toes: "toe",
 } as const;
 
+type Jointed = Joint | keyof typeof PAIRS;
+
 /**
  * Where a piece of gear is fixed: a point in space, a joint of the figure (the gear then moves
- * with it: a cable to a hand, a pad on the ankles) or the middle of a pair of joints.
+ * with it: a cable to a hand, a pad on the ankles), the middle of a pair of joints, or a place
+ * `by` so much from one of those: a plate hanging below the hips, a saddle under them.
  */
-export type Anchor = Vec | Joint | keyof typeof PAIRS;
+export type Anchor = Vec | Jointed | { on: Jointed; by: Vec };
 
 export function anchored(anchor: Anchor, s: Skeleton): Vec {
-  if (typeof anchor !== "string") return anchor;
+  if (typeof anchor !== "string") {
+    if ("on" in anchor) return add(anchored(anchor.on, s), anchor.by);
+    return anchor as Vec;
+  }
   if (anchor in PAIRS) {
     const name = PAIRS[anchor as keyof typeof PAIRS];
     return mix(s[`${name}L`], s[`${name}R`], 0.5);
@@ -90,8 +96,11 @@ export type Gear = { place?: "back" | "among" | "front" } & (
   | { kind: "handle"; at?: Anchor; wide?: number; along?: Vec }
   /** A line through these points: the frame of a machine or a rack, a lever, a wall. */
   | { kind: "rail"; points: readonly Anchor[] }
-  /** A dumbbell in each hand (or one), lying along `along` (default: side to side). */
-  | { kind: "dumbbells"; along?: Vec; hand?: "L" | "R" }
+  /**
+   * A dumbbell in each hand (or one), lying along `along` (default: side to side). Or a single
+   * one `at` a place: held in both hands, hanging from them, resting on the hips.
+   */
+  | { kind: "dumbbells"; along?: Vec; hand?: "L" | "R"; at?: Anchor }
   /** A kettlebell held in both hands (or one): it hangs the way the arms point. */
   | { kind: "kettlebell"; hand?: "L" | "R" }
   /**
@@ -311,6 +320,27 @@ export function drawGear(gear: readonly Gear[], s: Skeleton, view: View): Piece[
         where: item.place ?? "back",
         depth: Math.max(...item.points.map((point) => depth(at(point)))),
       });
+    } else if (item.kind === "dumbbells" && item.at) {
+      const axis = unit(item.along ?? X);
+      const centre = at(item.at);
+      let solids = "";
+      for (const sign of [-1, 1])
+        solids += drum(
+          add(centre, times(axis, sign * DUMBBELL.reach)),
+          axis,
+          DUMBBELL.radius,
+          DUMBBELL.thick,
+          view,
+        );
+      out.push({
+        solids,
+        lines: line(
+          P(add(centre, times(axis, -DUMBBELL.reach))),
+          P(add(centre, times(axis, DUMBBELL.reach))),
+        ),
+        where: item.place ?? "among",
+        depth: depth(centre),
+      });
     } else if (item.kind === "dumbbells") {
       const axis = unit(item.along ?? X);
       for (const side of ["L", "R"] as const) {
@@ -436,9 +466,10 @@ export function drawGear(gear: readonly Gear[], s: Skeleton, view: View): Piece[
       out.push({
         solids: rounded(corners, c * zoom),
         lines: "",
-        // A box the figure stands behind is in front of it.
+        // A box this side of where the figure stands is in front of it. Where it stands, not
+        // where it is: the box must not change sides as the figure moves.
         where:
-          item.place ?? (depth([x, item.high / 2, z]) > depth(s.pelvis) + 8 ? "front" : "back"),
+          item.place ?? (depth([x, item.high / 2, z]) > depth([0, 0, 0]) + 8 ? "front" : "back"),
         depth: depth([x, item.high / 2, z]),
       });
     } else if (item.kind === "cable") {
@@ -497,6 +528,15 @@ export function reachOf(item: Gear, s: Skeleton): Vec[] {
       add(to, times(way, 5)),
       ...round(add(to, times(way, item.plate ?? -9)), BARBELL.radius),
     ];
+  }
+  if (item.kind === "dumbbells" && item.at) {
+    const axis = unit(item.along ?? X);
+    return [-1, 1].flatMap((sign) =>
+      round(
+        add(at(item.at!), times(axis, sign * (DUMBBELL.reach + DUMBBELL.thick / 2))),
+        DUMBBELL.radius,
+      ),
+    );
   }
   if (item.kind === "dumbbells") {
     const axis = unit(item.along ?? X);

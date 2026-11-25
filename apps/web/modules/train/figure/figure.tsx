@@ -31,6 +31,8 @@ function run(step: (now: number) => void) {
 /** How bright the limbs on the far side of the body are. */
 const FAR = 0.62;
 const TONE = { body: 1, far: FAR, gear: GEAR } as const;
+/** A width as an attribute, to the hundredth: the same on the server and in the browser. */
+const wide = (value: number) => value.toFixed(2);
 
 /**
  * An exercise, performed by the mannequin. A silhouette in the current colour: the figure
@@ -80,7 +82,7 @@ export function Figure({
         lines?.setAttribute("d", part.lines);
         const [, halo, haloLines] = halos[k]?.children ?? [];
         halo?.setAttribute("d", part.halo);
-        halo?.setAttribute("stroke-width", String(part.edge + GAP * 2));
+        halo?.setAttribute("stroke-width", wide(part.edge + GAP * 2));
         haloLines?.setAttribute("d", part.lines);
       });
     };
@@ -177,14 +179,14 @@ export function Figure({
               d={part.halo}
               fill="black"
               stroke="black"
-              strokeWidth={part.edge + GAP * 2}
+              strokeWidth={wide(part.edge + GAP * 2)}
               {...round}
             />
             <path
               d={part.lines}
               fill="none"
               stroke="black"
-              strokeWidth={still.lineWidth + GAP * 2}
+              strokeWidth={wide(still.lineWidth + GAP * 2)}
               {...round}
             />
           </mask>

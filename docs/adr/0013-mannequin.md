@@ -1,6 +1,6 @@
 # 0013 · Exercises are performed by a mannequin laid out from parts
 
-Date: 2026-11-24 · Status: Proposed
+Date: 2026-11-24 · Status: Accepted (2026-11-25)
 
 ## Context
 
@@ -10,20 +10,22 @@ The owner chose to try a figure of our own: a jointed mannequin, with the gear (
 
 ## Decision
 
-Proposed, and built far enough to judge (twelve exercises):
+Tried on twelve exercises, chosen by the owner, and then built for the whole catalogue (302 exercises):
 
 - **A skeleton, not drawings** (`apps/web/modules/train/figure/rig.ts`). A pose is a handful of joint angles in a trainer's words (hip flexion, elbow bend, how far the torso leans), or a limb told what to hold (`reach`, `grip`, `plant`), which is how hands stay on a bar and feet on the floor. The figure stands 100 units tall in a space with a floor.
 - **The figure of signs** (`scene.ts`, `BODY` in `rig.ts`). The first version had a broad torso and tapering limbs, and the owner disliked the step where the legs met it. He asked for the figure of road signs and public signage instead. That figure has a published construction, the unit system of the standard pictorial figure (ISO 3864-3, Annex A; the AEM pictorial guidelines give the numbers): 12 units tall, a trunk 2 units wide, a round head 1.75 units across detached from the body, limbs 1 unit wide ending in half circles, pivots at shoulder, elbow, hand, hip, knee and foot, proportions fixed in every pose. The mannequin is built to it. Because two legs are as wide as the trunk, the step is gone by construction.
 - **Depth**, which a sign does not need: limbs on the far side are dimmer, gear is dimmer than the figure, and every part of the picture, of the body or of the gear, is set off by the same thin gap from whatever lies behind it (except a near leg where it leaves the trunk, so the two read as one body). Of two weights alike, the nearer is drawn larger.
-- **Gear as parts** (`Gear` in `scene.ts`): barbell, dumbbells, kettlebell, bench, bar, box, cable, handle, rail. Each is drawn in space like the figure, at one set of sizes, so one bench serves every exercise from every side, and a machine is a few of them together. Each piece has its place among the parts of the figure: a plate beyond it or this side of it, a dumbbell with the arm that holds it.
-- **An exercise is a layout** (`library.ts`): where it is seen from, its gear, and two or three key poses. The view is framed automatically so every exercise fills its card.
+- **Gear as parts** (`Gear` in `gear.ts`): weights (barbell, landmine, dumbbells, kettlebell, plate, ball), things to rest on (bench, pad, box) and lines (bar, rail, handle, cable, rope). A part can be fixed to a joint, so a cable follows a hand and a roller an ankle. Each is drawn in space like the figure, at one set of sizes, so one bench serves every exercise from every side, and a machine is a few of them together. Each piece has its place among the parts of the figure: a plate beyond it or this side of it, a dumbbell with the arm that holds it.
+- **An exercise is a layout**: where it is seen from, its gear, and two or three key poses. The view is framed automatically so every exercise fills its card. Exercises live by family in `figure/library/` and share a kit of views, places to put a body and gear in several pieces, so the machines read as one maker's range and variants of a movement differ only in what makes them different.
+- **Looked at, and checked.** `pnpm figure` draws any exercises to a PNG contact sheet with the component the app uses; `checks.ts` says what is wrong with one (through the floor, off the canvas, a limb posed two ways), for that script and for the tests.
 - **Movement is computed, not stored.** `Figure` blends the key poses by angle, sixty times a second, so limbs swing round their joints; there are no frames. Reduced motion shows the first pose.
 - `MoveArt` uses the mannequin for the moves it knows and the drawn frames for the rest.
 
 ## Consequences
 
 - No tearing, no stand-ins, any number of "frames", one style: the problems of ADR 0008's update go away for every exercise the mannequin knows.
-- 290 exercises are still to be laid out. Each is a few lines copied from the nearest one; seen-from-the-side lifts, hangs, floor work and one cable machine exist as patterns. Until then the app shows two styles side by side, which is not a state to ship: either the mannequin covers the library first, or it is switched on only once it does.
-- Machines need more parts (a seat with a back, a lever arm, a weight stack), and a few exercises need things the rig does not do yet: a hand resting on a knee, a foot on a box, a resistance band round the legs.
+- Every move in the catalogue has a figure, so the app shows one style. A move added to the catalogue later falls back to the drawn frames until it is laid out; `pnpm figure --missing` lists those.
+- What the rig cannot do is approximated, and worth knowing: there is no shoulder girdle (a shrug or a scapular pull-up is a small rise of the hands), no wrist, no curl of the spine (a crunch folds at the hips, cat-cow is a tilt), and no feet (a calf raise is a few units of height). A loop goes there and back, so a pedal stroke is half a turn and a stride passes through standing.
+- Several figures animating at once cost more than drawn frames did, since each part is masked against what is behind it. One at a time, which is all the app does, runs at the display's rate.
 - The figure is ours, so the CC BY-SA terms of the drawn library do not apply to it. The catalogue (names, muscles) still comes from Workout Guide.
-- If the mannequin replaces the drawn frames entirely, `scripts/moves/` and `public/moves` can go, and with them about 6 MB of the repository.
+- The drawn frames are now only a fallback. `scripts/moves/` and `public/moves` (about 6 MB) can go once the owner decides the fallback is not worth keeping.

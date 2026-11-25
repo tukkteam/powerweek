@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { Figure } from "@/modules/train/figure/figure";
-import { EXERCISES, type Exercise } from "@/modules/train/figure/library";
+import { FAMILIES, type Exercise } from "@/modules/train/figure/library";
 import type { Pose } from "@/modules/train/figure/rig";
 import type { Gear } from "@/modules/train/figure/scene";
 
 /**
- * /es/dev/figure: every exercise the mannequin knows, moving, and beside it three stills: where
- * it starts, halfway there, and where it turns back.
+ * /es/dev/figure: every exercise the mannequin knows, family by family, moving, and beside it
+ * three stills: where it starts, halfway there, and where it turns back.
  * Below them, the gear: each piece held or used, seen from four sides, to judge its shape and
  * that it sits right with the figure wherever it is seen from.
  * For drawing new exercises (modules/train/figure/library.ts) and for judging the figure itself.
@@ -86,7 +86,8 @@ const held = ({ gear, pose }: (typeof GEAR)[number], yaw: number): Exercise => (
 });
 
 export default function FigurePage() {
-  const slugs = Object.keys(EXERCISES);
+  const families = Object.entries(FAMILIES);
+  const count = families.reduce((sum, [, family]) => sum + Object.keys(family).length, 0);
   return (
     <main
       className="mx-auto flex min-h-dvh max-w-7xl flex-col gap-6 px-4 py-10"
@@ -95,23 +96,30 @@ export default function FigurePage() {
       <header>
         <h1 className="type-display">Mannequin</h1>
         <p className="type-body text-ink-muted">
-          {slugs.length} exercises from modules/train/figure/library.ts. Each is a layout: a view,
-          the gear, and key poses the figure moves between.
+          {count} exercises from modules/train/figure/library. Each is a layout: a view, the gear,
+          and key poses the figure moves between.
         </p>
       </header>
-      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {slugs.map((slug) => (
-          <li key={slug} className="rounded-[14px] border border-line bg-surface p-4 text-tone">
-            <div className="grid grid-cols-4 items-end gap-3">
-              <Figure slug={slug} play="loop" label={slug} className="w-full" />
-              <Figure slug={slug} className="w-full opacity-80" />
-              <Figure slug={slug} phase={0.25} className="w-full opacity-80" />
-              <Figure slug={slug} phase={0.5} className="w-full opacity-80" />
-            </div>
-            <p className="type-caption mt-2 text-ink-muted">{slug}</p>
-          </li>
-        ))}
-      </ul>
+      {families.map(([name, family]) => (
+        <section key={name} className="flex flex-col gap-3">
+          <h2 className="type-title">
+            {name} <span className="text-ink-muted">{Object.keys(family).length}</span>
+          </h2>
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {Object.keys(family).map((slug) => (
+              <li key={slug} className="rounded-[14px] border border-line bg-surface p-4 text-tone">
+                <div className="grid grid-cols-4 items-end gap-3">
+                  <Figure slug={slug} play="loop" label={slug} className="w-full" />
+                  <Figure slug={slug} className="w-full opacity-80" />
+                  <Figure slug={slug} phase={0.25} className="w-full opacity-80" />
+                  <Figure slug={slug} phase={0.5} className="w-full opacity-80" />
+                </div>
+                <p className="type-caption mt-2 text-ink-muted">{slug}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
       <header>
         <h2 className="type-title">Gear</h2>
         <p className="type-body text-ink-muted">

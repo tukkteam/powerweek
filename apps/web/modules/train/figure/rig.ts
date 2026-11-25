@@ -361,9 +361,18 @@ function between<T extends Arm | Leg>(
 
 /**
  * The pose part of the way from one to another. Angles are blended, not positions, so a limb
- * swings round its joint instead of shrinking through the middle.
+ * swings round its joint instead of shrinking through the middle. Each limb is blended whole,
+ * whichever of `arms` or `armL` a pose used to say it.
  */
 export function blendPose(a: Pose, b: Pose, t: number): Pose {
+  const arm = (pose: Pose, side: "L" | "R"): Arm => ({
+    ...pose.arms,
+    ...(side === "L" ? pose.armL : pose.armR),
+  });
+  const leg = (pose: Pose, side: "L" | "R"): Leg => ({
+    ...pose.legs,
+    ...(side === "L" ? pose.legL : pose.legR),
+  });
   return {
     at: blendVec(a.at, b.at, t),
     pin: a.pin && b.pin ? { what: b.pin.what, to: mix(a.pin.to, b.pin.to, t) } : (b.pin ?? a.pin),
@@ -374,11 +383,9 @@ export function blendPose(a: Pose, b: Pose, t: number): Pose {
     side: blend(a.side, b.side, t),
     twist: blend(a.twist, b.twist, t),
     nod: blend(a.nod, b.nod, t),
-    arms: between(a.arms, b.arms, t),
-    armL: between(a.armL, b.armL, t),
-    armR: between(a.armR, b.armR, t),
-    legs: between(a.legs, b.legs, t),
-    legL: between(a.legL, b.legL, t),
-    legR: between(a.legR, b.legR, t),
+    armL: between(arm(a, "L"), arm(b, "L"), t),
+    armR: between(arm(a, "R"), arm(b, "R"), t),
+    legL: between(leg(a, "L"), leg(b, "L"), t),
+    legR: between(leg(a, "R"), leg(b, "R"), t),
   };
 }

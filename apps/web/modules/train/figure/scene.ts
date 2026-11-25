@@ -97,6 +97,9 @@ export interface Drawing {
   floor: string;
 }
 
+/** A width, to the hundredth: the same on the server and in the browser. */
+const width = (value: number) => Math.round(value * 100) / 100;
+
 /** A scene, drawn. */
 export function draw(pose: Pose, gear: readonly Gear[], view: View): Drawing {
   const s = skeleton(pose);
@@ -187,7 +190,7 @@ export function draw(pose: Pose, gear: readonly Gear[], view: View): Drawing {
     ...placed("back").filter((part) => part.shape),
     ...behind.sort(backToFront).flatMap((limb) => limb.parts),
     { shape: "", edge: 0, lines: "", halo: nearLegs, tone: "body" },
-    { shape: torso, edge: CORNER * zoom, lines: "", halo: torso, tone: "body" },
+    { shape: torso, edge: width(CORNER * zoom), lines: "", halo: torso, tone: "body" },
     { shape: head, edge: 0, lines: "", halo: head, tone: "body" },
     ...before.sort(backToFront).flatMap((limb) => limb.parts),
     ...placed("front"),
@@ -195,8 +198,9 @@ export function draw(pose: Pose, gear: readonly Gear[], view: View): Drawing {
   const left = project([0, 0, 0], view);
   return {
     parts,
-    lineWidth: LINE * zoom,
-    floor: `M${n(14)} ${n(left[1] + 0.4)}L${n(CANVAS - 14)} ${n(left[1] + 0.4)}`,
+    lineWidth: width(LINE * zoom),
+    // Seen from above, the floor is all round the figure and no one line is its edge.
+    floor: view.tilt ? "" : `M${n(14)} ${n(left[1] + 0.4)}L${n(CANVAS - 14)} ${n(left[1] + 0.4)}`,
   };
 }
 
@@ -234,14 +238,17 @@ export function frame(poses: readonly Pose[], gear: readonly Gear[], view: View,
   }
   // The floor the figure stands on is part of the picture.
   see([0, 0, 0], 1);
-  const zoom = Math.min(1.5, (CANVAS - 2 * margin) / Math.max(maxX - minX, maxY - minY));
+  // Rounded: the server and the browser do not agree on the last digit of a sine, and a view
+  // that differed in it would be drawn differently by each (and React would say so).
+  const round = (value: number) => Math.round(value * 1000) / 1000;
+  const zoom = round(Math.min(1.5, (CANVAS - 2 * margin) / Math.max(maxX - minX, maxY - minY)));
   // `project` puts the origin at the middle of the canvas across and at FLOOR down.
   return {
     ...plain,
     zoom,
     shift: [
-      -((minX + maxX) / 2 - CANVAS / 2) * zoom,
-      ((minY + maxY) / 2 - FLOOR) * zoom + (FLOOR - CANVAS / 2),
+      round(-((minX + maxX) / 2 - CANVAS / 2) * zoom),
+      round(((minY + maxY) / 2 - FLOOR) * zoom + (FLOOR - CANVAS / 2)),
     ],
   };
 }

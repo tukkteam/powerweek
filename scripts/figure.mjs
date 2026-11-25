@@ -57,7 +57,7 @@ const server = await createViteServer({
   appType: "custom",
   resolve: { alias: { "@": web } },
   oxc: { jsx: { runtime: "automatic" } },
-  server: { middlewareMode: true, hmr: false, watch: null },
+  server: { middlewareMode: true, hmr: false, ws: false, watch: null },
   optimizeDeps: { noDiscovery: true, include: [] },
 });
 try {
