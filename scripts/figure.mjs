@@ -9,9 +9,12 @@
  *   pnpm figure --family cable             every exercise in library/cable.ts, and only that
  *                                          file is loaded: others may be half written
  *   pnpm figure --missing                  the moves of the catalogue not laid out yet
- *   options: --out FILE (default tmp/figure.png)  --size 220  --columns N
+ *   options: --out FILE (default tmp/figure.png)  --size 220  --columns N  --rows 5
  *
- * Names may be slugs or the start of one (`banded-` draws every banded move).
+ * A sheet of more than `--rows` rows is written as several files: figure-1.png, figure-2.png…
+ *
+ * Names may be slugs or the start of one (`banded-` draws every banded move). After drawing, it
+ * prints what the tests would find wrong with those exercises (figure/checks.ts).
  */
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -40,6 +43,7 @@ const flag = (name) => {
 const out = resolve(root, option("out", "tmp/figure.png"));
 const size = Number(option("size", 220));
 const steps = Number(option("steps", 3));
+const rows = Number(option("rows", 5));
 const turn = flag("turn");
 const family = option("family");
 const missing = flag("missing");
@@ -71,6 +75,7 @@ try {
     process.exit(0);
   }
   const { sheet } = await load("figure/sheet.tsx");
+  const { problems } = await load("figure/checks.ts");
   const known = Object.keys(EXERCISES);
   const slugs = all
     ? known
@@ -98,10 +103,31 @@ try {
         phase: steps === 1 ? 0 : (k / (steps - 1)) * 0.5,
       }));
     });
-    const svg = sheet(cells, { columns, size, ink: "#d7ff3f", paper: "#101010", text: "#aaaaaa" });
     mkdirSync(dirname(out), { recursive: true });
-    await sharp(Buffer.from(svg), { density: 72 }).png().toFile(out);
-    console.log(`${cells.length} drawings of ${slugs.length} exercises: ${out}`);
+    const each = columns * rows;
+    const pages = Math.ceil(cells.length / each);
+    const files = [];
+    for (let page = 0; page < pages; page++) {
+      const svg = sheet(cells.slice(page * each, (page + 1) * each), {
+        columns,
+        size,
+        ink: "#d7ff3f",
+        paper: "#101010",
+        text: "#aaaaaa",
+      });
+      const file = pages > 1 ? out.replace(/(\.\w+)$/, `-${page + 1}$1`) : out;
+      await sharp(Buffer.from(svg), { density: 72 }).png().toFile(file);
+      files.push(file);
+    }
+    console.log(`${cells.length} drawings of ${slugs.length} exercises:\n${files.join("\n")}`);
+    // What the tests would say of them.
+    let wrong = 0;
+    for (const slug of slugs)
+      for (const problem of problems(EXERCISES[slug])) {
+        console.log(`✗ ${slug}: ${problem}`);
+        wrong++;
+      }
+    console.log(wrong ? `${wrong} problems.` : "No problems found by the checks.");
   }
 } finally {
   await server.close();

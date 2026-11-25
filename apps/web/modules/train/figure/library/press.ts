@@ -23,13 +23,13 @@ const family: Family = {
     view: { yaw: 78 },
     keys: [
       {
-        pitch: 78.5,
+        pitch: 76.4,
         pin: { what: "ankles", to: [0, 4, -50] },
         arms: { reach: [13, 3.7, 40], elbow: [0.1, -0.3, 1] },
         armL: { reach: [-13, 3.7, 40] },
       },
       {
-        pitch: 79.5,
+        pitch: 77.4,
         pin: { what: "ankles", to: [0, 4, -50] },
         arms: { reach: [13, 3.7, 40], elbow: [0.1, -0.3, 1] },
         armL: { reach: [-13, 3.7, 40] },

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ease } from "@/lib/motion";
 import { MOVE_ROWS } from "../moves-data";
-import { EXERCISES, hasFigure, poseAt, viewOf } from "./library";
+import { problems } from "./checks";
+import { EXERCISES, FAMILIES, hasFigure, poseAt, viewOf } from "./library";
 import { BODY, bendTo, blendPose, size, skeleton, sub, type Pose, type Vec } from "./rig";
 import { CANVAS, draw, frame, nearer, project } from "./scene";
 
@@ -132,7 +133,6 @@ describe("the exercises", () => {
 
   it("keep the figure whole and on the canvas all the way through the loop", () => {
     for (const [slug, exercise] of all) {
-      const view = viewOf(exercise);
       for (let phase = 0; phase < 1; phase += 0.05) {
         const s = skeleton(poseAt(exercise, phase, sway));
         // Bones never change length: nothing stretches as it moves.
@@ -154,18 +154,15 @@ describe("the exercises", () => {
             3,
           );
         }
-        for (const [name, joint] of Object.entries(s)) {
-          expect(joint.every(Number.isFinite), `${slug} ${name}`).toBe(true);
-          // Nothing goes through the floor.
-          expect(joint[1], `${slug} ${name} at ${phase.toFixed(2)}`).toBeGreaterThan(-0.5);
-          const [x, y] = project(joint, view);
-          expect(
-            x > 2 && x < CANVAS - 2 && y > 2 && y < CANVAS - 2,
-            `${slug} ${name} off the canvas`,
-          ).toBe(true);
-        }
       }
+      // Nothing through the floor or off the canvas, every limb posed one way in every key.
+      expect(problems(exercise, sway), slug).toEqual([]);
     }
+  });
+
+  it("are each laid out in one family", () => {
+    const slugs = Object.values(FAMILIES).flatMap((family) => Object.keys(family));
+    expect(new Set(slugs).size).toBe(slugs.length);
   });
 
   it("start and end the loop on the first pose, and reach the last halfway", () => {

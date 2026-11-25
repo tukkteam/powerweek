@@ -46,12 +46,26 @@ export const hands = ([x, y, z]: Vec, elbow?: Vec): Pick<Pose, "arms" | "armL"> 
   armL: { reach: [-x, y, z] },
 });
 
+/**
+ * Arms hanging straight down from a torso that leans `lean`, as a `grip`: for a lift whose
+ * other pose is a grip too (a row: hanging, then pulled in). A limb is posed the same way in
+ * every key: by its angles in all of them, or by `reach`, `grip` or `plant` in all of them.
+ */
+export const hanging = (lean: number, wide = 14): NonNullable<Pose["arms"]> => {
+  const a = (lean * Math.PI) / 180;
+  const long = BODY.upperArm + BODY.forearm - 0.6;
+  return { grip: [wide, -long * Math.cos(a), long * Math.sin(a)], elbow: [0.3, 0, -1] };
+};
+
 /** Lying on a flat bench (`flatBench`), feet on the floor. */
-export const ON_BENCH: Pose = { at: [0, BENCH_HIGH + REST, 6], pitch: -90, ...feet(34) };
-/** Lying on the floor, face up. Head towards -z. */
-export const SUPINE: Pose = { at: [0, REST, 0], pitch: -90 };
-/** Lying on the floor, face down. Head towards +z. */
-export const PRONE: Pose = { at: [0, REST, 0], pitch: 90 };
+export const ON_BENCH: Pose = { at: [0, BENCH_HIGH + REST, 6], pitch: -90, nod: 13, ...feet(34) };
+/**
+ * Lying on the floor, face up. Head towards -z. The head is rounder than the trunk is thick,
+ * so it is tipped up a little (`nod`) to rest on the floor and not in it.
+ */
+export const SUPINE: Pose = { at: [0, REST, 0], pitch: -90, nod: 16 };
+/** Lying on the floor, face down. Head towards +z, and held up off the floor. */
+export const PRONE: Pose = { at: [0, REST, 0], pitch: 90, nod: -18 };
 /** Sitting on a seat or a bench `high` (hips over the origin), feet on the floor ahead. */
 export const sitting = (high = BENCH_HIGH, z = 0): Pose => ({
   at: [0, high + REST, z],
