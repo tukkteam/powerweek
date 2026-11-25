@@ -75,7 +75,7 @@ export const EXERCISES: Readonly<Record<string, Exercise>> = {
     ],
   },
   "bicep-curl": {
-    view: { yaw: 58 },
+    view: { yaw: 72 },
     gear: [{ kind: "dumbbells" }],
     keys: [{ arms: { flex: 2, abduct: 5, bend: 6 } }, { arms: { flex: 14, abduct: 5, bend: 140 } }],
   },

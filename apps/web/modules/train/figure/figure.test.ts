@@ -3,7 +3,7 @@ import { ease } from "@/lib/motion";
 import { MOVE_ROWS } from "../moves-data";
 import { EXERCISES, hasFigure, poseAt, viewOf } from "./library";
 import { BODY, bendTo, blendPose, size, skeleton, sub, type Pose, type Vec } from "./rig";
-import { CANVAS, draw, frame, project } from "./scene";
+import { CANVAS, draw, frame, nearer, project } from "./scene";
 
 const far = (a: Vec, b: Vec) => size(sub(a, b));
 const sway = ease("sway");
@@ -182,12 +182,8 @@ describe("the exercises", () => {
     for (const [slug, exercise] of all) {
       const drawing = draw(poseAt(exercise, 0.3, sway), exercise.gear ?? [], viewOf(exercise));
       const texts = [
-        drawing.gearLines,
-        drawing.gearSolids,
-        drawing.frontLines,
-        drawing.frontSolids,
         drawing.floor,
-        ...drawing.parts.flatMap((part) => [part.shape, part.halo]),
+        ...drawing.parts.flatMap((part) => [part.shape, part.lines, part.halo]),
       ];
       for (const text of texts) expect(text, slug).not.toMatch(/NaN|undefined|Infinity/);
     }
@@ -197,10 +193,11 @@ describe("the exercises", () => {
     for (const [slug, exercise] of all) {
       for (let phase = 0; phase < 1; phase += 0.1) {
         const drawn = draw(poseAt(exercise, phase, sway), exercise.gear ?? [], viewOf(exercise));
-        // Always seven, so the picture keeps its structure while it moves. One paints nothing:
-        // it clears the gap round the near legs where they join the trunk.
-        expect(drawn.parts, slug).toHaveLength(7);
-        const parts = drawn.parts.filter((part) => part.shape);
+        // Always seven of the figure, so the picture keeps its structure while it moves. One
+        // paints nothing: it clears the gap round the near legs where they join the trunk.
+        const figure = drawn.parts.filter((part) => part.tone !== "gear");
+        expect(figure, slug).toHaveLength(7);
+        const parts = figure.filter((part) => part.shape);
         // Head, trunk, two arms, two legs: each with a shape and something to clear behind it.
         expect(parts, slug).toHaveLength(6);
         for (const part of parts) {
@@ -215,15 +212,72 @@ describe("the exercises", () => {
           slug,
         ).toHaveLength(1);
         expect(
-          parts.slice(0, trunkAt).every((part) => part.far),
+          parts.slice(0, trunkAt).every((part) => part.tone === "far"),
           slug,
         ).toBe(true);
         expect(
-          parts.slice(trunkAt).every((part) => !part.far),
+          parts.slice(trunkAt).every((part) => part.tone === "body"),
           slug,
         ).toBe(true);
         expect(parts.length - trunkAt, slug).toBeGreaterThanOrEqual(2);
       }
+    }
+  });
+});
+
+describe("the gear", () => {
+  it("draws the nearer of two weights larger, and two that are level alike", () => {
+    expect(nearer(0)).toBe(1);
+    for (const depth of [5, 15, 30, 45]) {
+      expect(nearer(depth), String(depth)).toBeGreaterThan(1);
+      expect(nearer(-depth), String(depth)).toBeLessThan(1);
+      // As much larger on this side as smaller on that one.
+      expect(nearer(depth) + nearer(-depth)).toBeCloseTo(2);
+      expect(nearer(depth)).toBeGreaterThan(nearer(depth - 5));
+    }
+    // A barbell seen from its end; the same barbell seen nearly from the front.
+    expect(nearer(29)).toBeGreaterThan(1.08);
+    expect(nearer(9)).toBeLessThan(1.03);
+  });
+
+  it("is drawn at its size, with nothing added round it, in the same parts all the way round", () => {
+    for (const [slug, exercise] of Object.entries(EXERCISES)) {
+      const at = (phase: number) =>
+        draw(poseAt(exercise, phase, sway), exercise.gear ?? [], viewOf(exercise)).parts;
+      const count = at(0).length;
+      for (let phase = 0; phase < 1; phase += 0.1) {
+        const parts = at(phase);
+        expect(parts, slug).toHaveLength(count);
+        for (const part of parts.filter((one) => one.tone === "gear")) {
+          expect(part.edge, slug).toBe(0);
+          expect(part.halo, slug).toBe(part.shape);
+        }
+      }
+    }
+  });
+
+  it("puts one plate of a barbell seen from its end beyond the figure and one this side", () => {
+    const { parts } = draw(
+      poseAt(EXERCISES.squat!, 0, sway),
+      EXERCISES.squat!.gear ?? [],
+      viewOf(EXERCISES.squat!),
+    );
+    const tones = parts.filter((part) => part.shape || part.lines).map((part) => part.tone);
+    expect(tones[0]).toBe("gear");
+    expect(tones.at(-1)).toBe("gear");
+    expect(tones.filter((tone) => tone === "gear")).toHaveLength(2);
+  });
+
+  it("keeps a dumbbell with the arm that holds it", () => {
+    const curl = EXERCISES["bicep-curl"]!;
+    for (const phase of [0, 0.25, 0.5]) {
+      const { parts } = draw(poseAt(curl, phase, sway), curl.gear ?? [], viewOf(curl));
+      const gear = parts.flatMap((part, k) => (part.tone === "gear" && part.shape ? [k] : []));
+      // Two dumbbells, each next to an arm: one of them with the arm on the far side.
+      expect(gear).toHaveLength(2);
+      for (const k of gear) expect(parts[k - 1]!.tone).not.toBe("gear");
+      expect(parts[gear[0]! - 1]!.tone).toBe("far");
+      expect(parts[gear[1]! - 1]!.tone).toBe("body");
     }
   });
 });
