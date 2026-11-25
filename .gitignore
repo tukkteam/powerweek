@@ -33,3 +33,6 @@ blob-report/
 !.vscode/extensions.json
 !.vscode/settings.json
 *.log
+
+# scratch output (pnpm figure)
+tmp/

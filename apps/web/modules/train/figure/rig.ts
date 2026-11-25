@@ -145,8 +145,11 @@ export interface Pose {
    * of the origin, on the floor.
    */
   at?: Vec;
-  /** Or: hold the middle of these still at a point, and let the hips fall where they must. */
-  pin?: { what: "ankles" | "toes" | "hands" | "knees"; to: Vec };
+  /**
+   * Or: hold the middle of these (or one joint, by its name) still at a point, and let the hips
+   * fall where they must.
+   */
+  pin?: { what: "ankles" | "toes" | "hands" | "knees" | Joint; to: Vec };
   /** The whole body turned to face another way (about the vertical). */
   face?: number;
   /** The whole body tipped forward (90 lies face down) or back (-90 lies face up). */
@@ -275,8 +278,17 @@ export function skeleton(pose: Pose): Skeleton {
   let shift: Vec;
   if (pose.at) shift = pose.at;
   else if (pose.pin) {
-    const name = { ankles: "ankle", toes: "toe", hands: "hand", knees: "knee" }[pose.pin.what];
-    shift = sub(pose.pin.to, middleOf(s[`${name}L` as Joint], s[`${name}R` as Joint]));
+    const pair = { ankles: "ankle", toes: "toe", hands: "hand", knees: "knee" } as const;
+    const { what } = pose.pin;
+    // The middle of a pair of joints, or one joint: the foot a lunge turns on, say.
+    const held =
+      what in pair
+        ? middleOf(
+            s[`${pair[what as keyof typeof pair]}L`],
+            s[`${pair[what as keyof typeof pair]}R`],
+          )
+        : s[what as Joint];
+    shift = sub(pose.pin.to, held);
   } else {
     // Standing: the lower foot on the floor, the ankles either side of the origin.
     const between = middleOf(s.ankleL, s.ankleR);

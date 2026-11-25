@@ -27,7 +27,8 @@
     "db:push": "supabase db push",
     "db:diff": "supabase db diff",
     "db:types": "supabase gen types typescript --linked --schema public > apps/web/lib/supabase/database.types.ts",
-    "moves": "node scripts/moves.mjs"
+    "moves": "node scripts/moves.mjs",
+    "figure": "node scripts/figure.mjs"
   },
   "devDependencies": {
     "prettier": "^3.6.2"
