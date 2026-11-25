@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, Geist_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import { LocaleProvider } from "@/components/i18n/locale-provider";
+import { PressFeedback } from "@/components/press-feedback";
 import { publicEnv } from "@/lib/env";
 import { getDictionary, hasLocale, locales } from "@/lib/i18n";
 import "../globals.css";
@@ -86,6 +87,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
       </head>
       <body>
         <LocaleProvider lang={lang}>{children}</LocaleProvider>
+        <PressFeedback />
       </body>
     </html>
   );

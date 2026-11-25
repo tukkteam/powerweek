@@ -16,6 +16,7 @@ import { useDialogMotion } from "@/components/app/use-dialog-motion";
 import { LanguageSwitch } from "@/components/i18n/language-switch";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
+import { setHaptics, useHaptics } from "@/lib/haptics";
 import { MOVE_SOURCE } from "@/modules/train/moves";
 
 type Theme = "dark" | "light" | "system";
@@ -58,6 +59,7 @@ export function SettingsView() {
   const { dict } = useLocale();
   const t = dict.settings;
   const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as Theme);
+  const haptics = useHaptics();
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const confirmRef = useRef<HTMLDialogElement>(null);
@@ -169,6 +171,35 @@ export function SettingsView() {
           ))}
         </div>
       </Section>
+
+      {haptics.available ? (
+        <Section title={t.haptics}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={haptics.on}
+            onClick={() => setHaptics(!haptics.on)}
+            className="flex min-h-12 items-center justify-between gap-4 text-left"
+          >
+            <span className="flex flex-col gap-1">
+              <span className="type-body font-semibold">{t.hapticsLabel}</span>
+              <span className="type-caption text-ink-muted">{t.hapticsHint}</span>
+            </span>
+            <span
+              aria-hidden="true"
+              className={`flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+                haptics.on ? "bg-volt" : "bg-line-strong"
+              }`}
+            >
+              <span
+                className={`size-6 rounded-full bg-bg transition-transform duration-(--spring-snappy-duration) ease-(--spring-snappy) ${
+                  haptics.on ? "translate-x-5" : ""
+                }`}
+              />
+            </span>
+          </button>
+        </Section>
+      ) : null}
 
       <Section title={dict.common.language}>
         <p className="type-caption -mt-2 text-ink-muted">{t.languageHint}</p>

@@ -318,6 +318,10 @@ export const es = {
     signedInAs: (email: string) => `Entraste como ${email}`,
     appearance: "Apariencia",
     theme: { dark: "Noche", light: "Día", system: "Sistema" },
+    haptics: "Vibración",
+    hapticsLabel: "Vibrar al completar algo",
+    hapticsHint:
+      "Un toque breve al marcar un hábito, una tarea o un entrenamiento, y al mantener pulsado un día. Se guarda en este navegador.",
     languageHint: "Cambia el idioma de la interfaz y del asistente.",
     timeZone: "Zona horaria",
     timeZoneHint: "Define qué día es «hoy».",

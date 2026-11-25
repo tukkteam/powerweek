@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { buzz } from "@/lib/haptics";
 
 const DELAY = 450;
 const SLOP = 10;
@@ -33,7 +34,7 @@ export function useLongPress(onLongPress: (() => void) | null) {
         timer.current = null;
         fired.current = true;
         setPressing(false);
-        navigator.vibrate?.(10);
+        buzz("hold");
         onLongPress();
       }, DELAY);
     },

@@ -71,6 +71,14 @@ export const springs = {
   },
 } as const;
 
+/** How far a pressed control sinks. It scales so its edges move about `reach` pixels: small buttons go down to `deep`, wide cards stop at `shallow`. `dim` is the brightness it takes while held, the only change left with reduced motion. Press in over duration-instant, spring back on spring-snappy. */
+export const press = {
+  deep: 0.96,
+  shallow: 0.98,
+  reach: 3,
+  dim: 0.9,
+} as const;
+
 export type EasingName = keyof typeof easings;
 export type DurationName = keyof typeof durations;
 export type SpringName = keyof typeof springs;

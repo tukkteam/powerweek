@@ -178,7 +178,7 @@ export function VoiceDock() {
         onClick={listening ? stopListening : () => void startListening()}
         disabled={thinking}
         aria-label={listening ? dict.dock.stop : dict.dock.speak}
-        className={`flex size-13 shrink-0 items-center justify-center rounded-full bg-volt text-on-volt transition-transform active:scale-95 disabled:opacity-100 ${
+        className={`flex size-13 shrink-0 items-center justify-center rounded-full bg-volt text-on-volt disabled:opacity-100 ${
           listening ? "pw-halo" : ""
         }`}
       >

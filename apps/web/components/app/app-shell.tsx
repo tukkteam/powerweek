@@ -86,7 +86,7 @@ function Chrome({ children }: { children: ReactNode }) {
                     href={tab.href}
                     transitionTypes={slideTo(screen, tab.screen)}
                     aria-current={active ? "page" : undefined}
-                    className={`relative flex h-9 items-center rounded-full px-3 text-sm font-bold transition-colors duration-(--duration-quick) sm:px-4 ${
+                    className={`pw-pressable relative flex h-9 items-center rounded-full px-3 text-sm font-bold transition-colors duration-(--duration-quick) sm:px-4 ${
                       active ? "text-bg" : "text-ink-muted hover:text-ink"
                     }`}
                   >
@@ -109,7 +109,7 @@ function Chrome({ children }: { children: ReactNode }) {
               transitionTypes={slideTo(screen, "settings")}
               aria-label={dict.app.navSettings}
               aria-current={isSettings ? "page" : undefined}
-              className={`flex size-11 items-center justify-center rounded-full transition-colors ${
+              className={`pw-pressable flex size-11 items-center justify-center rounded-full transition-colors ${
                 isSettings ? "text-volt-ink" : "text-ink-muted hover:text-ink"
               }`}
             >

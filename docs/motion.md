@@ -80,10 +80,25 @@ Want a new kind of motion that no token expresses? Add a token rather than a one
 | Something appearing once (a card, a toast, a row)   | `pw-rise` (moves up a little), `pw-fade` (only fades), `pw-pop` (small things)          | An entrance on the tokens, already handled for reduced motion.                                                   |
 | A bar that draws itself                             | `pw-reveal`                                                                             | Clips in from the left.                                                                                          |
 | A number that changes                               | `useTween(value)` (`lib/use-tween.ts`)                                                  | Rolls to the new value on the same curve and time as a progress fill.                                            |
-| Something pressed                                   | `Button` (already scales on press); `pw-press` for boxes with a long press              | Instant feedback.                                                                                                |
+| Something pressed                                   | Nothing: any `button` or `role="button"` already presses; `pw-pressable` for a link     | Sinks and dims at once, springs back, lets go when you slide off. See [Pressing](#pressing).                     |
+| A box with a long press                             | `useLongPress` and `pw-press`                                                           | The press, then a slower sink while held; one buzz when it fires.                                                |
+| Completing something (a tick, a "done")             | `useJustDone(done)` → `pw-pop` on the check; `buzz("done")` in the handler              | The check pops in only when it changes, and phones that can vibrate buzz once (a setting, on by default).        |
 | Something moved by hand                             | Track the pointer 1:1, then settle with `springs.bouncy` (`springEasing` or `physics`)  | See `panel-arranger.tsx` until the shared drag engine (#29).                                                     |
 | An ambient loop                                     | A `@keyframes` with `var(--easing-sway)` and its own period, plus a reduced-motion stop | Allowed to keep its own rhythm.                                                                                  |
 | Hover and colour                                    | `transition-colors` (already on the tokens)                                             | Nothing else to do.                                                                                              |
+
+### Pressing
+
+`PressFeedback` (`components/press-feedback.tsx`) is mounted once at the root and listens on the window, so there is nothing to wire up: every `button`, every `role="button"` and every `pw-pressable` (which `buttonClass` adds, so `ButtonLink` has it) answers the same way.
+
+- **Down** (finger, mouse or Space/Enter): it scales over `duration-instant` and dims to `press.dim` brightness. The scale comes from its size (`pressScale` in `lib/motion.ts`): the edges move about `press.reach` pixels, so an icon button sinks to `press.deep` and a wide card only to `press.shallow`.
+- **Up**: it springs back on `spring-snappy`, from wherever it is.
+- **Slide off**: it lets go as the pointer leaves it and comes back if the pointer returns; released outside, the click that might follow is swallowed.
+- **The action stays on `click`**, so keyboards and screen readers work as before.
+- **Reduced motion**: no scale, only the dim, both ways in `duration-instant`.
+- `data-press="none"` opts an element out, for things that already move under the finger. Disabled controls don't press, and fade (`opacity`) instead of jumping when they become disabled.
+
+It uses the Web Animations API on the `scale` and `filter` properties, so it composes with whatever `transform`, `translate` or `rotate` the element has, and needs no class on it.
 
 ### A dialog
 
