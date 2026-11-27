@@ -93,6 +93,13 @@ const springs = named(motion.springs, "spring").map((t) => {
   return { ...t, response, ...sampleSpring({ ...t, response }) };
 });
 
+// How a pressed control sinks: scale limits, the reach in pixels, and the brightness held.
+const press = motion.press ?? { deep: 0.96, shallow: 0.98, reach: 3, dim: 0.9, usage: "" };
+if (!(press.deep > 0.8 && press.deep <= press.shallow && press.shallow <= 1))
+  throw new Error("motion.press: 0.8 < deep <= shallow <= 1");
+if (!(press.reach > 0 && press.dim > 0 && press.dim <= 1))
+  throw new Error("motion.press: reach above 0, dim between 0 and 1");
+
 const scales = [
   ...(tokens.spacing?.tokens ?? []).map((t) => [t.name, t.value]),
   ...(tokens.radius?.tokens ?? []).map((t) => [t.name, t.value]),
@@ -149,6 +156,14 @@ ${entries(
   (t) =>
     `{\n    response: ${t.response},\n    damping: ${t.damping},\n    duration: ${t.duration},\n    easing: ${JSON.stringify(linearEasing(t.points))},\n  }`,
 )}
+} as const;
+
+/** ${press.usage} */
+export const press = {
+  deep: ${press.deep},
+  shallow: ${press.shallow},
+  reach: ${press.reach},
+  dim: ${press.dim},
 } as const;
 
 export type EasingName = keyof typeof easings;

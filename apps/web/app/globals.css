@@ -151,6 +151,16 @@
   [role="button"] {
     cursor: pointer;
   }
+  /* Pressable things (components/press-feedback.tsx) answer a tap at once: no double-tap zoom
+     wait, no text selection or callout on a long press. */
+  button,
+  [role="button"],
+  .pw-pressable {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
   button:disabled {
     cursor: default;
   }

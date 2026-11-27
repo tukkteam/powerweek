@@ -7,6 +7,8 @@ import { useState } from "react";
 import { EditorDialog, Field, fieldClass, type FormReader } from "@/components/app/editor-dialog";
 import { CellHeader, ModuleCard } from "@/components/app/module-card";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { buzz } from "@/lib/haptics";
+import { useJustDone } from "@/lib/use-just-done";
 import type { CardProps, ModuleRecords, ModuleViews, ViewProps } from "../host";
 import type { HabitsMessages } from "./messages";
 import {
@@ -189,7 +191,9 @@ function HabitRow({
 
   const log = (change: { value?: number; add?: number }) => {
     const next = nextAmount(habit, amount, change);
-    if (next !== amount) records.set(day, habit.id, recordOf(next));
+    if (next === amount) return;
+    if (!done && isDone(habit, next)) buzz("done");
+    records.set(day, habit.id, recordOf(next));
   };
   const action = counted
     ? t.addOne(habit.title, progressOf(habit, amount))
@@ -250,10 +254,14 @@ function HabitRow({
 /** "3/8 vasos" for a counted habit; a tick for a habit done once a day. */
 function Amount({ habit, amount, t }: { habit: Habit; amount: number; t: HabitsMessages }) {
   const done = isDone(habit, amount);
+  const justDone = useJustDone(done);
   if (targetOf(habit) > 1)
     return (
       <span
-        className={`type-numeric max-w-[60%] shrink-0 truncate ${done ? "text-tone" : "text-ink-muted"}`}
+        key={justDone ? "done" : "count"}
+        className={`type-numeric max-w-[60%] shrink-0 truncate ${done ? "text-tone" : "text-ink-muted"} ${
+          justDone ? "pw-pop" : ""
+        }`}
       >
         {progressOf(habit, amount)}
       </span>
@@ -266,7 +274,14 @@ function Amount({ habit, amount, t }: { habit: Habit; amount: number; t: HabitsM
         done ? "border-tone bg-tone text-bg" : "border-tone/60"
       }`}
     >
-      {done ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}
+      {done ? (
+        <Check
+          size={14}
+          strokeWidth={3}
+          aria-hidden="true"
+          className={justDone ? "pw-pop" : undefined}
+        />
+      ) : null}
     </span>
   );
 }

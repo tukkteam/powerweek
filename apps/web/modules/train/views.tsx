@@ -5,6 +5,8 @@ import { useState } from "react";
 import { EditorDialog, Field, fieldClass } from "@/components/app/editor-dialog";
 import { AddButton, CellHeader, ModuleCard } from "@/components/app/module-card";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { buzz } from "@/lib/haptics";
+import { useJustDone } from "@/lib/use-just-done";
 import type { CardProps, ModuleViews, ViewProps } from "../host";
 import { ModuleIcon } from "../look";
 import { ExerciseSheet, muscleList } from "./exercise-sheet";
@@ -140,6 +142,9 @@ function TrainCard({ data, t, day, records, dispatch }: CardProps<Train, TrainMe
     </>
   );
 
+  const done = Boolean(records.get(day, WORKOUT_DONE));
+  const justDone = useJustDone(done);
+
   if (!workout) {
     return (
       <>
@@ -157,7 +162,6 @@ function TrainCard({ data, t, day, records, dispatch }: CardProps<Train, TrainMe
     );
   }
 
-  const done = Boolean(records.get(day, WORKOUT_DONE));
   const { load, names } = musclesOf(workout, t);
 
   return (
@@ -195,13 +199,21 @@ function TrainCard({ data, t, day, records, dispatch }: CardProps<Train, TrainMe
             <button
               type="button"
               aria-pressed={done}
-              onClick={() => records.set(day, WORKOUT_DONE, done ? null : true)}
+              onClick={() => {
+                if (!done) buzz("done");
+                records.set(day, WORKOUT_DONE, done ? null : true);
+              }}
               className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-[0.9375rem] font-bold transition-colors ${
                 done ? "bg-tone text-bg" : "border border-tone/60 text-tone hover:bg-tone/10"
               }`}
             >
               {done ? (
-                <Check size={18} strokeWidth={2.5} aria-hidden="true" />
+                <Check
+                  size={18}
+                  strokeWidth={2.5}
+                  aria-hidden="true"
+                  className={justDone ? "pw-pop" : undefined}
+                />
               ) : (
                 <span className="size-4 rounded-full border-2 border-current" aria-hidden="true" />
               )}

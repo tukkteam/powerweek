@@ -17,6 +17,8 @@ import { CellHeader, ModuleCard } from "@/components/app/module-card";
 import { useTapped } from "@/components/app/use-tapped";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { formatDuration } from "@/lib/format";
+import { buzz } from "@/lib/haptics";
+import { useJustDone } from "@/lib/use-just-done";
 import type { CardProps, ModuleRecords, ModuleViews, ViewProps } from "../host";
 import type { AgendaMessages } from "./messages";
 import { AGENDA_LIMITS, agenda, type Agenda, type AgendaItem } from "./module";
@@ -257,6 +259,7 @@ function TaskRow({
 }) {
   const { dict } = useLocale();
   const done = Boolean(records.get(day, item.id));
+  const justDone = useJustDone(done);
   return (
     <li className="grid grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[10px] px-2 py-1.5">
       <span className="type-label text-ink-muted">{t.untimed}</span>
@@ -276,7 +279,10 @@ function TaskRow({
         role="checkbox"
         aria-checked={done}
         aria-label={done ? dict.app.markUndone(item.title) : dict.app.markDone(item.title)}
-        onClick={() => records.set(day, item.id, done ? null : true)}
+        onClick={() => {
+          if (!done) buzz("done");
+          records.set(day, item.id, done ? null : true);
+        }}
         className="flex size-11 items-center justify-center"
       >
         <span
@@ -284,7 +290,14 @@ function TaskRow({
             done ? "border-tone bg-tone text-bg" : "border-tone/60"
           }`}
         >
-          {done ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}
+          {done ? (
+            <Check
+              size={14}
+              strokeWidth={3}
+              aria-hidden="true"
+              className={justDone ? "pw-pop" : undefined}
+            />
+          ) : null}
         </span>
       </button>
     </li>

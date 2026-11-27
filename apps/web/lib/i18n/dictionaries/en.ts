@@ -297,6 +297,10 @@ export const en: Dictionary = {
     signedInAs: (email: string) => `Signed in as ${email}`,
     appearance: "Appearance",
     theme: { dark: "Night", light: "Day", system: "System" },
+    haptics: "Vibration",
+    hapticsLabel: "Vibrate when you complete something",
+    hapticsHint:
+      "A short buzz when you tick a habit, an item or a workout, and when you press and hold a day. Saved in this browser.",
     languageHint: "Changes the language of the interface and the assistant.",
     timeZone: "Time zone",
     timeZoneHint: "Decides which day is “today”.",

@@ -8,6 +8,8 @@ import {
   springEasing,
   springs,
   subscribeReducedMotion,
+  press,
+  pressScale,
   trembleAngle,
 } from "./motion";
 
@@ -147,5 +149,31 @@ describe("trembleAngle", () => {
   it("does not turn a card it cannot measure", () => {
     expect(trembleAngle(0)).toBe(0);
     expect(trembleAngle(Number.NaN)).toBe(0);
+  });
+});
+
+describe("pressScale", () => {
+  it("sinks small controls deep and wide cards shallow, within the press tokens", () => {
+    expect(pressScale(44, 44)).toBe(press.deep);
+    expect(pressScale(1216, 180)).toBe(press.shallow);
+    const middle = pressScale(200, 52);
+    expect(middle).toBeGreaterThan(press.deep);
+    expect(middle).toBeLessThan(press.shallow);
+  });
+
+  it("goes by the longer side, so a long thin row moves like a card", () => {
+    expect(pressScale(358, 44)).toBe(pressScale(44, 358));
+    expect(pressScale(358, 44)).toBe(press.shallow);
+  });
+
+  it("moves the edges about the reach in pixels between the limits", () => {
+    const width = 200;
+    const edge = ((1 - pressScale(width, 40)) * width) / 2;
+    expect(edge).toBeCloseTo(press.reach, 1);
+  });
+
+  it("falls back to the shallow press for something with no size", () => {
+    expect(pressScale(0, 0)).toBe(press.shallow);
+    expect(pressScale(Number.NaN, 10)).toBe(press.shallow);
   });
 });

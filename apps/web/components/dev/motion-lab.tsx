@@ -230,6 +230,25 @@ function Recipes() {
           </li>
         ))}
       </ul>
+      <p className="type-body text-ink-muted">
+        The press: anything pressable sinks the moment it&rsquo;s touched and springs back on
+        release, small things deeper than wide ones. Hold one and slide off to let go without
+        acting. With reduced motion only the tone changes.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          aria-label="A small control"
+          className="size-11 rounded-full border border-line-strong"
+        />
+        <Button variant="primary">A button</Button>
+        <button
+          type="button"
+          className="h-24 min-w-0 flex-1 basis-72 rounded-[14px] border border-line bg-surface p-4 text-left type-heading"
+        >
+          A card
+        </button>
+      </div>
 
       <dialog
         ref={detail}

@@ -9,6 +9,7 @@ import {
   bezier,
   durations,
   easings,
+  press,
   springs,
   tempo,
   type EasingName,
@@ -16,7 +17,7 @@ import {
 } from "@powerweek/design-tokens/motion";
 import { useSyncExternalStore } from "react";
 
-export { bezier, durations, easings, springs, tempo, type EasingName, type SpringName };
+export { bezier, durations, easings, press, springs, tempo, type EasingName, type SpringName };
 
 /**
  * A spring's easing for the Web Animations API, which throws on an easing it cannot parse: the
@@ -117,4 +118,18 @@ export function useReducedMotion(): boolean {
 export function trembleAngle(width: number, reach = 1.6): number {
   if (!(width > 0)) return 0;
   return (Math.atan(reach / (width / 2)) * 180) / Math.PI;
+}
+
+// ── Pressing ────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * How far a pressed control of this size scales, so that its edges move about `press.reach`
+ * pixels: an icon button sinks to `press.deep`, a wide card only to `press.shallow`. It goes by
+ * the longer side, so a long thin row moves as little as a card.
+ */
+export function pressScale(width: number, height: number): number {
+  const side = Math.max(width, height);
+  if (!(side > 0)) return press.shallow;
+  const scale = 1 - (2 * press.reach) / side;
+  return Math.min(press.shallow, Math.max(press.deep, Number(scale.toFixed(4))));
 }
