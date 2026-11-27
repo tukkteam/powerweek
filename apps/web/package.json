@@ -17,7 +17,7 @@
     "@powerweek/design-tokens": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
-    "lucide-react": "^1.77.0",
+    "lucide-react": "^1.79.0",
     "motion": "^14.14.0",
     "next": "16.4.6",
     "react": "19.3.1",
